@@ -2,7 +2,7 @@
 
 > A stack allocated vector implementation (revision -1)
 
-# Motivation
+# Introduction
 
 This paper proposes a resizable vector with stack storage provisionally called
 `stack_vector<T, Capacity>`. Its API resembles that of `std::vector<T, A>` and
@@ -19,9 +19,20 @@ go and grab `stack_vector` and perform a 1:1 replacement when a bound on the
 capacity is known. The hassle to perform this replacement should be minimized,
 and hence the reason of providing an almost 100% identical API to `std::vector`.
 
-## Use case: mesh generation in HPC applications
+It is structured as follows. First the utility of `stack_vector` is addressed by
+providing two motivating use cases: the efficient implementation of a `polygon`
+(and how algorithms can use it), and the implementation of neighbor search in an
+octree. Afterwards, previous work is cited and a current implementation of this
+proposal is provided. The design space is considered next, the requirements are
+listed, the different trade-offs that appeared while writing both the proposal
+and the implementation are explored, and the design chosen are justified,
+although since this is the first revision, they are all open for discussion.
+Finally, the API is provided in a "standard-wording-style", and then its loosely
+discussed in detail. Standard wording for this proposal is not provided.
 
-### Cell reshaping 
+# Motivation: mesh processing in HPC applications
+
+## A polygon class and cell reshaping
 
 Mesh generation and processing is an important part of numerical simulations in
 high performance computing. Consider an algorithm in which the square-shaped
@@ -53,8 +64,7 @@ Alternative solutions would involve passing the container where the polygons
 should be stored into the algorithm, and returning iterators. Such an algorithm
 can be implemented on top of our solution.
 
-
-### Neighbor search
+## Leaf neighbor search in an octree
 
 Consider finding all the leaf neighbors of a leaf node within an octree. Using
 `stack_vector` the signature of such an algorithm can look like this:
@@ -68,50 +78,114 @@ leaf_neighbors(octree<Dim> const&, node_iterator);
 where `max_number_of_leaf_neighbors(Dim)` returns the maximum number of
 neighbors that a leaf node can have in a given spatial dimension.
 
+# Previous work and implementation
 
-Consider a geometry
-application, in which algorithms need to process a large number of 2D surfaces,
-
-
-
-
-`drop-in replacement
-for `std::vector<T, A>` with stack storage called `stack_vector<T, Capacity>`.
-Providing a perfect replacement is not possible, but the purpose
-
-Provide a stack allocated vector that can be used to replace std::vector as
-easily as possible when needed.
-
-## Cost of heap allocation
-
-## Use cases
-
-### Returning a polygon of maximum bounded size
-
-### Returning multiple shapes
-
-# Previous work
-
-- [http://github.com/gnzlbg/stack_vector][stack_vector] provides an
-implementation of this proposal, which is basically a reimplementation of
-[`boost::container::static_vector` (1.59)][boost_static_vector] for
-standardization.
+This proposal is strongly inspired by
+[`boost::container::static_vector` (1.59)][boost_static_vector]. A new
+implementation is provided for standardization purposes here:
+[http://github.com/gnzlbg/stack_vector][stack_vector]
 
 # Design space
 
-## The stack_allocator approach
+In this section the design space is explored. 
 
-- doesn't work since the allocation pattern of std::vector is unknown
+## Requirements
 
-## The stack vector approach
+The first step is to explicitly state the requiremnts of our type.
+The requirements are:
 
-### Fall back to heap allocation?
+  1. **Handyness**: replacing `vector<T>` with `stack_vector<T,C>` should be as
+     easy as possible.
+  2. **Performance**: `stack_vector<T,C>` should be as efficient as possible since
+     its raison-d'etre is a performance optimization.
 
-- If one wants fall back to heap allocation one should use a `std::vector` with
-  a `stack_allocator` that provides fall-back to heap allocation (e.g. Howard
-  Hinnant's [`stack_alloc`][stack_alloc]).
+If it's not trivial to replace `vector` with `stack_vector`, those programmers
+trying to skim some ms off a frame during an all-nighter previous to release day
+will hate us (**Handyness**). If it's not as fast as possible, those programers
+will need to reimplement their own, and will also hate us (**Performance**).
 
-### Zero-capacity stack_vector
+A consequence of these requirements is that the design space is very small,
+which is a good thing.
+
+## The stack-only allocator approach
+
+The generic programmer in me begged me to reuse `vector` for implementing
+`stack_vector`, maybe by providing it as a container adaptor similar to `queue`
+or `stack`. To control where `vector` allocates its memory, I modified Howard
+Hinnant's stack allocator ([`stack_alloc`][stack_alloc]) to not fall back to
+heap allocation, but fail instead.
+
+I then tested the vector using that stack allocator in two different platforms,
+MacOSX and Linux, with two different standard library implementations, libc++
+and libstdc++, respectively. What happened might already be obvious to the
+reader: since the allocation pattern of `vector` is implementation defined, it
+is impossible to predict for a given desired capacity how big should the stack
+allocator be. I had to guess and overpredict it for it to work on one platform.
+It turned out that wasn't enough for it to work on the other.
+
+The two main problems with this approach are:
+
+- it cannot produce portable code,
+- trying to produce portable code requires overallocating, which goes against
+the **Performance** requirement.
+
+Another minor problem is that a `vector` using a stack allocator will necessary
+be one word bigger than it needs to be (it needs to store the capacity even
+thought that is known at compile-time). This is IMO not a major issue, but must
+be considered since it also goes against the **Performance** requirement.
+
+## The `stack_allocator` with heap-fallback approach
+
+So what if we use Howard Hinnant's stack allocator
+([`stack_alloc`][stack_alloc]) without modification, i.e., with a fallback to
+heap allocation in case the `vector` wants more memory than what was reserved on
+the stack?
+
+That partially addresses one problem of the stack-only allocator approach:
+portability. The code will work across all platforms and library implementations
+since it can always fall back to heap allocation.
+
+It introduces a new problem though:
+
+- library-dependent performance due to the unknown growth factor of vector which
+  can trigger heap allocations in your clients platform but not in your
+  development platform.
+
+It also retains the minor problem of the previous approach (1 extra word in
+size).
+
+## The new container (`stack_vector`) approach
+
+A new type, `stack_vector<T, Capacity>`, can be introduced that exactly lets us
+specify the amount of stack storage we want to reserve. This is the approach
+pursued in the rest of the paper.
+
+The main drawbacks of this approach is:
+- codebloat
+
+For each type `T`, and for each `Capacity`, this approach will instantiate a new
+template class, and generate a significant amount of code.
+
+I doesn't have a solution for this problem. 
+
+I've considered:
+- type-erasing the `Capacity`, but this would go against **Performance**.
+- implementing `stack_vector` on top of a plausible stack-allocated array of
+run-time size (`dyn_array`-like). This is pure speculation based on the old
+proposals since we don't have a proposal on track for this feature yet.
+
+and decided that code-bloat is an acceptable trade-off.
+
+
+The advantages of the new container approach with respect to the other
+approaches are:
+- portability, and portable performance, and
+- exact size.
+
+### Other trade-offs
+
+
+#### Zero-capacity stack_vector
 
 - similar to zero-sized `std::array`
 
@@ -128,11 +202,11 @@ standardization.
 
 - allowed, the stack vector then has zero size and can be used as such when doing EBO
 
-## Constexpr-ness
+#### Constexpr-ness
 
-## Exception-safety
+#### Exception-safety and noexceptness
 
-## Comparison operators
+#### Comparison operators
 
 # API Notes
 
