@@ -1,0 +1,131 @@
+# Copyright Louis Dionne 2015
+# Copyright Gonzalo Brito Gadeschi 2015
+# Distributed under the Boost Software License, Version 1.0.
+# (See accompanying file LICENSE.md or copy at http://boost.org/LICENSE_1_0.txt)
+
+language: c++
+os: linux
+sudo: false
+
+matrix:
+  include:
+    # debug build
+    - env: COMPILER=clang++-3.8 BUILD_TYPE=Debug
+      addons: &clang
+        apt:
+          packages: ["clang-3.8", "clang-format-3.8", "valgrind", "python-yaml", "lcov"]
+          sources: &sources ["ubuntu-toolchain-r-test", "llvm-toolchain-precise"]
+
+    # release build + valgrind
+    - env: COMPILER=clang++-3.8 BUILD_TYPE=Release Valgrind=true
+      addons: *clang
+
+# Coverage and site generation job
+#
+# We define it here instead of in matrix.include because otherwise we end up
+# with a job without environment variables within the matrix.
+env:
+  global:
+    # GitHub token for pushing the documentation, logging in with the
+    # Travis command line utility and so on. The token is stored in the
+    # ${GITHUB_TOKEN} environment variable.
+    - secure: "QKmAzwG8jeQV1GMEqNIZlKy5yB4+L/ecFxDAHa0XYPnD5d+IP3PT+DLyD36THVA9DmGqWLJWlMc27mZghjH/W/dvNtNoQjEr6GOhUTqUjK2dAvjEKd23VNg/qUr7I8i0MNPK4dgOuKXzGDKK/tj7i294T8pAS1BlKmF7dHtZjmvaMg9VoSaXtWwO8JxgfrvMf0ruDV7iRgkhhuCUa/qzwSzShL1wbXbdtNqvmYodc7aBh/wX5COznldGBDCK0TZbjnvL9Bbr+bvrclmrTcuDL55tl0Bdyags1V6tw0NzwUXJACDXnQ9MknqNCbkMlBys+/6tBbqFi5nJJgvRIrkxGm1gFHePrhesEB7yScTj6HjtOOWF8UnV9Y8098o/Q4TaPAJoVaVuNkfpG/rxng5VWCD+W97w6bUr0QJyVjHQcdIe924GguLx28lrJTfDcg4Ej7osu5wmd9iCWdL/hsgTyT6gm4Im05k0o60I8uyJ1zQ1YIZg8xl/tveuTs4/Q4ZVhHdOMPjawXT+cQIdq1BfPzaRq6Uce7BvjRQpBolxyz/GzMG0pRunfk0uHiV6sIPGp66dhlq8Ff/7Vdrg1kpXTJKR6KMFA+IVQiX50XjFoqMdTXxx/NjLGQ4JMsKz6sg4tyS6atCH3niOuZffZewxikR/CJpdU2i+2ksfmF6rr8E="
+  matrix:
+    - COMPILER=clang++-3.8 BUILD_TYPE=Debug Coverage=true Site=true
+    
+addons: *clang
+ 
+install:
+  # All the dependencies are installed to the deps/ subdirectory.
+  - DEPS_DIR="${PWD}/deps"
+  - mkdir ${DEPS_DIR} && cd ${DEPS_DIR}
+
+  # Install a recent CMake
+  - |
+    if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
+      CMAKE_URL="http://www.cmake.org/files/v3.3/cmake-3.3.2-Linux-x86_64.tar.gz"
+      mkdir cmake && travis_retry wget --no-check-certificate --quiet -O - ${CMAKE_URL} | tar --strip-components=1 -xz -C cmake
+      export PATH=${DEPS_DIR}/cmake/bin:${PATH}
+    else
+      brew install cmake
+    fi
+
+  # Install libc++ and libc++abi
+  - if [[ "${COMPILER}" =~ clang.+ ]]; then LLVM_URL="https://github.com/llvm-mirror/llvm/archive/master.tar.gz"; fi
+  - if [[ "${COMPILER}" =~ clang.+ ]]; then LIBCXX_URL="https://github.com/llvm-mirror/libcxx/archive/master.tar.gz"; fi
+  - if [[ "${COMPILER}" =~ clang.+ ]]; then LIBCXXABI_URL="https://github.com/llvm-mirror/libcxxabi/archive/master.tar.gz"; fi
+  - if [[ "${COMPILER}" =~ clang.+ ]]; then TAR_FMT="-xz"; fi
+
+  - if [[ "${COMPILER}" =~ clang.+ ]]; then mkdir -p llvm llvm/build llvm/projects/libcxx llvm/projects/libcxxabi; fi
+  - if [[ "${COMPILER}" =~ clang.+ ]]; then travis_retry wget --quiet -O - ${LLVM_URL} | tar --strip-components=1 ${TAR_FMT} -C llvm; fi
+  - if [[ "${COMPILER}" =~ clang.+ ]]; then travis_retry wget --quiet -O - ${LIBCXX_URL} | tar --strip-components=1 ${TAR_FMT} -C llvm/projects/libcxx; fi
+  - if [[ "${COMPILER}" =~ clang.+ ]]; then travis_retry wget --quiet -O - ${LIBCXXABI_URL} | tar --strip-components=1 ${TAR_FMT} -C llvm/projects/libcxxabi; fi
+  - if [[ "${COMPILER}" =~ clang.+ ]]; then (cd llvm/build && cmake .. -DCMAKE_CXX_COMPILER=${COMPILER} -DCMAKE_BUILD_TYPE=${BUILD_TYPE} && make cxx -j2); fi
+
+  # Install a recent Doxygen
+  - if [[ "${Site}" == "true" ]]; then DOXYGEN_URL="http://ftp.stack.nl/pub/users/dimitri/doxygen-1.8.9.1.linux.bin.tar.gz"; fi
+  - if [[ "${Site}" == "true" ]]; then mkdir doxygen && travis_retry wget --quiet -O - ${DOXYGEN_URL} | tar --strip-components=1 -xz -C doxygen; fi
+  - if [[ "${Site}" == "true" ]]; then export PATH=${PWD}/doxygen/bin:${PATH}; fi
+
+  # Install docopt 
+  - pip install --user docopt
+
+before_script:
+  # Go back to the root of the project.
+  - cd ${TRAVIS_BUILD_DIR}
+
+  # Set the git identity (for pushing the documentation and the benchmarks)
+  - git config --global user.name "Travis bot"
+
+  # Check baseline memory usage; useful to know when OOMs occur
+  - free
+  - vmstat
+  - ps aux --sort=-rss | head -n 10
+
+  # Valgrind in Travis VMs does not support anything higher than SSE 4.2 
+  # This disables -march=native which is typically higher and forces SSE 4.2 instead
+  - sed -i 's/march=native/msse4.2/' cmake/stack_vector_compiler_flags.cmake
+
+  # Setup the build directory
+  - mkdir build
+  - cd build
+  # Export the path to libc++
+  - if [[ "${COMPILER}" =~ clang.+ ]]; then export CXXFLAGS="-I ${DEPS_DIR}/llvm/build/include/c++/v1"; fi
+  - if [[ "${COMPILER}" =~ clang.+ ]]; then export LDFLAGS="-L ${DEPS_DIR}/llvm/build/lib -l c++ -l c++abi"; fi
+  - if [[ "${COMPILER}" =~ clang.+ ]]; then export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${DEPS_DIR}/llvm/build/lib"; fi
+
+  # Configure the build
+  - cmake .. -DCMAKE_CXX_COMPILER=${COMPILER} -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DSTACK_VECTOR_ENABLE_WERROR=On
+  - if [[ "${BUILD_TYPE}" == "Debug" ]]; then cmake .. -DSTACK_VECTOR_ENABLE_ASSERTIONS=ON -DSTACK_VECTOR_ENABLE_DEBUG_INFORMATION=ON; fi
+  - if [[ "${ASan}" == "true" ]]; then cmake .. -DSTACK_VECTOR_ENABLE_ASAN=ON; fi
+  - if [[ "${Coverage}" == "true" ]]; then cmake .. -DSTACK_VECTOR_ENABLE_COVERAGE=ON; fi
+
+script:
+  # Build the documentation:
+  - if [[ "${Site}" == "true" ]]; then make doc; fi
+  # Build and run the unit tests and examples:
+  - make check -k -j 2
+  - if [[ "${Valgrind}" == "true" ]]; then ctest -VV -D ExperimentalMemCheck; fi
+
+after_success:
+  # Update coveralls:
+  # - download and install lcov, and coveralls-lcov.
+  # - run lcov to generate coverage report
+  # - strip test/ and example/ subdirectories from coverage report
+  # - upload report to coveralls
+  - |
+    if [[ "${Coverage}" == "true" ]]; then
+      gem install coveralls-lcov
+      lcov --directory ./ --base-directory ./ --capture --output-file coverage.info
+      lcov --remove coverage.info "/usr*" "*/stack_vector/test/*" "*/stack_vector/example/*" "*/stack_vector/build/*" "*/stack_vector/deps/*"  -o coverage.info
+      coveralls-lcov coverage.info
+    fi
+
+  # Update the documentation
+  - |
+    if [[ "${Site}" == "true" && "${TRAVIS_PULL_REQUEST}" == "false" && "${TRAVIS_BRANCH}" == "master" ]]; then
+      make gh-pages.push &>/dev/null
+    fi
+
+notifications:
+  email: false

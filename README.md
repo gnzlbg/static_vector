@@ -1,7 +1,83 @@
 # stack_vector
-> A stack allocated vector implementation Revision 0
+
+> A stack allocated vector implementation (revision -1)
 
 # Motivation
+
+This paper proposes a resizable vector with stack storage provisionally called
+`stack_vector<T, Capacity>`. Its API resembles that of `std::vector<T, A>` and
+can be used almost as a drop-in replacement. A perfect replacement cannot be
+provided because `stack_vector` lacks an `Allocator`.
+
+The main aim of `stack_vector` is to enable users to replace `std::vector` in
+the hot-path of their applications when the maximum number of elements that the
+vector can hold is small and known at compile-time.
+
+That is, if while profiling an application the developer discovers that memory
+allocation due to the usage of `std::vector` dominates its hot path, it can then
+go and grab `stack_vector` and perform a 1:1 replacement when a bound on the
+capacity is known. The hassle to perform this replacement should be minimized,
+and hence the reason of providing an almost 100% identical API to `std::vector`.
+
+## Use case: mesh generation in HPC applications
+
+### Cell reshaping 
+
+Mesh generation and processing is an important part of numerical simulations in
+high performance computing. Consider an algorithm in which the square-shaped
+cells of a quadtree mesh need to be reshaped at the boundary with a moving
+object by cutting them with linear surfaces. We can use a
+`stack_vector<point<2>, 5>` to represent a polygon that can have a maximum of 5
+points:
+
+```c++
+using polygon2d = stack_vector<point<2>, 5>;
+```
+
+The signature of our interesection algorithm can then look like this:
+
+```c++
+/// Splits a square2d with a surface2d into two polygons:
+std::pair<polygon2d, polygon2d> split(square2d, surface2d);
+
+```
+
+Wether these polygons are to be stored on the stack or the heap is then irrelevant:
+
+```c++
+std::vector<polygon2d> heap_polygons(split(square, surface).first);
+polygon2d stack_polygon = split(square, surface).second;
+```
+
+Alternative solutions would involve passing the container where the polygons
+should be stored into the algorithm, and returning iterators. Such an algorithm
+can be implemented on top of our solution.
+
+
+### Neighbor search
+
+Consider finding all the leaf neighbors of a leaf node within an octree. Using
+`stack_vector` the signature of such an algorithm can look like this:
+
+```c++
+template<std::size_t Dim>
+stack_vector<node_iterator, max_number_of_leaf_neighbors(Dim)>
+leaf_neighbors(octree<Dim> const&, node_iterator);
+```
+
+where `max_number_of_leaf_neighbors(Dim)` returns the maximum number of
+neighbors that a leaf node can have in a given spatial dimension.
+
+
+Consider a geometry
+application, in which algorithms need to process a large number of 2D surfaces,
+
+
+
+
+`drop-in replacement
+for `std::vector<T, A>` with stack storage called `stack_vector<T, Capacity>`.
+Providing a perfect replacement is not possible, but the purpose
 
 Provide a stack allocated vector that can be used to replace std::vector as
 easily as possible when needed.
@@ -87,12 +163,13 @@ standard vector: elements in the storage are not default constructed.
   anything about the storage in the API, however, EBO should be guaranted for
   zero-sized `stack_vector`:
 
-```c++
-struct my_type : stack_vector<int, 0> {
-int a;
-};
-static_assert(sizeof(my_type) == sizeof(int), "");
-```
+  ```c++
+  struct my_type : stack_vector<int, 0>
+  {
+      int a;
+  };
+  static_assert(sizeof(my_type) == sizeof(int), "");
+  ```
 
 ## Construction/Assignment/Destruction
 
@@ -134,6 +211,17 @@ conflict with proxy references in the future
 - swap
 - fill
 
+## Related possible future improvements
+
+- constexpr friendly reverse iterator
+- `std::default_init_t` such that `stack_vector` can provide a size constructor
+with default initialization:
+
+  ```c++
+  stack_vector(size_t n, default_init_t);
+
+  ```
+
 # WIP: API
 
 ```c++
@@ -154,6 +242,7 @@ typedef reverse_iterator<iterator> reverse_iterator;
 typedef reverse_iterator<const_iterator> const_reverse_iterator;
 
 // construct/copy/move/destroy: TODO: consider conditionally noexcept?
+constexpr stack_vector() noexcept;
 constexpr explicit stack_vector(size_type n);
 constexpr stack_vector(size_type n, const T& value);
 template<class InputIterator>
