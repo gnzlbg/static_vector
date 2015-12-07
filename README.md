@@ -191,8 +191,7 @@ approaches are:
 
 - equal:
   - zero-capacity stack_vector's swap is noexcept(true)
-  - `begin() == end() == unspecified unique value` (`nullptr` is intended)
-  - `data()` returns unspecified (`nullptr` is intended)
+  - `data() == begin() == end() == unspecified unique value` (`nullptr` is intended)
 
 - different:
   - front/back are not provided
@@ -280,6 +279,11 @@ standard vector: elements in the storage are not default constructed.
 - should operator[] be noexcept(true) ? TODO: Ask Eric if he thinks this might
 conflict with proxy references in the future
 
+## TODO: Iterator invalidation
+
+### List of functions that can potentionally invalidate iterators and how
+
+
 ## Other
 
 - swap
@@ -293,8 +297,37 @@ with default initialization:
 
   ```c++
   stack_vector(size_t n, default_init_t);
-
   ```
+
+- annotate explicitly deleted functions with a reason for the explicit deletion
+  to improve error messages. For example it would be useful to annotate
+  `reserve(size_t n)` for the stack allocated vector with the reason of the
+  deletion to help users switch from std::vector faster.
+
+- placement new is not supported in constexpr functions, as a consequence the
+  following functions cannot be made constexpr in general, but can be made
+  constexpr for `trivially_default_constructible` types only:
+  - `emplace_back`
+  - `push_back` (uses `emplace_back`)
+  - `insert` (uses `emplace_back`)
+  - `resize` (uses `insert`)
+  - `stack_vector(size)` (uses `emplace_back` / `resize`)
+  - `stack_vector(size, value)` (uses `emplace_back` / `resize`)
+  - `stack_vector(begin, end)` (uses `insert`)
+  - `stack_vector(initializer_list)` (uses `insert`)
+  - `stack_vector& operator=(other)` (if `size()`s differ might need to use `insert`)
+  - `assign(size)` (uses `emplace_back` / `resize`)
+  - `assign(size, value)` (uses `emplace_back` / `resize`)
+  - `assign(begin, end)` (uses `insert`)
+
+- explicit destructor calls are not supported in constexpr functions, as a
+  consequence the following functions cannot be made constexpr in general, but
+  can be made constexpr for `trivially_default_destructible types`:
+  - `pop_back`
+  - `erase` 
+  - `resize` (uses `erase`)
+  - `stack_vector& operator=(other)` (if `size()`s differ might need to use
+    explicit destructor calls)
 
 # WIP: API
 
@@ -321,26 +354,27 @@ constexpr explicit stack_vector(size_type n);
 constexpr stack_vector(size_type n, const T& value);
 template<class InputIterator>
 constexpr stack_vector(InputIterator first, InputIterator last);
-template<std::size_t M, enable_if_t<(C > M)>>
-  constexpr vector(vector<T, M> const&);
-constexpr vector(vector const&);
-constexpr vector(vector&&);
-constexpr vector(initializer_list<T>);
-
-~vector() if not is_trivially_destructible<T>;
-// otherwise stack_vector<T, C> has a trivial destructor
-
-vector<T, C>& operator=(vector<T, C>const&);
-vector<T, C>& operator=(vector<T, C>&&);
+  template<std::size_t M, enable_if_t<(C != M)>>
+constexpr stack_vector(stack_vector<T, M> const&);
 template<std::size_t M, enable_if_t<(C != M)>>
-vector<T, C>& operator=(vector<T, M>const&);
+  constexpr stack_vector(stack_vector<T, M> &&);
+constexpr stack_vector(stack_vector const&);
+constexpr stack_vector(stack_vector&&);
+constexpr stack_vector(initializer_list<T>);
+
+constexpr ~stack_vector();
+
+constexpr stack_vector<T, C>& operator=(stack_vector<T, C>const&);
+constexpr stack_vector<T, C>& operator=(stack_vector<T, C>&&);
 template<std::size_t M, enable_if_t<(C != M)>>
-vector<T, C>& operator=(vector<T, M>&&);
+constexpr stack_vector<T, C>& operator=(stack_vector<T, M>const&);
+template<std::size_t M, enable_if_t<(C != M)>>
+constexpr stack_vector<T, C>& operator=(stack_vector<T, M>&&);
 
 template<class InputIterator>
-void assign(InputIterator first, InputIterator last);
-void assign(size_type n, const T& u);
-void assign(initializer_list<T>);
+constexpr void assign(InputIterator first, InputIterator last);
+constexpr void assign(size_type n, const T& u);
+cosntexpr void assign(initializer_list<T>);
 
 // iterators:
 constexpr iterator               begin()         noexcept;
@@ -361,64 +395,65 @@ constexpr const_iterator         cend()    const noexcept;
 
 // size/capacity:
 constexpr size_type size()     const noexcept;
-constexpr size_type capacity() const noexcept;
-constexpr size_type max_size() const noexcept;
+static constexpr size_type capacity() noexcept;
+static constexpr size_type max_size() noexcept;
 constexpr void resize(size_type sz);
 constexpr void resize(size_type sz, const T& c);
 constexpr bool empty() const noexcept;
-void reserve(size_type n) = deleted;  // TODO: QoI? should ease replacing std::vector
+void reserve(size_type n) = deleted;  // TODO: QoI?
 void shrink_to_fit() = deleted; // TODO: QoI?
 
 // element access:
-constexpr reference       operator[](size_type n);  // TODO: noexcept?
-constexpr const_reference operator[](size_type n) const; // TODO: noexcept?
+constexpr reference       operator[](size_type n) noexcept; 
+constexpr const_reference operator[](size_type n) const noexcept;
 constexpr const_reference at(size_type n) const;
 constexpr reference       at(size_type n);
-constexpr reference       front();  // noexcept?
-constexpr const_reference front() const;  // noexcept?
-constexpr reference       back();  // noexcept?
-constexpr const_reference back() const;  // noexcept?
+constexpr reference       front() noexcept;
+constexpr const_reference front() const noexcept;
+constexpr reference       back() noexcept;
+constexpr const_reference back() const noexcept;
 
 // data access:
 constexpr       T* data()       noexcept;
 constexpr const T* data() const noexcept;
 
 // modifiers:
-template<class... Args> void emplace_back(Args&&... args);
-void push_back(const T& x);
-void push_back(T&& x);
-void pop_back();
+template<class... Args>
+  constexpr void emplace_back(Args&&... args);
+constexpr void push_back(const T& x);
+constexpr void push_back(T&& x);
+constexpr void pop_back();
 
 template<class... Args>
-  iterator emplace(const_iterator position, Args&&...args);
-iterator insert(const_iterator position, const T& x);
-iterator insert(const_iterator position, size_type n, const T& x);
+  constexpr iterator emplace(const_iterator position, Args&&...args);
+constexpr iterator insert(const_iterator position, const T& x);
+constexpr iterator insert(const_iterator position, size_type n, const T& x);
 template<class InputIterator>
-  iterator insert(const_iterator position, InputIterator first, InputIterator last);
+  constexpr iterator insert(const_iterator position, InputIterator first, InputIterator last);
 
-iterator insert(const_iterator position, initializer_list<T> il);
-iterator erase(const_iterator position);
-iterator erase(const_iterator first, const_iterator last);
+constexpr iterator insert(const_iterator position, initializer_list<T> il);
+constexpr iterator erase(const_iterator position);
+constexpr iterator erase(const_iterator first, const_iterator last);
 
-void clear() noexcept;
+constexpr void clear() noexcept;
 
 constexpr void swap(stack_vector<T, C>&)
-noexcept(noexcept(swap(declval<T&>(), declval<T&>()))));
+  noexcept(noexcept(swap(declval<T&>(), declval<T&>()))));
 
 };
 
 template<typename T, std::size_t C0, std::size_t C1>
-bool operator==(const stack_vector<T, C0>& a, const stack_vector<T, C1>& b);
+constexpr bool operator==(const stack_vector<T, C0>& a, const stack_vector<T, C1>& b);
 template<typename T, std::size_t C0, std::size_t C1>
-bool operator!=(const stack_vector<T, C0>& a, const stack_vector<T, C1>& b);
+constexpr bool operator!=(const stack_vector<T, C0>& a, const stack_vector<T, C1>& b);
 template<typename T, std::size_t C0, std::size_t C1>
-bool operator<(const stack_vector<T, C0>& a, const stack_vector<T, C1>& b);
+constexpr bool operator<(const stack_vector<T, C0>& a, const stack_vector<T, C1>& b);
 template<typename T, std::size_t C0, std::size_t C1>
-bool operator<=(const stack_vector<T, C0>& a, const stack_vector<T, C1>& b);
+constexpr bool operator<=(const stack_vector<T, C0>& a, const stack_vector<T, C1>& b);
 template<typename T, std::size_t C0, std::size_t C1>
-bool operator>(const stack_vector<T, C0>& a, const stack_vector<T, C1>& b);
+constexpr bool operator>(const stack_vector<T, C0>& a, const stack_vector<T, C1>& b);
 template<typename T, std::size_t C0, std::size_t C1>
-bool operator>=(const stack_vector<T, C0>& a, const stack_vector<T, C1>& b);
+constexpr bool operator>=(const stack_vector<T, C0>& a, const stack_vector<T, C1>& b);
 
 ```
 

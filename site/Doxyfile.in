@@ -1,5 +1,5 @@
 PROJECT_NAME            = "stack_vector"
-PROJECT_BRIEF           = "nd-octree data-structure and algorithms"
+PROJECT_BRIEF           = "Dynamically-resizable vector with stack storage"
 PROJECT_LOGO            = 
 PROJECT_NUMBER          =
 
