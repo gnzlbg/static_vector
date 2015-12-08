@@ -347,6 +347,10 @@ In my opinion, implementing `std::variant` recursively is a clever workaround
 that wouldn't be required if `constexpr` and `std::aligned_storage` would play
 well with each other.
 
+
+`std::initializer_list` provides `constexpr` size as a member function, but not
+as a part of its type which is... 
+
 ### Pragmatism
 
 There is no way to default initialize elements in containers like `std::vector`.
