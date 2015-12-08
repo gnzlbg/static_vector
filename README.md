@@ -327,7 +327,25 @@ with default initialization:
   - `erase` 
   - `resize` (uses `erase`)
   - `stack_vector& operator=(other)` (if `size()`s differ might need to use
-    explicit destructor calls)
+  explicit destructor calls)
+
+- if std::array would be constexpr friendly, the implementation of
+  `stack_vector` would be able to reuse it. Without this it has to resort to
+  using a C-Array.
+
+- one cannot initialize a C-array from a std::initializer_list, so we need to
+  work around this with a hack to be able to store C-arrays of const values:
+
+  ```c++
+  stack_vector<const int, 3> v = {1, 2, 3};
+  ```
+  uses a `const int data_[3]` to store the elements, and as a consequence
+  implementing the `stack_vector(std::initializer_list<const int> il)` constructor
+  is a pain. There is a "trick" which is to `reinterpret_cast<const int data_[3]>(il)`
+  the initializer list into an array, but that obviously doesn't work within constexpr
+  functions and it is probably UB anyways.
+
+  
 
 # WIP: API
 

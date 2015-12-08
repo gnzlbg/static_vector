@@ -13,19 +13,35 @@
 //
 //===----------------------------------------------------------------------===//
 #include <stack_vector>
+#include "utils.hpp"
 
 template <typename T, std::size_t N>
 using vector = std::experimental::stack_vector<T, N>;
 
 int main() {
-  /*
   {  // const
-    stack::vector<const int, 3> v = {1, 2, 3};
-    CHECK(v[0] == 1);
-    CHECK(v[1] == 2);
-    CHECK(v[2] == 3);
+    vector<const int, 0> v0 = {};
+
+    constexpr vector<const int, 0> vc0 = {};
+
+    vector<const int, 1> v1 = {1};
+    assert(v1[0] == 1);
+
+    constexpr vector<const int, 3> vc1 = {1};
+    static_assert(vc1[0] == 1, "");
+
+    vector<const int, 3> v3 = {1, 2, 3};
+    assert(v3[0] == 1);
+    assert(v3[1] == 2);
+    assert(v3[2] == 3);
+
+    constexpr vector<const int, 3> vc3 = {1, 2, 3};
+    static_assert(vc3[0] == 1, "");
+    static_assert(vc3[1] == 2, "");
+    static_assert(vc3[2] == 3, "");
   }
 
+  /*
   auto test_contiguous = [](auto&& c) {
     for (size_t i = 0; i < c.size(); ++i) {
       CHECK(*(c.begin() + i) == *(std::addressof(*c.begin()) + i));
@@ -34,14 +50,14 @@ int main() {
 
   {// contiguous
     typedef int T;
-    typedef stack::vector<T, 3> C;
+    typedef vector<T, 3> C;
     test_contiguous(C());
     test_contiguous(C(3, 5));
   }
 
   { // default construct element
     typedef int T;
-    typedef stack::vector<T, 3> C;
+    typedef vector<T, 3> C;
     C c(1);
     CHECK(back(c) == 0);
     CHECK(front(c) == 0);
@@ -50,7 +66,7 @@ int main() {
 
   { // iterator
     typedef int T;
-    typedef stack::vector<T, 3> C;
+    typedef vector<T, 3> C;
     C c;
     C::iterator i = begin(c);
     C::iterator j = end(c);
@@ -59,7 +75,7 @@ int main() {
   }
   { // const iterator
     typedef int T;
-    typedef stack::vector<T, 3> C;
+    typedef vector<T, 3> C;
     const C c{};
     C::const_iterator i = begin(c);
     C::const_iterator j = end(c);
@@ -68,7 +84,7 @@ int main() {
   }
   { // cbegin/cend
     typedef int T;
-    typedef stack::vector<T, 3> C;
+    typedef vector<T, 3> C;
     C c;
     C::const_iterator i = cbegin(c);
     C::const_iterator j = cend(c);
@@ -78,7 +94,7 @@ int main() {
   }
   { // range constructor
     typedef int T;
-    typedef stack::vector<T, 10> C;
+    typedef vector<T, 10> C;
     const T t[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     C c(t);
     test::check_equal(t, c);
@@ -92,7 +108,7 @@ int main() {
   }
   { // iterator constructor
     typedef int T;
-    typedef stack::vector<T, 10> C;
+    typedef vector<T, 10> C;
     const T t[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
     C c(begin(t), end(t));
     test::check_equal(t, c);
@@ -105,7 +121,7 @@ int main() {
     CHECK(distance(c) == 10);
   }
   { // N3644 testing
-    typedef stack::vector<int, 10> C;
+    typedef vector<int, 10> C;
     C::iterator ii1{}, ii2{};
     C::iterator ii4 = ii1;
     C::const_iterator cii{};
@@ -155,19 +171,19 @@ int main() {
 
     };
 
-    using m = stack::vector<int, 10>;
+    using m = vector<int, 10>;
     using c = const m;
     check_types(m{}, int{});
     check_types(c{}, int{});
 
-    using mm = stack::vector<std::unique_ptr<int>, 10>;
+    using mm = vector<std::unique_ptr<int>, 10>;
     using mc = const mm;
     check_types(mm{}, std::unique_ptr<int>{});
     check_types(mc{}, std::unique_ptr<int>{});
   }
 
   { // capacity
-    stack::vector<int, 10> a;
+    vector<int, 10> a;
     CHECK(a.capacity() == 10_u);
     for (int i = 0; i != 10; ++i) {
       a.push_back(0);
@@ -182,7 +198,7 @@ int main() {
 
   { // resize copyable
     using Copyable = int;
-    stack::vector<Copyable, 10> a(10_u, 5);
+    vector<Copyable, 10> a(10_u, 5);
     CHECK(a.size() == 10_u);
     CHECK(a.capacity() == 10_u);
     test_contiguous(a);
@@ -210,7 +226,7 @@ int main() {
 
   { // resize move-only
     using MoveOnly = std::unique_ptr<int>;
-    stack::vector<MoveOnly, 10> a(10);
+    vector<MoveOnly, 10> a(10);
     CHECK(a.size() == 10_u);
     CHECK(a.capacity() == 10_u);
     a.resize(5);
@@ -222,9 +238,9 @@ int main() {
   }
 
   { // assign copy
-    stack::vector<int, 3> a = {0, 1, 2};
+    vector<int, 3> a = {0, 1, 2};
     CHECK(a.size() == 3_u);
-    stack::vector<int, 3> b;
+    vector<int, 3> b;
     CHECK(b.size() == 0_u);
     b = a;
     CHECK(b.size() == 3_u);
@@ -232,9 +248,9 @@ int main() {
   }
 
   { // copy construct
-    stack::vector<int, 3> a = {0, 1, 2};
+    vector<int, 3> a = {0, 1, 2};
     CHECK(a.size() == 3_u);
-    stack::vector<int, 3> b(a);
+    vector<int, 3> b(a);
     CHECK(b.size() == 3_u);
 
     test::check_equal(a, b);
@@ -242,9 +258,9 @@ int main() {
 
   { // assign move
     using MoveOnly = std::unique_ptr<int>;
-    stack::vector<MoveOnly, 3> a(3);
+    vector<MoveOnly, 3> a(3);
     CHECK(a.size() == 3_u);
-    stack::vector<MoveOnly, 3> b;
+    vector<MoveOnly, 3> b;
     CHECK(b.size() == 0_u);
     b = std::move(a);
     CHECK(b.size() == 3_u);
@@ -253,16 +269,16 @@ int main() {
 
   { // move construct
     using MoveOnly = std::unique_ptr<int>;
-    stack::vector<MoveOnly, 3> a(3);
+    vector<MoveOnly, 3> a(3);
     CHECK(a.size() == 3_u);
-    stack::vector<MoveOnly, 3> b(std::move(a));
+    vector<MoveOnly, 3> b(std::move(a));
     CHECK(b.size() == 3_u);
     CHECK(a.size() == 3_u);
   }
 
   { // old tests
 
-    using stack_vec = stack::vector<int, 5>;
+    using stack_vec = vector<int, 5>;
     stack_vec vec1(5);
     vec1[0] = 0;
     vec1[1] = 1;
@@ -311,7 +327,7 @@ int main() {
     }
   }
   {
-    using stack_vec = stack::vector<int, 0>;
+    using stack_vec = vector<int, 0>;
     static_assert(sizeof(stack_vec) == 1, "");
 
     constexpr auto a = stack_vec{};
