@@ -120,7 +120,6 @@ endif()
 # Optimization flags: release
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
   stack_vector_append_flag(STACK_VECTOR_HAS_OFAST -Ofast)
-  stack_vector_append_flag(STACK_VECTOR_HAS_DNDEBUG -DNDEBUG)
   stack_vector_append_flag(STACK_VECTOR_HAS_MARCH_NATIVE "-march=native")
   stack_vector_append_flag(STACK_VECTOR_HAS_MTUNE_NATIVE "-mtune=native")
   stack_vector_append_flag(STACK_VECTOR_HAS_STRICT_ALIASING -fstrict-aliasing)
