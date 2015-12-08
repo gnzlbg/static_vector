@@ -39,8 +39,7 @@ template <typename T, std::size_t N>
 using vector = std::experimental::stack_vector<T, N>;
 
 template <typename T, std::size_t N>
-constexpr bool test_bounds(vector<T, N> const& v, std::size_t sz,
-                           std::initializer_list<T> vs = {}) {
+constexpr bool test_bounds(vector<T, N> const& v, std::size_t sz) {
   assert(v.size() == sz);
   assert(v.max_size() == N);
   assert(v.capacity() == N);
@@ -75,18 +74,18 @@ int main() {
     static_assert(test_bounds(vc3, 3), "");
   }
 
-  auto test_contiguous = [](auto&& c) {
-    for (size_t i = 0; i < c.size(); ++i) {
-      assert(*(c.begin() + i) == *(std::addressof(*c.begin()) + i));
-    }
-  };
+  // auto test_contiguous = [](auto&& c) {
+  //   for (size_t i = 0; i < c.size(); ++i) {
+  //     assert(*(c.begin() + i) == *(std::addressof(*c.begin()) + i));
+  //   }
+  // };
 
-  {  // contiguous
-    typedef int T;
-    typedef vector<T, 3> C;
-    // test_contiguous(C());
-    // test_contiguous(C(3, 5));
-  }
+  // {  // contiguous
+  //   typedef int T;
+  //   typedef vector<T, 3> C;
+  //   // test_contiguous(C());
+  //   // test_contiguous(C(3, 5));
+  // }
 
   /*
   { // default construct element

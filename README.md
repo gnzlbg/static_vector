@@ -355,8 +355,12 @@ with default initialization:
    even though it is very useful. It is also dangerous to not have this function because
    `std::decay_t` is provided which although generates similar results "most of the time"
    it does not semantically mean the same thing and will perform pointer decay for e.g. C arrays.
-  
-  
+
+- the following algorithms in `<algorithm>` are not constexpr and as a consequence
+  had to be reimplemented:
+  - `fill_n`
+  - `rotate`
+  - `move_backwards`
 
 # WIP: API
 
