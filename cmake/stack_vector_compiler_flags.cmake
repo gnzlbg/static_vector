@@ -125,7 +125,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Release")
   stack_vector_append_flag(STACK_VECTOR_HAS_MTUNE_NATIVE "-mtune=native")
   stack_vector_append_flag(STACK_VECTOR_HAS_STRICT_ALIASING -fstrict-aliasing)
   stack_vector_append_flag(STACK_VECTOR_HAS_VECTORIZE -fvectorize)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mllvm -polly -mllvm -polly-vectorizer=stripmine")
+  #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mllvm -polly -mllvm -polly-vectorizer=stripmine")
 
   # If ASan and profile not enabled: omit frame pointer
   if (NOT STACK_VECTOR_ENABLE_ASAN AND NOT STACK_VECTOR_ENABLE_PROFILE)
