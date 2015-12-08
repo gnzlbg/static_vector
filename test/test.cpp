@@ -15,53 +15,87 @@
 #include <stack_vector>
 #include "utils.hpp"
 
+// Explicit instantiations
+template struct std::experimental::stack_vector<int, 0>;  // trivial empty
+template struct std::experimental::stack_vector<int, 1>;  // trivial non-empty
+template struct std::experimental::stack_vector<int, 2>;  // trivial nom-empty
+template struct std::experimental::stack_vector<int, 3>;  // trivial nom-empty
+
+struct non_trivial {
+  int i = 0;
+  virtual void foo() {}
+};
+
+static_assert(!std::is_trivial<non_trivial>{}, "");
+
+// non-trivial empty:
+template struct std::experimental::stack_vector<non_trivial, 0>;
+// non-trivial non-empty:
+template struct std::experimental::stack_vector<non_trivial, 1>;
+template struct std::experimental::stack_vector<non_trivial, 2>;
+template struct std::experimental::stack_vector<non_trivial, 3>;
+
 template <typename T, std::size_t N>
 using vector = std::experimental::stack_vector<T, N>;
+
+template <typename T, std::size_t N>
+constexpr bool test_bounds(vector<T, N> const& v, std::size_t sz,
+                           std::initializer_list<T> vs = {}) {
+  assert(v.size() == sz);
+  assert(v.max_size() == N);
+  assert(v.capacity() == N);
+
+  std::decay_t<T> count = std::decay_t<T>();
+  for (std::size_t i = 0; i != sz; ++i) { assert(v[i] == ++count); }
+
+  return true;
+}
 
 int main() {
   {  // const
     vector<const int, 0> v0 = {};
+    test_bounds(v0, 0);
 
     constexpr vector<const int, 0> vc0 = {};
+    test_bounds(vc0, 0);
+    static_assert(test_bounds(vc0, 0), "");
 
     vector<const int, 1> v1 = {1};
-    assert(v1[0] == 1);
+    test_bounds(v1, 1);
 
     constexpr vector<const int, 3> vc1 = {1};
-    static_assert(vc1[0] == 1, "");
+    test_bounds(vc1, 1);
+    static_assert(test_bounds(vc1, 1), "");
 
     vector<const int, 3> v3 = {1, 2, 3};
-    assert(v3[0] == 1);
-    assert(v3[1] == 2);
-    assert(v3[2] == 3);
+    test_bounds(v3, 3);
 
     constexpr vector<const int, 3> vc3 = {1, 2, 3};
-    static_assert(vc3[0] == 1, "");
-    static_assert(vc3[1] == 2, "");
-    static_assert(vc3[2] == 3, "");
+    test_bounds(vc3, 3);
+    static_assert(test_bounds(vc3, 3), "");
   }
 
-  /*
   auto test_contiguous = [](auto&& c) {
     for (size_t i = 0; i < c.size(); ++i) {
-      CHECK(*(c.begin() + i) == *(std::addressof(*c.begin()) + i));
+      assert(*(c.begin() + i) == *(std::addressof(*c.begin()) + i));
     }
   };
 
-  {// contiguous
+  {  // contiguous
     typedef int T;
     typedef vector<T, 3> C;
-    test_contiguous(C());
-    test_contiguous(C(3, 5));
+    // test_contiguous(C());
+    // test_contiguous(C(3, 5));
   }
 
+  /*
   { // default construct element
     typedef int T;
     typedef vector<T, 3> C;
     C c(1);
-    CHECK(back(c) == 0);
-    CHECK(front(c) == 0);
-    CHECK(c[0] == 0);
+    assert(back(c) == 0);
+    assert(front(c) == 0);
+    assert(c[0] == 0);
   }
 
   { // iterator
@@ -70,8 +104,8 @@ int main() {
     C c;
     C::iterator i = begin(c);
     C::iterator j = end(c);
-    CHECK(distance(i, j) == 0);
-    CHECK(i == j);
+    assert(distance(i, j) == 0);
+    assert(i == j);
   }
   { // const iterator
     typedef int T;
@@ -79,8 +113,8 @@ int main() {
     const C c{};
     C::const_iterator i = begin(c);
     C::const_iterator j = end(c);
-    CHECK(distance(i, j) == 0);
-    CHECK(i == j);
+    assert(distance(i, j) == 0);
+    assert(i == j);
   }
   { // cbegin/cend
     typedef int T;
@@ -88,9 +122,9 @@ int main() {
     C c;
     C::const_iterator i = cbegin(c);
     C::const_iterator j = cend(c);
-    CHECK(distance(i, j) == 0);
-    CHECK(i == j);
-    CHECK(i == end(c));
+    assert(distance(i, j) == 0);
+    assert(i == j);
+    assert(i == end(c));
   }
   { // range constructor
     typedef int T;
@@ -99,12 +133,12 @@ int main() {
     C c(t);
     test::check_equal(t, c);
     C::iterator i = begin(c);
-    CHECK(*i == 0);
+    assert(*i == 0);
     ++i;
-    CHECK(*i == 1);
+    assert(*i == 1);
     *i = 10;
-    CHECK(*i == 10);
-    CHECK(distance(c) == 10);
+    assert(*i == 10);
+    assert(distance(c) == 10);
   }
   { // iterator constructor
     typedef int T;
@@ -113,37 +147,37 @@ int main() {
     C c(begin(t), end(t));
     test::check_equal(t, c);
     C::iterator i = begin(c);
-    CHECK(*i == 0);
+    assert(*i == 0);
     ++i;
-    CHECK(*i == 1);
+    assert(*i == 1);
     *i = 10;
-    CHECK(*i == 10);
-    CHECK(distance(c) == 10);
+    assert(*i == 10);
+    assert(distance(c) == 10);
   }
   { // N3644 testing
     typedef vector<int, 10> C;
     C::iterator ii1{}, ii2{};
     C::iterator ii4 = ii1;
     C::const_iterator cii{};
-    CHECK(ii1 == ii2);
-    CHECK(ii1 == ii4);
+    assert(ii1 == ii2);
+    assert(ii1 == ii4);
 
-    CHECK(!(ii1 != ii2));
+    assert(!(ii1 != ii2));
 
-    CHECK((ii1 == cii));
-    CHECK((cii == ii1));
-    CHECK(!(ii1 != cii));
-    CHECK(!(cii != ii1));
-    CHECK(!(ii1 < cii));
-    CHECK(!(cii < ii1));
-    CHECK((ii1 <= cii));
-    CHECK((cii <= ii1));
-    CHECK(!(ii1 > cii));
-    CHECK(!(cii > ii1));
-    CHECK((ii1 >= cii));
-    CHECK((cii >= ii1));
-    CHECK((cii - ii1) == 0);
-    CHECK((ii1 - cii) == 0);
+    assert((ii1 == cii));
+    assert((cii == ii1));
+    assert(!(ii1 != cii));
+    assert(!(cii != ii1));
+    assert(!(ii1 < cii));
+    assert(!(cii < ii1));
+    assert((ii1 <= cii));
+    assert((cii <= ii1));
+    assert(!(ii1 > cii));
+    assert(!(cii > ii1));
+    assert((ii1 >= cii));
+    assert((cii >= ii1));
+    assert((cii - ii1) == 0);
+    assert((ii1 - cii) == 0);
   }
   { // types
     auto check_types = [](auto &&c, auto &&t) {
@@ -184,12 +218,12 @@ int main() {
 
   { // capacity
     vector<int, 10> a;
-    CHECK(a.capacity() == 10_u);
+    assert(a.capacity() == 10_u);
     for (int i = 0; i != 10; ++i) {
       a.push_back(0);
     }
-    CHECK(a.capacity() == 10_u);
-    CHECK(a.size() == 10_u);
+    assert(a.capacity() == 10_u);
+    assert(a.size() == 10_u);
   }
 
   {
@@ -199,59 +233,59 @@ int main() {
   { // resize copyable
     using Copyable = int;
     vector<Copyable, 10> a(10_u, 5);
-    CHECK(a.size() == 10_u);
-    CHECK(a.capacity() == 10_u);
+    assert(a.size() == 10_u);
+    assert(a.capacity() == 10_u);
     test_contiguous(a);
-    CHECK(a[0] == 5);
-    CHECK(a[9] == 5);
+    assert(a[0] == 5);
+    assert(a[9] == 5);
     a.resize(5);
-    CHECK(a.size() == 5_u);
-    CHECK(a.capacity() == 10_u);
+    assert(a.size() == 5_u);
+    assert(a.capacity() == 10_u);
     test_contiguous(a);
     a.resize(9);
-    CHECK(a[4] == 5);
-    CHECK(a[5] == 0);
-    CHECK(a[8] == 0);
-    CHECK(a.size() == 9_u);
-    CHECK(a.capacity() == 10_u);
+    assert(a[4] == 5);
+    assert(a[5] == 0);
+    assert(a[8] == 0);
+    assert(a.size() == 9_u);
+    assert(a.capacity() == 10_u);
     test_contiguous(a);
     a.resize(10, 3);
-    CHECK(a[4] == 5);
-    CHECK(a[8] == 0);
-    CHECK(a[9] == 3);
-    CHECK(a.size() == 10_u);
-    CHECK(a.capacity() == 10_u);
+    assert(a[4] == 5);
+    assert(a[8] == 0);
+    assert(a[9] == 3);
+    assert(a.size() == 10_u);
+    assert(a.capacity() == 10_u);
     test_contiguous(a);
   }
 
   { // resize move-only
     using MoveOnly = std::unique_ptr<int>;
     vector<MoveOnly, 10> a(10);
-    CHECK(a.size() == 10_u);
-    CHECK(a.capacity() == 10_u);
+    assert(a.size() == 10_u);
+    assert(a.capacity() == 10_u);
     a.resize(5);
-    CHECK(a.size() == 5_u);
-    CHECK(a.capacity() == 10_u);
+    assert(a.size() == 5_u);
+    assert(a.capacity() == 10_u);
     a.resize(9);
-    CHECK(a.size() == 9_u);
-    CHECK(a.capacity() == 10_u);
+    assert(a.size() == 9_u);
+    assert(a.capacity() == 10_u);
   }
 
   { // assign copy
     vector<int, 3> a = {0, 1, 2};
-    CHECK(a.size() == 3_u);
+    assert(a.size() == 3_u);
     vector<int, 3> b;
-    CHECK(b.size() == 0_u);
+    assert(b.size() == 0_u);
     b = a;
-    CHECK(b.size() == 3_u);
+    assert(b.size() == 3_u);
     test::check_equal(a, b);
   }
 
   { // copy construct
     vector<int, 3> a = {0, 1, 2};
-    CHECK(a.size() == 3_u);
+    assert(a.size() == 3_u);
     vector<int, 3> b(a);
-    CHECK(b.size() == 3_u);
+    assert(b.size() == 3_u);
 
     test::check_equal(a, b);
   }
@@ -259,21 +293,21 @@ int main() {
   { // assign move
     using MoveOnly = std::unique_ptr<int>;
     vector<MoveOnly, 3> a(3);
-    CHECK(a.size() == 3_u);
+    assert(a.size() == 3_u);
     vector<MoveOnly, 3> b;
-    CHECK(b.size() == 0_u);
+    assert(b.size() == 0_u);
     b = std::move(a);
-    CHECK(b.size() == 3_u);
-    CHECK(a.size() == 3_u);
+    assert(b.size() == 3_u);
+    assert(a.size() == 3_u);
   }
 
   { // move construct
     using MoveOnly = std::unique_ptr<int>;
     vector<MoveOnly, 3> a(3);
-    CHECK(a.size() == 3_u);
+    assert(a.size() == 3_u);
     vector<MoveOnly, 3> b(std::move(a));
-    CHECK(b.size() == 3_u);
-    CHECK(a.size() == 3_u);
+    assert(b.size() == 3_u);
+    assert(a.size() == 3_u);
   }
 
   { // old tests
@@ -292,22 +326,22 @@ int main() {
       vec2.push_back(7);
       vec2.push_back(8);
       vec2.push_back(9);
-      CHECK(vec1[0] == 0);
-      CHECK(vec1[4] == 4);
-      CHECK(vec2[0] == 5);
-      CHECK(vec2[4] == 9);
+      assert(vec1[0] == 0);
+      assert(vec1[4] == 4);
+      assert(vec2[0] == 5);
+      assert(vec2[4] == 9);
     }
     {
       auto vec2 = vec1;
-      CHECK(vec2[0] == 0);
-      CHECK(vec2[4] == 4);
-      CHECK(vec1[0] == 0);
-      CHECK(vec1[4] == 4);
+      assert(vec2[0] == 0);
+      assert(vec2[4] == 4);
+      assert(vec1[0] == 0);
+      assert(vec1[4] == 4);
     }
     {
       int count_ = 0;
       for (auto i : vec1) {
-        CHECK(i == count_++);
+        assert(i == count_++);
       }
     }
 
@@ -322,7 +356,7 @@ int main() {
       copy(vec2, begin(vec));
       int count_ = 4;
       for (auto i : vec) {
-        CHECK(i == count_--);
+        assert(i == count_--);
       }
     }
   }

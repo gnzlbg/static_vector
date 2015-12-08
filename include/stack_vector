@@ -60,6 +60,8 @@ namespace experimental {
 
 namespace stack_vector_detail {
 
+template <typename T> using uncvref_t = remove_reference_t<remove_cv_t<T>>;
+
 template <typename InputIt, typename OutputIt>
 constexpr OutputIt move_backward(InputIt b, InputIt e, OutputIt to) {
   while (b != e) { *(--to) = move(*(--e)); }
@@ -73,9 +75,9 @@ constexpr OutputIt fill_n(OutputIt b, size_t n, const T& v) {
 }
 
 template <typename T> constexpr void swap(T&& a, T&& b) {
-  T&& tmp = std::move(a);
-  a       = std::move(b);
-  b       = std::move(tmp);
+  uncvref_t<T> tmp = std::move(a);
+  a                = std::move(b);
+  b                = std::move(tmp);
 }
 
 template <class ForwardIt>
@@ -310,8 +312,10 @@ struct storage<T, Capacity, true> {
  public:
   constexpr storage()               = default;
   constexpr storage(storage const&) = default;
-  template <typename Value, typename... Values,
-            typename = enable_if_t<!is_same<decay_t<Value>, storage>{}>>
+  template <
+   typename Value, typename... Values,
+   typename
+   = enable_if_t<!is_same<stack_vector_detail::uncvref_t<Value>, storage>{}>>
   constexpr storage(Value&& v, Values&&... vs)
    : data_{std::forward<Value>(v), std::forward<Values>(vs)...} {
     static_assert(sizeof...(Values) + 1 <= Capacity, "");
@@ -346,6 +350,11 @@ template <typename T> struct empty_storage {
   static constexpr void unsafe_set_size(size_t new_size) noexcept {
     assert(new_size == size_t{0}
            && "trying to set the size of a zero-capacity vector to value != 0");
+  }
+
+  template <typename InputIt>
+  constexpr void unsafe_destroy(InputIt first, InputIt last) noexcept {
+    assert(first == last);
   }
 
   /// For trivially destructible types there is nothing to do
@@ -395,6 +404,7 @@ struct stack_vector
 
  private:
   using base_t::unsafe_set_size;
+  using base_t::unsafe_destroy;
   using base_t::unsafe_destroy_all;
   using base_t::copy_assign;
   using base_t::move_assign;
@@ -439,6 +449,8 @@ struct stack_vector
   constexpr stack_vector(stack_vector<T, M> const& other) noexcept(
    M <= Capacity and is_nothrow_copy_constructible<T>{}
    and is_nothrow_copy_assignable<T>{}) {
+    using std::begin;
+    using std::end;
     copy_assign(begin(other), end(other));
   }
 
@@ -457,6 +469,8 @@ struct stack_vector
   /// throw
   constexpr stack_vector(stack_vector const& other) noexcept(
    is_nothrow_copy_assignable<T>{} and is_nothrow_copy_constructible<T>{}) {
+    using std::begin;
+    using std::end;
     copy_assign(begin(other), end(other));
   }
 
@@ -465,10 +479,16 @@ struct stack_vector
   /// throw
   constexpr stack_vector(stack_vector&& other) noexcept(
    is_nothrow_move_assignable<T>{} and is_nothrow_move_constructible<T>{}) {
+    using std::begin;
+    using std::end;
     move_assign(begin(other), end(other));
   }
   // can always throw if il.size() > capacity()
-  template <typename Value, typename... Values>
+  template <
+   typename Value, typename... Values,
+   typename
+   = enable_if_t<is_same<stack_vector_detail::uncvref_t<Value>,
+                         stack_vector_detail::uncvref_t<value_type>>{}>>
   constexpr stack_vector(Value&& v, Values&&... vs)
    : base_t(std::forward<Value>(v), std::forward<Values>(vs)...) {}
 
@@ -482,7 +502,10 @@ struct stack_vector
   /// cannot provide strong exception guarantee
   constexpr stack_vector& operator=(stack_vector const& other) noexcept(
    is_nothrow_copy_constructible<T>{} and is_nothrow_copy_assignable<T>{}) {
+    using std::begin;
+    using std::end;
     copy_assign(begin(other), end(other));
+    return *this;
   }
   /// same capacity so can only thow if copy constructor or copy assignment
   /// throws
@@ -490,20 +513,29 @@ struct stack_vector
   /// cannot provide strong exception guarantee
   constexpr stack_vector& operator=(stack_vector&& other) noexcept(
    is_nothrow_move_assignable<T>{} and is_nothrow_move_constructible<T>{}) {
+    using std::begin;
+    using std::end;
     move_assign(begin(other), end(other));
+    return *this;
   }
 
   /// TODO: conditionally noexcept
   template <std::size_t M, enable_if_t<(Capacity != M)>>
   constexpr stack_vector& operator=(stack_vector<T, M> const& other) noexcept(
    is_nothrow_copy_constructible<T>{} and is_nothrow_copy_assignable<T>{}) {
+    using std::begin;
+    using std::end;
     copy_assign(begin(other), end(other));
+    return *this;
   }
   /// TODO: conditionally noexcept
   template <std::size_t M, enable_if_t<(Capacity != M)>>
   constexpr stack_vector& operator=(stack_vector<T, M>&& other) noexcept(
    is_nothrow_move_assignable<T>{} and is_nothrow_move_constructible<T>{}) {
+    using std::begin;
+    using std::end;
     move_assign(begin(other), end(other));
+    return *this;
   }
 
   template <class InputIt> constexpr void assign(InputIt first, InputIt last) {
@@ -511,9 +543,13 @@ struct stack_vector
   }
   constexpr void assign(size_type n, const T& u) { copy_assign(n, u); }
   constexpr void assign(initializer_list<T> const& il) {
+    using std::begin;
+    using std::end;
     copy_assign(begin(il), end(il));
   }
   constexpr void assign(initializer_list<T>&& il) {
+    using std::begin;
+    using std::end;
     move_assign(begin(il), end(il));
   }
 
@@ -527,10 +563,14 @@ struct stack_vector
   constexpr iterator end() noexcept { return data() + size(); }
   constexpr const_iterator end() const noexcept { return data() + size(); }
 
-  reverse_iterator rbegin() noexcept { return end() - 1; }
-  const_reverse_iterator rbegin() const noexcept { return end() - 1; }
-  reverse_iterator rend() noexcept { return data() - 1; }
-  const_reverse_iterator rend() const noexcept { return data() - 1; }
+  reverse_iterator rbegin() noexcept { return reverse_iterator(end() - 1); }
+  const_reverse_iterator rbegin() const noexcept {
+    return const_reverse_iterator(end() - 1);
+  }
+  reverse_iterator rend() noexcept { return reverse_iterator(data() - 1); }
+  const_reverse_iterator rend() const noexcept {
+    return const_reverse_iterator(data() - 1);
+  }
 
   constexpr const_iterator cbegin() noexcept { return begin(); }
   constexpr const_iterator cbegin() const noexcept { return begin(); }
@@ -833,18 +873,19 @@ struct stack_vector
 
   template <class... Args>
   constexpr iterator emplace(const_iterator position, Args&&... args) {
-    insert(position, value_type(forward<Args>(args)...));
+    return insert(position, value_type(forward<Args>(args)...));
   }
   constexpr iterator insert(const_iterator position, const_reference x) {
-    insert(position, size_type(1), x);
+    return insert(position, size_type(1), x);
   }
   constexpr iterator insert(const_iterator position, size_type n, const T& x) {
-    const auto new_size = size() + n;
+    const auto new_size        = size() + n;
+    iterator writable_position = begin() + (position - begin());
     if (new_size > capacity()) throw length_error("");
-    stack_vector_detail::move_backward(position, end(), position + n);
-    stack_vector_detail::fill_n(position, n, x);
+    stack_vector_detail::move_backward(position, cend(), writable_position + n);
+    stack_vector_detail::fill_n(writable_position, n, x);
     unsafe_set_size(new_size);
-    return position;
+    return writable_position;
   }
 
   template <class InputIt>
@@ -865,14 +906,18 @@ struct stack_vector
     //   throw;
     // }
     // we insert at the end and then just rotate:
-    stack_vector_detail::slow_rotate(position, b, end());
+    auto writable_position = begin() + (position - begin());
+    stack_vector_detail::slow_rotate(writable_position, b, end());
+    return writable_position;
   }
 
   constexpr iterator insert(const_iterator position, initializer_list<T> il) {
-    insert(position, begin(il), end(il));
+    using std::begin;
+    using std::end;
+    return insert(position, begin(il), end(il));
   }
   constexpr iterator erase(const_iterator position) {
-    erase(position, position + 1);
+    return erase(position, position + 1);
   }
   constexpr iterator erase(const_iterator first, const_iterator last) {
     iterator f = begin() + (first - begin());
@@ -895,7 +940,7 @@ struct stack_vector
 
   // TODO: this is rough
   constexpr void swap(stack_vector& other) noexcept(
-   noexcept(swap(declval<T&>(), declval<T&>()))) {
+   noexcept(stack_vector_detail::swap(declval<T&>(), declval<T&>()))) {
     stack_vector tmp = other;
     other            = (*this);
     (*this)          = tmp;

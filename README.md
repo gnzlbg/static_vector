@@ -345,6 +345,17 @@ with default initialization:
   the initializer list into an array, but that obviously doesn't work within constexpr
   functions and it is probably UB anyways.
 
+- there is no `uncvref_t` function in `<type_traits>`:
+
+   ```c++
+   template<typename T>
+   using uncvref_t = std::remove_reference_t<std::remove_cv_t<T>>;
+   ```
+
+   even though it is very useful. It is also dangerous to not have this function because
+   `std::decay_t` is provided which although generates similar results "most of the time"
+   it does not semantically mean the same thing and will perform pointer decay for e.g. C arrays.
+  
   
 
 # WIP: API
