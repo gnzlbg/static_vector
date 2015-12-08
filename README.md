@@ -1,6 +1,6 @@
-# stack_vector
+# stack_vector [![Travis build status][travis-shield]][travis] [![Coveralls.io code coverage][coveralls-shield]][coveralls] [![Docs][docs-shield]][docs]
 
-> A stack allocated vector implementation (revision -1)
+> A dynamically-resizable vector with stack storage (revision -1)
 
 # Introduction
 
@@ -493,3 +493,9 @@ constexpr bool operator>=(const stack_vector<T, C0>& a, const stack_vector<T, C1
 [stack_vector]: http://github.com/gnzlbg/stack_vector
 [boost_static_vector]: http://www.boost.org/doc/libs/1_59_0/doc/html/boost/container/static_vector.html
 
+[travis-shield]: https://img.shields.io/travis/gnzlbg/stack_vector.svg?style=flat-square
+[travis]: https://travis-ci.org/gnzlbg/stack_vector
+[coveralls-shield]: https://img.shields.io/coveralls/gnzlbg/stack_vector.svg?style=flat-square
+[coveralls]: https://coveralls.io/github/gnzlbg/stack_vector
+[docs-shield]: https://img.shields.io/badge/docs-online-blue.svg?style=flat-square
+[docs]: https://gnzlbg.github.io/stack_vector
