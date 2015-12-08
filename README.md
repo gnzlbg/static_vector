@@ -286,81 +286,128 @@ conflict with proxy references in the future
 
 ## Other
 
-- swap
-- fill
+- `swap`
+- `fill`
 
-## Related possible future improvements
+## Rough edges in the C++14 standard that complicate the implementation of `stack_vector`
 
-- constexpr friendly reverse iterator
-- `std::default_init_t` such that `stack_vector` can provide a size constructor
-with default initialization:
+The following issues in the C++14 standard complicate the implementation of
+`stack_vector` to some degree. The current proposal and implementation works
+around these issues. The objective of this proposal is not to fix those. They
+are, however, an incomplete list of things that can actually be fixed in
+different future proposals.
+
+
+### Constexpr-friendlyness
+
+The standard library is, in general, very `constexpr`-unfriendly:
+
+  1. `std::reverse_iterator<It>` is never constexpr, even when `It` is a
+      raw-pointer (which is constexpr).
+
+  2. `std::array` is not `constexpr` and as a consequence `stack_vector` needs
+     to use a C Array for implementing the storage for `trivial` types.
+
+  3. Almost all the algorithms in `<algorithm>` can be `constexpr` in C++14 but
+     aren't. As a consequence `stack_vector` needs to reimplement a couple of
+     them. Those algorithms that cannot be `constexpr` are those who allocate
+     memory using `std::get_temporary_buffer`. They all work for buffers of zero
+     size but their interface prevents them from making them `constexpr`. Their
+     interface also prevents the users from pre-allocating a buffer and reusing
+     that buffer across multiple algorithms call, so one can argue that their
+     interface is indeed broken. A better solution would be to pass the
+     algorithms a state object like the new search algorithms do in C++17. With
+     this minor change in their API _all_ algorithms in `<algorithm>` can be
+     _trivially_ make `constexpr` by just annotating them as such. The only
+     exception are those alorithms using `goto`, like e.g. `nth_element`, which
+     will have to be rewritten since the commitee rejected allowing `goto`
+     inside `constexpr` functions. Such a new API would also allow those
+     algorithms that need a buffer to be made to work _fast_ at compile-time by
+     passing them a stack-allocated buffer.
+
+  4. Generic `begin`, `end`, and `swap` as well as their versions for C-arrays
+     should be `constexpr`.
+
+The language is `constexpr`-unfriendly towards `std::aligned_storage`:
+
+  5. placement `new` is not supported within `constexpr` functions. This makes
+     `std::aligned_storage` useless for implementing the storage of
+     `stack_vector`. If the author recalls correctly, this also makes
+     `std::aligned_storage` useless for implementing `std::variant`.
+
+  6. explicit destructor calls are not supported within `constexpr` functions.
+     This is also required for using `std::aligned_storage` to implement
+     `stack_vector` and `std::variant`.
+
+
+  7. `reinterpret_cast` is not supported within constexpr functions, so one
+     cannot cast a pointer to `std::aligned_storage` to the type being stored.
+
+In my opinion, implementing `std::variant` recursively is a clever workaround
+that wouldn't be required if `constexpr` and `std::aligned_storage` would play
+well with each other.
+
+### Pragmatism
+
+There is no way to default initialize elements in containers like `std::vector`.
+That is, in common situations like filling a dynamic array from the network one
+needs to either value initialize the elements, just to assign them a different
+value right afterwards, or resort to a `std::unique_ptr<T[]>` or similar.
+
+Boost.Container has succesfully provided the `default_init_t` tag. Such a
+standard tag would allow `stack_vector` to provide a size constructor
+with default initialization as well as a `resize` function with default
+initialization:
 
   ```c++
   stack_vector(size_t n, default_init_t);
+  resize(size_t n, default_init_t);
   ```
 
-- annotate explicitly deleted functions with a reason for the explicit deletion
-  to improve error messages. For example it would be useful to annotate
-  `reserve(size_t n)` for the stack allocated vector with the reason of the
-  deletion to help users switch from std::vector faster.
+### Improved error messages
 
-- placement new is not supported in constexpr functions, as a consequence the
-  following functions cannot be made constexpr in general, but can be made
-  constexpr for `trivially_default_constructible` types only:
-  - `emplace_back`
-  - `push_back` (uses `emplace_back`)
-  - `insert` (uses `emplace_back`)
-  - `resize` (uses `insert`)
-  - `stack_vector(size)` (uses `emplace_back` / `resize`)
-  - `stack_vector(size, value)` (uses `emplace_back` / `resize`)
-  - `stack_vector(begin, end)` (uses `insert`)
-  - `stack_vector(initializer_list)` (uses `insert`)
-  - `stack_vector& operator=(other)` (if `size()`s differ might need to use `insert`)
-  - `assign(size)` (uses `emplace_back` / `resize`)
-  - `assign(size, value)` (uses `emplace_back` / `resize`)
-  - `assign(begin, end)` (uses `insert`)
+It would be nice to annotate `explicitly deleted functions` with a reason for
+their deletion. In `stack_vector`s case, the `reserve(size_t n)` function
+doesn't make sense since its capacity is fixed in the vector's type. However,
+explicitly deleting this function tells users that this function is not there
+"for a reason", but there is no way to tell the user the reason.
 
-- explicit destructor calls are not supported in constexpr functions, as a
-  consequence the following functions cannot be made constexpr in general, but
-  can be made constexpr for `trivially_default_destructible types`:
-  - `pop_back`
-  - `erase` 
-  - `resize` (uses `erase`)
-  - `stack_vector& operator=(other)` (if `size()`s differ might need to use
-  explicit destructor calls)
+### Type-traits
 
-- if std::array would be constexpr friendly, the implementation of
-  `stack_vector` would be able to reuse it. Without this it has to resort to
-  using a C-Array.
+The `<type_trait>`s function that `stack_array` implementation (and all my
+projects) use the most is `std::uncvref_t`. Sadly, and for whatever reason, it
+doesn't exist. It is trivial to implement it:
 
-- one cannot initialize a C-array from a std::initializer_list, so we need to
-  work around this with a hack to be able to store C-arrays of const values:
+```c++
+template<typename T>
+using uncvref_t = std::remove_reference_t<std::remove_cv_t<T>>;
+```
+
+but without that type alias, it requires a lot of typing.
+
+Since lazyness is pervasive, probably the most troublesome issue is not that we
+don't have `uncvref_t` in the standard, but the fact that we do have `decay_t`,
+which produces the same result 99% of the time. Most of the uses of `decay_t` I
+see in the wild actually meant `uncvref_t`, and some of them do blow up when
+passed a C-array.
+
+### Language
+
+- A C-array cannot be initialized from a std::initializer_list. The hack to
+currently work around this in `stack_vector`s implementation is ugly. Consider:
 
   ```c++
   stack_vector<const int, 3> v = {1, 2, 3};
   ```
-  uses a `const int data_[3]` to store the elements, and as a consequence
-  implementing the `stack_vector(std::initializer_list<const int> il)` constructor
-  is a pain. There is a "trick" which is to `reinterpret_cast<const int data_[3]>(il)`
-  the initializer list into an array, but that obviously doesn't work within constexpr
-  functions and it is probably UB anyways.
 
-- there is no `uncvref_t` function in `<type_traits>`:
-
-   ```c++
-   template<typename T>
-   using uncvref_t = std::remove_reference_t<std::remove_cv_t<T>>;
-   ```
-
-   even though it is very useful. It is also dangerous to not have this function because
-   `std::decay_t` is provided which although generates similar results "most of the time"
-   it does not semantically mean the same thing and will perform pointer decay for e.g. C arrays.
-
-- the following algorithms in `<algorithm>` are not constexpr and as a consequence
-  had to be reimplemented:
-  - `fill_n`
-  - `rotate`
-  - `move_backwards`
+which uses a `const int data_[3]` to store the elements. One solution (which
+isn't `constexpr` and that probably invovles UB) is to `reinterpret_cast<const
+int data_[3]>(il)`. The workaround used adds a variadic constructor which
+`forwards` the elements in place to the C-array. A variadic perfect-forwarding
+constructor is a greedy beast, and the `enable_if` required to tame it is not
+beautiful. A better solution would be to enable constructing a C-array from a
+`initializer_list`, which should be safe since its `size` is `constexpr.`
+    
 
 # WIP: API
 

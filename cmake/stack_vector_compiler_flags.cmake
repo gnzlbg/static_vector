@@ -126,11 +126,6 @@ if (CMAKE_BUILD_TYPE STREQUAL "Release")
   stack_vector_append_flag(STACK_VECTOR_HAS_VECTORIZE -fvectorize)
   stack_vector_append_flag(STACK_VECTOR_HAS_POLLY "-mllvm -polly -mllvm -polly-vectorizer=stripmine")
 
-  # If assertions disabled, disable assertions in std lib and eigen
-  if (NOT STACK_VECTOR_ENABLE_ASSERTIONS)
-    stack_vector_append_flag(STACK_VECTOR_HAS_DNDEBUG -DNDEBUG)
-    stack_vector_append_flag(STACK_VECTOR_HAS_EIGEN_NO_DEBUG -DEIGEN_NO_DEBUG)
-  endif()
   # If ASan and profile not enabled: omit frame pointer
   if (NOT STACK_VECTOR_ENABLE_ASAN AND NOT STACK_VECTOR_ENABLE_PROFILE)
     stack_vector_append_flag(STACK_VECTOR_HAS_OMIT_FRAME_POINTER -fomit-frame-pointer)
