@@ -4,79 +4,66 @@
 
 # Introduction
 
-This paper proposes a resizable vector with stack storage provisionally called
-`stack_vector<T, Capacity>`. Its API resembles that of `std::vector<T, A>` and
-can be used almost as a drop-in replacement. A perfect replacement cannot be
-provided because `stack_vector` lacks an `Allocator`.
+This paper proposes a dynamically resizable vector with internal storage (within
+the object itself) provisionally called `stack_vector<T, Capacity>`. Its API is
+almost a 1:1 map of `std::vector<T, A>`s API. The exactly same API cannot be
+provided (e.g. because `stack_vector` lacks an `Allocator`).
 
-The main aim of `stack_vector` is to enable users to replace `std::vector` in
-the hot-path of their applications when the maximum number of elements that the
-vector can hold is small and known at compile-time.
+This utility solves a single performance problem that can result from using
+`std::vector`: too many memory allocations. The trade-off is that a bound on the
+maximum number of elements that the `stack_vector` can hold must be known at
+compile-time. For a wide range of applications this is the case (see sec.
+Motivation).
 
-That is, if while profiling an application the developer discovers that memory
-allocation due to the usage of `std::vector` dominates its hot path, it can then
-go and grab `stack_vector` and perform a 1:1 replacement when a bound on the
-capacity is known. The hassle to perform this replacement should be minimized,
-and hence the reason of providing an almost 100% identical API to `std::vector`.
+In this paper the utility of a dynamically resizable vector with internal
+storage is addressed, the design space is explored, an implementation is
+provided, and an API is proposed in standard-wording style, but standard wording
+is not provided. Finally in the Appendix A standard library and language
+features that simplify/complicate the implementation of this type are mentioned.
 
-It is structured as follows. First the utility of `stack_vector` is addressed by
-providing two motivating use cases: the efficient implementation of a `polygon`
-(and how algorithms can use it), and the implementation of neighbor search in an
-octree. Afterwards, previous work is cited and a current implementation of this
-proposal is provided. The design space is considered next, the requirements are
-listed, the different trade-offs that appeared while writing both the proposal
-and the implementation are explored, and the design chosen are justified,
-although since this is the first revision, they are all open for discussion.
-Finally, the API is provided in a "standard-wording-style", and then its loosely
-discussed in detail. Standard wording for this proposal is not provided.
+# Motivation
 
-# Motivation: mesh processing in HPC applications
+## Split square with line in two dimensions
 
-## A polygon class and cell reshaping
-
-Mesh generation and processing is an important part of numerical simulations in
-high performance computing. Consider an algorithm in which the square-shaped
-cells of a quadtree mesh need to be reshaped at the boundary with a moving
-object by cutting them with linear surfaces. We can use a
-`stack_vector<point<2>, 5>` to represent a polygon that can have a maximum of 5
-points:
+Lets consider splitting a two-dimensional square with a line into two polygons.
+It is known a priori that the result of this operation are two polygons, which
+might have either 3, 4, or 5 points. Using `stack_vector`:
 
 ```c++
-using polygon2d = stack_vector<point<2>, 5>;
+// We can easily define a polygon with N points:
+template<size_t N>
+using polygon2d = stack_vector<point<2>, N>;
+
+// And the signature of our split function:
+pair<polygon2d<5>, polygon2d<5>> split(polygon<4> square, polygon<2> line);
 ```
 
-The signature of our interesection algorithm can then look like this:
+Wether these polygons are to be stored on the stack or on the heap is
+irrelevant. We can easily put them on the heap if needed:
 
 ```c++
-/// Splits a square2d with a surface2d into two polygons:
-std::pair<polygon2d, polygon2d> split(square2d, surface2d);
-
+std::vector<polygon2d<5>> heap_polygons;
+for (auto&& p : zip(squares, surfaces)) {
+  heap_polygons.push_back(split(p.first, p.second).first);
+}
 ```
 
-Wether these polygons are to be stored on the stack or the heap is then irrelevant:
-
-```c++
-std::vector<polygon2d> heap_polygons(split(square, surface).first);
-polygon2d stack_polygon = split(square, surface).second;
-```
-
-Alternative solutions would involve passing the container where the polygons
-should be stored into the algorithm, and returning iterators. Such an algorithm
-can be implemented on top of our solution.
+but if we just want to compute their volume or center of gravity we don't need
+to put them on the heap at all. Using a `std::vector` to store the points of the
+polygons would then inquire unnecessary memory allocations. Using a `std::array`
+we wouldn't have information about the number of points in the polygon.
 
 ## Leaf neighbor search in an octree
 
-Consider finding all the leaf neighbors of a leaf node within an octree. Using
-`stack_vector` the signature of such an algorithm can look like this:
+A similar problem appears when one needs to find all the leaf neighbors of a
+leaf node within an octree. The maximum number of neighbors that a node can have
+is known for a 2:1 balanced octree, such that:
 
 ```c++
 template<std::size_t Dim>
-stack_vector<node_iterator, max_number_of_leaf_neighbors(Dim)>
+stack_vector<node_iterator, max_number_of_leaf_neighbors>
 leaf_neighbors(octree<Dim> const&, node_iterator);
 ```
-
-where `max_number_of_leaf_neighbors(Dim)` returns the maximum number of
-neighbors that a leaf node can have in a given spatial dimension.
 
 # Previous work and implementation
 
@@ -87,333 +74,129 @@ implementation is provided for standardization purposes here:
 
 # Design space
 
-In this section the design space is explored. 
-
 ## Requirements
 
-The first step is to explicitly state the requiremnts of our type.
-The requirements are:
+The requirements of `stack_vector` are:
 
-  1. **Handyness**: replacing `vector<T>` with `stack_vector<T,C>` should be as
-     easy as possible.
-  2. **Performance**: `stack_vector<T,C>` should be as efficient as possible since
-     its raison-d'etre is a performance optimization.
+  1. **Handyness**: replacing `vector<T,A>` with `stack_vector<T,C>` should be
+     as easy as possible.
+  2. **Performance**: `stack_vector<T,C>` should be as efficient as possible
+     since its raison-d'etre is a performance optimization.
 
-If it's not trivial to replace `vector` with `stack_vector`, those programmers
-trying to skim some ms off a frame during an all-nighter previous to release day
-will hate us (**Handyness**). If it's not as fast as possible, those programers
-will need to reimplement their own, and will also hate us (**Performance**).
+## Failed Approaches
 
-A consequence of these requirements is that the design space is very small,
-which is a good thing.
+### The stack-only allocator approach
 
-## The stack-only allocator approach
+Trying to reuse `std::vector` with a stack-only allocator (e.g. like a modified
+Howard Hinnant's [`stack_alloc`][stack_alloc]) doesn't work because:
 
-The generic programmer in me begged me to reuse `vector` for implementing
-`stack_vector`, maybe by providing it as a container adaptor similar to `queue`
-or `stack`. To control where `vector` allocates its memory, I modified Howard
-Hinnant's stack allocator ([`stack_alloc`][stack_alloc]) to not fall back to
-heap allocation, but fail instead.
+  1. The growth factor of `std::vector` is implementation dependent. Hence the
+     storage required by the stack-allocator is implementation dependent, and
+     one cannot write neither performant nor portable code.
 
-I then tested the vector using that stack allocator in two different platforms,
-MacOSX and Linux, with two different standard library implementations, libc++
-and libstdc++, respectively. What happened might already be obvious to the
-reader: since the allocation pattern of `vector` is implementation defined, it
-is impossible to predict for a given desired capacity how big should the stack
-allocator be. I had to guess and overpredict it for it to work on one platform.
-It turned out that wasn't enough for it to work on the other.
+  2. The size of the resulting type is one word too large (`std::vector` stores
+     its capacity even though for a stack-only allocator the capacity is fixed
+     at compile-time).
 
-The two main problems with this approach are:
+### The `stack_allocator` with heap-fallback approach
 
-- it cannot produce portable code,
-- trying to produce portable code requires overallocating, which goes against
-the **Performance** requirement.
+Reusing Howard Hinnant's [`stack_alloc`][stack_alloc] one can implement a
+`stack_vector` that works but has the following problems:
 
-Another minor problem is that a `vector` using a stack allocator will necessary
-be one word bigger than it needs to be (it needs to store the capacity even
-thought that is known at compile-time). This is IMO not a major issue, but must
-be considered since it also goes against the **Performance** requirement.
+  1. Library-dependent performance due to the implementation-defined growth
+     factor of `std::vector`.
 
-## The `stack_allocator` with heap-fallback approach
+  2. The resulting type is one word of memory too large.
 
-So what if we use Howard Hinnant's stack allocator
-([`stack_alloc`][stack_alloc]) without modification, i.e., with a fallback to
-heap allocation in case the `vector` wants more memory than what was reserved on
-the stack?
 
-That partially addresses one problem of the stack-only allocator approach:
-portability. The code will work across all platforms and library implementations
-since it can always fall back to heap allocation.
+## Proposed Approach: new `stack_vector` type
 
-It introduces a new problem though:
+The main draw-back of introducing a `stack_vector<T, Capacity>` type is:
 
-- library-dependent performance due to the unknown growth factor of vector which
-  can trigger heap allocations in your clients platform but not in your
-  development platform.
+  1. Code bloat: for each type `T`, and for each `Capacity`, a significant
+     amount of code will be generated.
 
-It also retains the minor problem of the previous approach (1 extra word in
-size).
+I don't have a good solution to this problem. Type-erasing the capacity would
+hinder performance.
 
-## The new container (`stack_vector`) approach
+The main advantages of introducing a new type are that we can get:
 
-A new type, `stack_vector<T, Capacity>`, can be introduced that exactly lets us
-specify the amount of stack storage we want to reserve. This is the approach
-pursued in the rest of the paper.
+  1. portability,
+  2. reliable performance across implementations, and
+  3. a type that is as small as possible.
 
-The main drawbacks of this approach is:
-- codebloat
+Now follows a list of the concrete requirements for an implementation (those
+discussed later are marked as such):
 
-For each type `T`, and for each `Capacity`, this approach will instantiate a new
-template class, and generate a significant amount of code.
+  1. if `Capacity == 0`:
+     - it should have zero-size so that it can be used with EBO.
+     - `data() == begin() == end() == unspecified unique value` (`nullptr` is
+     intended) (like `std::array`).
+     - `swap` is `noexcept(true)` (like `std::array`).
+     - `front` and `back` are _disabled_.
 
-I doesn't have a solution for this problem. 
+  2. Exception safety (discussed in sub-section Exception Safety):
+     - same as `std::vector`: throwing copy/move constructors retain only the
+       basic guarantee.
+ 
+  3. Constexpr (discussed in subsection Constexpr):
+     - whole API is constexpr for types with a trivial destructor.
 
-I've considered:
-- type-erasing the `Capacity`, but this would go against **Performance**.
-- implementing `stack_vector` on top of a plausible stack-allocated array of
-run-time size (`dyn_array`-like). This is pure speculation based on the old
-proposals since we don't have a proposal on track for this feature yet.
+  4. Explicit instantiabiltiy (discussed in subsection Explicit instantiation):
+     - it is possible to explicitly instantiate `stack_vector` for types that
+       are both `CopyConstructible` and `MoveConstructible`.
 
-and decided that code-bloat is an acceptable trade-off.
+  5. Interoperability between `stack_vector`s of different capacities (discussed
+     in subsection Interoperability between capacities):
+     - comparison operators support, 
+     - throwing constructors/assignment support,
+     - throwing swap support.
 
+### Exception Safety
 
-The advantages of the new container approach with respect to the other
-approaches are:
-- portability, and portable performance, and
-- exact size.
+Since `stack_vector` does not allocate memory, the only operations that can
+actually throw (even though _everything_ can throw) are constructors,
+assignments, destructors, and swap. The approach followed by `std::vector` is to
+offer the strong-exception safety guarantee if these operations do not throw,
+and the basic guarantee otherwise. The same guarantee is offered for
+`stack_vector`.
 
-### Other trade-offs
+### Constexpr
 
+The whole API of `stacK_vector<T, Capacity>` is `constexpr` if `T` is trivally
+destructible.
 
-#### Zero-capacity stack_vector
+### Explicit instantiation
 
-- similar to zero-sized `std::array`
+It is technically possible to allow explicit instaintations of `stack_vector`
+for types that are not both `MoveConstructible` and `CopyConstructible` but
+doing so is so painful that it is left at first as a Quality of Implementation
+issue. Implementations are encouraged to do so.
 
-- equal:
-  - zero-capacity stack_vector's swap is noexcept(true)
-  - `data() == begin() == end() == unspecified unique value` (`nullptr` is intended)
+### Interoperability between capacities
 
-- different:
-  - front/back are not provided
-    - `std::array` defines calling front and back as undefined behavior
-    - `stack_vector` of zero capacity does not have `front()/back()`,
-      `std::enable_if` can be used for this purpose.
+Even though `stack_vector`s of different capacity have different types, it is
+useful to be able to compare them and convert them. Since the capacities are
+different, and the number of elements is not known till run-time, the
+conversions and swap must be allowed to throw. 
 
-- allowed, the stack vector then has zero size and can be used as such when doing EBO
+### Bikeshedding/naming
 
-#### Constexpr-ness
-
-#### Exception-safety and noexceptness
-
-#### Comparison operators
-
-# API Notes
-
-## Struct
-
-- the template parameters are called `T` and `C` for Type and Capacity,
-  respectively.
-  - in `std::array` the template parameter is called `N` for size, but here it
-    denotes capacity
-- struct is chosen as for `std::array`:
-  - since `stack_vector` cannot support aggregate initialization maybe it would
-    be better to make it a `class` instead to differentiate it from `std::array`
-
-## Types
-
-- It has the same nested types as `std::vector<T>` except for `allocator_type`
-  which makes no sense since `stack_vector<T, C>` does not have an allocator.
-
-
-## Storage
-
-- I went for `std::aligned_storage` since I wanted to preserve the semantics of
-standard vector: elements in the storage are not default constructed.
-
-### Zero-sized stack_vector
-
-- The storage is, however, implementation-defined. I don't want to expose
-  anything about the storage in the API, however, EBO should be guaranted for
-  zero-sized `stack_vector`:
-
-  ```c++
-  struct my_type : stack_vector<int, 0>
-  {
-      int a;
-  };
-  static_assert(sizeof(my_type) == sizeof(int), "");
-  ```
-
-## Construction/Assignment/Destruction
-
-### Copy construction
-
-### Copy assignment
-
-### Move construction
-
-### Move assignment
-
-### Destruction
-
-## Iterators
-
-- all iteration methods are constexpr, except
-  - the reverse iterator methods since that would require
-    `std::reverse_iterator` to be constexpr-friendly, and that is not being
-    proposed here.
-
-- the time complexity of the iterator functions is O(1)
-- the space complexity of the iterator functions is O(1)
-- the iterator functions are noexcept
-
-## Size
-
-- the time complexity of the size functions is O(1)
-- the space complexity of the size functions is O(1)
-- the size functions are noexcept
-
-
-## Element access
-
-- should operator[] be noexcept(true) ? TODO: Ask Eric if he thinks this might
-conflict with proxy references in the future
-
-## TODO: Iterator invalidation
-
-### List of functions that can potentionally invalidate iterators and how
-
-
-## Other
-
-- `swap`
-- `fill`
-
-## Rough edges in the C++14 standard that complicate the implementation of `stack_vector`
-
-The following issues in the C++14 standard complicate the implementation of
-`stack_vector` to some degree. The current proposal and implementation works
-around these issues. The objective of this proposal is not to fix those. They
-are, however, an incomplete list of things that can actually be fixed in
-different future proposals.
-
-
-### Constexpr-friendlyness
-
-The standard library is, in general, very `constexpr`-unfriendly:
-
-  1. `std::reverse_iterator<It>` is never constexpr, even when `It` is a
-      raw-pointer (which is constexpr).
-
-  2. `std::array` is not `constexpr` and as a consequence `stack_vector` needs
-     to use a C Array for implementing the storage for `trivial` types.
-
-  3. Almost all the algorithms in `<algorithm>` can be `constexpr` in C++14 but
-     aren't. As a consequence `stack_vector` needs to reimplement a couple of
-     them. Those algorithms that cannot be `constexpr` are those who allocate
-     memory using `std::get_temporary_buffer`. They all work for buffers of zero
-     size but their interface prevents them from making them `constexpr`. Their
-     interface also prevents the users from pre-allocating a buffer and reusing
-     that buffer across multiple algorithms call, so one can argue that their
-     interface is indeed broken. A better solution would be to pass the
-     algorithms a state object like the new search algorithms do in C++17. With
-     this minor change in their API _all_ algorithms in `<algorithm>` can be
-     _trivially_ make `constexpr` by just annotating them as such. The only
-     exception are those alorithms using `goto`, like e.g. `nth_element`, which
-     will have to be rewritten since the commitee rejected allowing `goto`
-     inside `constexpr` functions. Such a new API would also allow those
-     algorithms that need a buffer to be made to work _fast_ at compile-time by
-     passing them a stack-allocated buffer.
-
-  4. Generic `begin`, `end`, and `swap` as well as their versions for C-arrays
-     should be `constexpr`.
-
-The language is `constexpr`-unfriendly towards `std::aligned_storage`:
-
-  5. placement `new` is not supported within `constexpr` functions. This makes
-     `std::aligned_storage` useless for implementing the storage of
-     `stack_vector`. If the author recalls correctly, this also makes
-     `std::aligned_storage` useless for implementing `std::variant`.
-
-  6. explicit destructor calls are not supported within `constexpr` functions.
-     This is also required for using `std::aligned_storage` to implement
-     `stack_vector` and `std::variant`.
-
-
-  7. `reinterpret_cast` is not supported within constexpr functions, so one
-     cannot cast a pointer to `std::aligned_storage` to the type being stored.
-
-In my opinion, implementing `std::variant` recursively is a clever workaround
-that wouldn't be required if `constexpr` and `std::aligned_storage` would play
-well with each other.
-
-
-`std::initializer_list` provides `constexpr` size as a member function, but not
-as a part of its type which is... 
-
-### Pragmatism
-
-There is no way to default initialize elements in containers like `std::vector`.
-That is, in common situations like filling a dynamic array from the network one
-needs to either value initialize the elements, just to assign them a different
-value right afterwards, or resort to a `std::unique_ptr<T[]>` or similar.
-
-Boost.Container has succesfully provided the `default_init_t` tag. Such a
-standard tag would allow `stack_vector` to provide a size constructor
-with default initialization as well as a `resize` function with default
-initialization:
-
-  ```c++
-  stack_vector(size_t n, default_init_t);
-  resize(size_t n, default_init_t);
-  ```
-
-### Improved error messages
-
-It would be nice to annotate `explicitly deleted functions` with a reason for
-their deletion. In `stack_vector`s case, the `reserve(size_t n)` function
-doesn't make sense since its capacity is fixed in the vector's type. However,
-explicitly deleting this function tells users that this function is not there
-"for a reason", but there is no way to tell the user the reason.
-
-### Type-traits
-
-The `<type_trait>`s function that `stack_array` implementation (and all my
-projects) use the most is `std::uncvref_t`. Sadly, and for whatever reason, it
-doesn't exist. It is trivial to implement it:
+The current name, `stack_vector`, is a lie. Consider:
 
 ```c++
-template<typename T>
-using uncvref_t = std::remove_reference_t<std::remove_cv_t<T>>;
+std::vector<stack_vector<float, 10>> where_is_my_mind;
 ```
 
-but without that type alias, it requires a lot of typing.
+Other names are:
 
-Since lazyness is pervasive, probably the most troublesome issue is not that we
-don't have `uncvref_t` in the standard, but the fact that we do have `decay_t`,
-which produces the same result 99% of the time. Most of the uses of `decay_t` I
-see in the wild actually meant `uncvref_t`, and some of them do blow up when
-passed a C-array.
+- `fixed_capacity_vector`
+- `fixed_vector`
+- `non_allocating_vector`
+- `static_vector` (Boost.Container's name for it)
+- `internal_vector`
 
-### Language
-
-- A C-array cannot be initialized from a std::initializer_list. The hack to
-currently work around this in `stack_vector`s implementation is ugly. Consider:
-
-  ```c++
-  stack_vector<const int, 3> v = {1, 2, 3};
-  ```
-
-which uses a `const int data_[3]` to store the elements. One solution (which
-isn't `constexpr` and that probably invovles UB) is to `reinterpret_cast<const
-int data_[3]>(il)`. The workaround used adds a variadic constructor which
-`forwards` the elements in place to the C-array. A variadic perfect-forwarding
-constructor is a greedy beast, and the `enable_if` required to tame it is not
-beautiful. A better solution would be to enable constructing a C-array from a
-`initializer_list`, which should be safe since its `size` is `constexpr.`
-    
-
-# WIP: API
+### Proposed API
 
 ```c++
 template<typename T, std::size_t C>
@@ -541,7 +324,162 @@ constexpr bool operator>=(const stack_vector<T, C0>& a, const stack_vector<T, C1
 
 ```
 
-# TODO: wording
+#### API description
+
+- the template parameters are called `T` and `C` for Type and Capacity,
+  respectively.
+
+
+##### Struct
+
+- struct is chosen as for `std::array`, since `stack_vector` cannot support
+  aggregate initialization maybe it would be better to make it a `class` instead
+  to differentiate it from `std::array`
+
+##### Types
+
+The list of types is the same as `std::vector`, with the exception of
+`allocator_type`.
+
+
+## Storage
+
+  ```
+
+## Construction/Assignment/Destruction
+
+### Copy construction
+
+### Copy assignment
+
+### Move construction
+
+### Move assignment
+
+### Destruction
+
+## Iterators
+
+- all iteration methods are constexpr, except
+  - the reverse iterator methods since that would require
+    `std::reverse_iterator` to be constexpr-friendly, and that is not being
+    proposed here.
+
+- the time complexity of the iterator functions is O(1)
+- the space complexity of the iterator functions is O(1)
+- the iterator functions are noexcept
+
+## Size
+
+- the time complexity of the size functions is O(1)
+- the space complexity of the size functions is O(1)
+- the size functions are noexcept
+
+
+## Element access
+
+- should operator[] be noexcept(true) ? TODO: Ask Eric if he thinks this might
+conflict with proxy references in the future
+
+## Swap
+
+For simplicity only `stack_vector`s of the same type can be swapped. Allowing
+`stack_vector`s of different types to be swapped is possible but that swap
+operation can then fail. For example consider:
+
+```c++
+stack_vector<int, 5> a(3);
+stack_vector<int, 5> b(4);
+stack_vector<int, 3> c(2);
+a.swap(c); // works
+b.swap(c); // always fails
+```
+
+## TODO: Iterator invalidation
+
+### List of functions that can potentionally invalidate iterators and how
+
+
+## Other
+
+- `swap`
+- `fill`
+
+
+# Appendix A. Rough edges in C++14
+
+
+There are some rough edges in C++14 that complicate the implementation of this
+proposal. These are listed here "for completeness". This proposal does not
+propose anything about them.
+
+  1. `std::reverse_iterator<It>` is never constexpr, even when `It` is a
+      raw-pointer (which is constexpr).
+
+  2. `std::array` is not fully `constexpr` (`data`, `begin/end`, `non-const
+     operator[]`, `swap`...) and as a consequence `stack_vector`s
+     implementation uses a C Array.
+
+  3. the `<algorithms>` are not `constexpr` even though it is trivial to make
+     all of them but 3 (the allocating algorithms) `constexpr`. The API of the
+     allocating algorithms is broken. Fixing it would make it trivial to make
+     them `constexpr` as well. The implementation of `stack_vector` needs to
+     reimplement some algorithms because of this.
+
+  4. the generic `begin`, `end`, and `swap` as well as their overloads for
+     C-arrays are not `constexpr`.
+
+  5. `std::aligned_storage` is impossible to use in `constexpr` code because one needs to:
+     - `reinterpret_cast` to the elements pointer type,
+     - use placement new, and
+     - call explicit destructors. None of these three things can be used in
+     `constexpr` code, and the implementation of `stack_vector` and
+     `std::variant` suffers from this.
+
+  6. `std::initializer_list`:
+     - doesn't have its size as part of its type,
+     - its elements cannot be moved,
+     - cannot be converted to a C-array or a `std::array` easily:
+     ```c++
+     std::initializer_list<int> il{1, 2, 3};
+     const int ca[3] = il;  
+     ```
+
+     Working around these in the implementation of `stack_vector` proved to be
+     impossible. As a consequence `stack_vector` doesn't offer an
+     `initializer_list` constructor but uses a variadic constructor instead.
+     As a consequence `stack_vector<T, 1> v = {1};` is broken.
+ 
+  7. `<type_traits>` offers the "dangerous" `decay_t` but offers no `uncvref_t`
+     (which is the type trait most used in `stack_vector`).
+
+  8.  `stack_vector` doesn't provide a `reserve` member function. It is
+     explicitly deleted in its API to convey that this is not an accident, but
+     there is no way to actually provide more information to the users (e.g. `=
+     delete("message");`).
+
+  9. special member functions cannot be disabled, the following doesn't work:
+     ```c++
+     #include <type_traits>
+     using namespace std;
+    
+     template <typename T> 
+     struct example {
+       template <int d = 0, typename = enable_if_t<d == 1 || is_same<T, int>{}>>
+       example(example const&) {}
+       example(example&&) {}
+       example() {}
+     };
+    
+     int main() {
+       example<int> a;
+       example<int> b(a);  // since T is int, this should work but doesn't
+       //example<double> c;
+       //example<double> d(c);  // this obviously fail
+	   return 0;
+     }
+     ```
+     Working around this issue is _very very painful_.
 
 <!-- Links -->
 [stack_alloc]: https://howardhinnant.github.io/stack_alloc.html

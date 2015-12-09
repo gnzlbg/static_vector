@@ -2,7 +2,7 @@
 ///
 /// Test for stack::vector
 ///
-/// Adapted from libc++: https://libcxx.llvm.org
+/// Most of the tests below are adapted from libc++: https://libcxx.llvm.org
 /// under the following license:
 //===----------------------------------------------------------------------===//
 //
@@ -18,25 +18,53 @@
 #include <vector>
 #include "utils.hpp"
 
-// Explicit instantiations
-template struct std::experimental::stack_vector<int, 0>;  // trivial empty
-template struct std::experimental::stack_vector<int, 1>;  // trivial non-empty
-template struct std::experimental::stack_vector<int, 2>;  // trivial nom-empty
-template struct std::experimental::stack_vector<int, 3>;  // trivial nom-empty
+struct tint {
+  int i;
+  tint()                      = default;
+  constexpr tint(tint const&) = default;
+  constexpr tint(tint&&)      = default;
+  constexpr tint& operator=(tint const&) = default;
+  constexpr tint& operator=(tint&&) = default;
 
-struct non_trivial {
-  int i = 0;
+  constexpr tint(int j) : i(j) {}
+  operator int() { return i; }
+};
+
+static_assert(std::is_trivial<tint>{} and std::is_copy_constructible<tint>{}
+               and std::is_move_constructible<tint>{},
+              "");
+
+// Explicit instantiations
+template struct std::experimental::stack_vector<tint, 0>;  // trivial empty
+template struct std::experimental::stack_vector<tint, 1>;  // trivial non-empty
+template struct std::experimental::stack_vector<tint, 2>;  // trivial nom-empty
+template struct std::experimental::stack_vector<tint, 3>;  // trivial nom-empty
+
+struct moint {
+  int i;
+  moint()             = default;
+  moint(moint const&) = delete;
+  moint& operator=(moint const&) = delete;
+  moint(moint&&)                 = default;
+  moint& operator=(moint&&) = default;
+  operator int() { return i; }
+  constexpr moint(int j) : i(j) {}
+  // it seems that deleting the copy constructor is not enough to make this
+  // non-trivial using libstdc++:
   virtual void foo() {}
 };
 
-static_assert(!std::is_trivial<non_trivial>{}, "");
+static_assert(!std::is_trivial<moint>{} and !std::is_copy_constructible<moint>{}
+               and std::is_move_constructible<moint>{},
+              "");
 
-// non-trivial empty:
-template struct std::experimental::stack_vector<non_trivial, 0>;
-// non-trivial non-empty:
-template struct std::experimental::stack_vector<non_trivial, 1>;
-template struct std::experimental::stack_vector<non_trivial, 2>;
-template struct std::experimental::stack_vector<non_trivial, 3>;
+// cannot explicitly instantiate the type for some types
+// // non-trivial empty:
+// template struct std::experimental::stack_vector<moint, 0>;
+// // non-trivial non-empty:
+// template struct std::experimental::stack_vector<moint, 1>;
+// template struct std::experimental::stack_vector<moint, 2>;
+// template struct std::experimental::stack_vector<moint, 3>;
 
 template <typename T, std::size_t N>
 using vector = std::experimental::stack_vector<T, N>;
@@ -52,6 +80,33 @@ constexpr bool test_bounds(vector<T, N> const& v, std::size_t sz) {
 
   return true;
 }
+
+class A {
+  int i_;
+  double d_;
+
+  A(const A&);
+  A& operator=(const A&);
+
+ public:
+  A(int i, double d) : i_(i), d_(d) {}
+
+  A(A&& a) : i_(a.i_), d_(a.d_) {
+    a.i_ = 0;
+    a.d_ = 0;
+  }
+
+  A& operator=(A&& a) {
+    i_   = a.i_;
+    d_   = a.d_;
+    a.i_ = 0;
+    a.d_ = 0;
+    return *this;
+  }
+
+  int geti() const { return i_; }
+  double getd() const { return d_; }
+};
 
 int main() {
   std::cerr << "here-10" << std::endl;
@@ -183,10 +238,6 @@ int main() {
     assert(a.size() == std::size_t(10));
   }
 
-  {
-   // erase
-  }
-
   {  // resize copyable
     using Copyable = int;
     std::cerr << "here1" << std::endl;
@@ -197,7 +248,9 @@ int main() {
     test_contiguous(a);
     for (int i = 0; i != 10; ++i) assert(a[i] == 5);
     a.resize(5);
+    std::cerr << a.size() << std::endl;
     assert(a.size() == std::size_t(5));
+
     assert(a.capacity() == std::size_t(10));
     test_contiguous(a);
     a.resize(9);
@@ -220,6 +273,7 @@ int main() {
     assert(a.size() == std::size_t(10));
     assert(a.capacity() == std::size_t(10));
     a.resize(5);
+    test_contiguous(a);
     assert(a.size() == std::size_t(5));
     assert(a.capacity() == std::size_t(10));
     a.resize(9);
@@ -227,7 +281,35 @@ int main() {
     assert(a.capacity() == std::size_t(10));
   }
 
+  {  // resize value:
+    using Copyable = int;
+    vector<Copyable, 10> a(std::size_t(10));
+    assert(a.size() == std::size_t(10));
+    assert(a.capacity() == std::size_t(10));
+    test_contiguous(a);
+    for (int i = 0; i != 10; ++i) assert(a[i] == 0);
+    a.resize(5);
+    assert(a.size() == std::size_t(5));
+    assert(a.capacity() == std::size_t(10));
+    test_contiguous(a);
+    for (int i = 0; i != 5; ++i) assert(a[i] == 0);
+    a.resize(9, 5);
+    for (int i = 0; i != 5; ++i) assert(a[i] == 0);
+    for (int i = 5; i != 9; ++i) assert(a[i] == 5);
+    assert(a.size() == std::size_t(9));
+    assert(a.capacity() == std::size_t(10));
+    test_contiguous(a);
+    a.resize(10, 3);
+    for (int i = 0; i != 5; ++i) assert(a[i] == 0);
+    for (int i = 5; i != 9; ++i) assert(a[i] == 5);
+    assert(a[9] == 3);
+    assert(a.size() == std::size_t(10));
+    assert(a.capacity() == std::size_t(10));
+    test_contiguous(a);
+  }
+
   {  // assign copy
+    vector<int, 3> z(3, 5);
     vector<int, 3> a = {0, 1, 2};
     assert(a.size() == std::size_t{3});
     vector<int, 3> b;
@@ -320,5 +402,304 @@ int main() {
     static_assert(a.size() == std::size_t{0}, "");
   }
 
-  return 0;
+  {  // back and front:
+    using C = vector<int, 2>;
+    C c(1);
+    assert(c.back() == 0);
+    assert(c.front() == 0);
+    assert(c[0] == 0);
+    c.clear();
+    c.push_back(1);
+    assert(c.back() == 1);
+    assert(c.front() == 1);
+    assert(c[0] == 1);
+    assert(c.size() == 1);
+    c.push_back(2);
+    assert(c.back() == 2);
+    assert(c.front() == 1);
+    assert(c[0] == 1);
+    assert(c[1] == 2);
+    assert(c.size() == 2);
+    c.pop_back();
+    assert(c.front() == 1);
+    assert(c[0] == 1);
+    assert(c.back() == 1);
+    c.pop_back();
+    assert(c.size() == 0);
+  }
+
+  {  // const back:
+    using C = vector<int, 2>;
+    const C c(1);
+    assert(c.back() == 0);
+    assert(c.front() == 0);
+    assert(c[0] == 0);
+    assert(c.size() == 1);
+  }
+
+  {  // swap: same type
+    using C = vector<int, 5>;
+    C c0(3, 5);
+    C c1(5, 1);
+    C c2(0);
+    assert(c0.size() == std::size_t(3));
+    assert(c1.size() == std::size_t(5));
+    assert(c2.size() == std::size_t(0));
+    for (int i = 0; i != 3; ++i) { assert(c0[i] == 5); }
+    for (int i = 0; i != 5; ++i) { assert(c1[i] == 1); }
+    c0.swap(c1);
+    assert(c0.size() == std::size_t(5));
+    assert(c1.size() == std::size_t(3));
+    for (int i = 0; i != 5; ++i) { assert(c0[i] == 1); }
+    for (int i = 0; i != 3; ++i) { assert(c1[i] == 5); }
+    c2.swap(c1);
+    assert(c1.size() == std::size_t(0));
+    assert(c2.size() == std::size_t(3));
+    for (int i = 0; i != 3; ++i) { assert(c2[i] == 5); }
+  }
+
+  {  // std::swap: same type
+    using C = vector<int, 5>;
+    C c0(3, 5);
+    C c1(5, 1);
+    C c2(0);
+    assert(c0.size() == std::size_t(3));
+    assert(c1.size() == std::size_t(5));
+    assert(c2.size() == std::size_t(0));
+    for (int i = 0; i != 3; ++i) { assert(c0[i] == 5); }
+    for (int i = 0; i != 5; ++i) { assert(c1[i] == 1); }
+    std::swap(c0, c1);
+    assert(c0.size() == std::size_t(5));
+    assert(c1.size() == std::size_t(3));
+    for (int i = 0; i != 5; ++i) { assert(c0[i] == 1); }
+    for (int i = 0; i != 3; ++i) { assert(c1[i] == 5); }
+    std::swap(c2, c1);
+    assert(c1.size() == std::size_t(0));
+    assert(c2.size() == std::size_t(3));
+    for (int i = 0; i != 3; ++i) { assert(c2[i] == 5); }
+  }
+
+  {  // TODO: throwing swap different types
+    vector<int, 5> v;
+    assert(v.data() != nullptr);
+
+    vector<int, 0> v0;
+    assert(v0.data() == nullptr);
+
+    const vector<int, 5> cv;
+    assert(cv.data() != nullptr);
+
+    const vector<int, 0> cv0;
+    assert(cv0.data() == nullptr);
+  }
+
+  {// emplace:
+   {vector<A, 3> c;
+  vector<A, 3>::iterator i = c.emplace(c.cbegin(), 2, 3.5);
+  assert(i == c.begin());
+  assert(c.size() == 1);
+  assert(c.front().geti() == 2);
+  assert(c.front().getd() == 3.5);
+  i = c.emplace(c.cend(), 3, 4.5);
+  assert(i == c.end() - 1);
+  assert(c.size() == 2);
+  assert(c.front().geti() == 2);
+  assert(c.front().getd() == 3.5);
+  assert(c.back().geti() == 3);
+  assert(c.back().getd() == 4.5);
+  i = c.emplace(c.cbegin() + 1, 4, 6.5);
+  assert(i == c.begin() + 1);
+  assert(c.size() == 3);
+  assert(c.front().geti() == 2);
+  assert(c.front().getd() == 3.5);
+  assert(c[1].geti() == 4);
+  assert(c[1].getd() == 6.5);
+  assert(c.back().geti() == 3);
+  assert(c.back().getd() == 4.5);
+}
+{
+  vector<A, 3> c;
+  vector<A, 3>::iterator i = c.emplace(c.cbegin(), 2, 3.5);
+  assert(i == c.begin());
+  assert(c.size() == 1);
+  assert(c.front().geti() == 2);
+  assert(c.front().getd() == 3.5);
+  i = c.emplace(c.cend(), 3, 4.5);
+  assert(i == c.end() - 1);
+  assert(c.size() == 2);
+  assert(c.front().geti() == 2);
+  assert(c.front().getd() == 3.5);
+  assert(c.back().geti() == 3);
+  assert(c.back().getd() == 4.5);
+  i = c.emplace(c.cbegin() + 1, 4, 6.5);
+  assert(i == c.begin() + 1);
+  assert(c.size() == 3);
+  assert(c.front().geti() == 2);
+  assert(c.front().getd() == 3.5);
+  assert(c[1].geti() == 4);
+  assert(c[1].getd() == 6.5);
+  assert(c.back().geti() == 3);
+  assert(c.back().getd() == 4.5);
+}
+}
+
+{// emplace_back
+ {vector<A, 2> c;
+c.emplace_back(2, 3.5);
+assert(c.size() == 1);
+assert(c.front().geti() == 2);
+assert(c.front().getd() == 3.5);
+c.emplace_back(3, 4.5);
+assert(c.size() == 2);
+assert(c.front().geti() == 2);
+assert(c.front().getd() == 3.5);
+assert(c.back().geti() == 3);
+assert(c.back().getd() == 4.5);
+}
+{
+  vector<A, 2> c;
+  c.emplace_back(2, 3.5);
+  assert(c.size() == 1);
+  assert(c.front().geti() == 2);
+  assert(c.front().getd() == 3.5);
+  c.emplace_back(3, 4.5);
+  assert(c.size() == 2);
+  assert(c.front().geti() == 2);
+  assert(c.front().getd() == 3.5);
+  assert(c.back().geti() == 3);
+  assert(c.back().getd() == 4.5);
+}
+}
+
+{// emplace extra:
+ {vector<int, 4> v;
+v = {1, 2, 3};
+v.emplace(v.begin(), v.back());
+assert(v[0] == 3);
+}
+{
+  vector<int, 4> v;
+  v = {1, 2, 3};
+  v.emplace(v.begin(), v.back());
+  assert(v[0] == 3);
+}
+}
+
+{// erase
+ {int a1[] = {1, 2, 3};
+vector<int, 4> l1(a1, a1 + 3);
+assert(l1.size() == 3);
+vector<int, 4>::const_iterator i = l1.begin();
+++i;
+vector<int, 4>::iterator j = l1.erase(i);
+assert(l1.size() == 2);
+assert(std::distance(l1.begin(), l1.end()) == 2);
+assert(*j == 3);
+assert(*l1.begin() == 1);
+assert(*std::next(l1.begin()) == 3);
+j = l1.erase(j);
+assert(j == l1.end());
+assert(l1.size() == 1);
+assert(std::distance(l1.begin(), l1.end()) == 1);
+assert(*l1.begin() == 1);
+j = l1.erase(l1.begin());
+assert(j == l1.end());
+assert(l1.size() == 0);
+assert(std::distance(l1.begin(), l1.end()) == 0);
+}
+}
+
+{  // erase iter iter
+  int a1[]    = {1, 2, 3};
+  using vec_t = vector<int, 5>;
+  {
+    vec_t l1(a1, a1 + 3);
+    vec_t::iterator i = l1.erase(l1.cbegin(), l1.cbegin());
+    assert(l1.size() == 3);
+    assert(std::distance(l1.cbegin(), l1.cend()) == 3);
+    assert(i == l1.begin());
+  }
+  {
+    vec_t l1(a1, a1 + 3);
+    vec_t::iterator i = l1.erase(l1.cbegin(), std::next(l1.cbegin()));
+    assert(l1.size() == 2);
+    assert(std::distance(l1.cbegin(), l1.cend()) == 2);
+    assert(i == l1.begin());
+    assert(l1 == vec_t(a1 + 1, a1 + 3));
+  }
+  {
+    vec_t l1(a1, a1 + 3);
+    vec_t::iterator i = l1.erase(l1.cbegin(), std::next(l1.cbegin(), 2));
+    assert(l1.size() == 1);
+    assert(std::distance(l1.cbegin(), l1.cend()) == 1);
+    assert(i == l1.begin());
+    assert(l1 == vec_t(a1 + 2, a1 + 3));
+  }
+  {
+    vec_t l1(a1, a1 + 3);
+    vec_t::iterator i = l1.erase(l1.cbegin(), std::next(l1.cbegin(), 3));
+    assert(l1.size() == 0);
+    assert(std::distance(l1.cbegin(), l1.cend()) == 0);
+    assert(i == l1.begin());
+  }
+  {
+    vector<vec_t, 3> outer(2, vec_t(1));
+    outer.erase(outer.begin(), outer.begin());
+    assert(outer.size() == 2);
+    assert(outer[0].size() == 1);
+    assert(outer[1].size() == 1);
+  }
+}
+
+{// insert init list
+ {vector<int, 15> d(10, 1);
+vector<int, 15>::iterator i = d.insert(d.cbegin() + 2, {3, 4, 5, 6});
+assert(d.size() == 14);
+assert(i == d.begin() + 2);
+assert(d[0] == 1);
+assert(d[1] == 1);
+assert(d[2] == 3);
+assert(d[3] == 4);
+assert(d[4] == 5);
+assert(d[5] == 6);
+assert(d[6] == 1);
+assert(d[7] == 1);
+assert(d[8] == 1);
+assert(d[9] == 1);
+assert(d[10] == 1);
+assert(d[11] == 1);
+assert(d[12] == 1);
+assert(d[13] == 1);
+}
+}
+
+{  // insert iter iter
+  {
+    vector<int, 120> v(100);
+    int a[]             = {1, 2, 3, 4, 5};
+    const std::size_t N = sizeof(a) / sizeof(a[0]);
+    vector<int, 120>::iterator i = v.insert(v.cbegin() + 10, (a + 0), (a + N));
+    assert(v.size() == 100 + N);
+    assert(i == v.begin() + 10);
+    int j;
+    for (j = 0; j < 10; ++j) assert(v[j] == 0);
+    for (std::size_t k = 0; k < N; ++j, ++k) assert(v[j] == a[k]);
+    for (; j < 105; ++j) assert(v[j] == 0);
+  }
+  {
+    vector<int, 120> v(100);
+    size_t sz        = v.size();
+    int a[]          = {1, 2, 3, 4, 5};
+    const unsigned N = sizeof(a) / sizeof(a[0]);
+    vector<int, 120>::iterator i = v.insert(v.cbegin() + 10, (a + 0), (a + N));
+    assert(v.size() == sz + N);
+    assert(i == v.begin() + 10);
+    std::size_t j;
+    for (j = 0; j < 10; ++j) assert(v[j] == 0);
+    for (std::size_t k = 0; k < N; ++j, ++k) assert(v[j] == a[k]);
+    for (; j < v.size(); ++j) assert(v[j] == 0);
+  }
+}
+
+return 0;
 }

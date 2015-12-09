@@ -48,9 +48,10 @@
 //===----------------------------------------------------------------------===//
 //
 #include <cassert>
-#include <cstddef>    // for size_t
-#include <iterator>   // for reverse_iterator
-#include <stdexcept>  // for length_error
+#include <cstddef>     // for size_t
+#include <functional>  // for less and equal_to
+#include <iterator>    // for reverse_iterator
+#include <stdexcept>   // for length_error
 #include <type_traits>
 
 namespace std {
@@ -101,12 +102,26 @@ static_assert(OutputIterator<int*>{}, "");
 template <typename From, typename To>
 struct Convertible : is_convertible<unref_t<From>, unref_t<To>> {};
 
+template <typename T>
+struct CopyConstructible : is_copy_constructible<uncvref_t<T>> {};
+
 #define REQUIRES_(...) typename = enable_if_t<(__VA_ARGS__)>
+
+#define REQUIRES(...)       \
+  template <int dummy = 42, \
+            typename  = enable_if_t<(dummy == 43) || (__VA_ARGS__)>>
 
 template <typename InputIt, typename OutputIt,
           REQUIRES_(InputIterator<InputIt>{} and OutputIterator<OutputIt>{})>
 constexpr OutputIt move_backward(InputIt b, InputIt e, OutputIt to) {
   while (b != e) { *(--to) = move(*(--e)); }
+  return to;
+}
+
+template <typename InputIt, typename OutputIt,
+          REQUIRES_(InputIterator<InputIt>{} and OutputIterator<OutputIt>{})>
+constexpr OutputIt move(InputIt b, InputIt e, OutputIt to) {
+  for (; b != e; ++b, (void)++to) { *to = std::move(*b); }
   return to;
 }
 
@@ -133,6 +148,29 @@ constexpr void slow_rotate(ForwardIt first, ForwardIt n_first, ForwardIt last) {
       n_first = next;
     }
   }
+}
+
+template <class _BinaryPredicate, class _InputIterator1, class _InputIterator2>
+constexpr bool equal(_InputIterator1 __first1, _InputIterator1 __last1,
+                     _InputIterator2 __first2, _InputIterator2 __last2,
+                     _BinaryPredicate __pred) {
+  for (; __first1 != __last1 && __first2 != __last2;
+       ++__first1, (void)++__first2)
+    if (!__pred(*__first1, *__first2)) return false;
+  return __first1 == __last1 && __first2 == __last2;
+}
+
+template <class _Compare, class _InputIterator1, class _InputIterator2>
+constexpr bool lexicographical_compare(_InputIterator1 __first1,
+                                       _InputIterator1 __last1,
+                                       _InputIterator2 __first2,
+                                       _InputIterator2 __last2,
+                                       _Compare __comp) {
+  for (; __first2 != __last2; ++__first1, (void)++__first2) {
+    if (__first1 == __last1 || __comp(*__first1, *__first2)) return true;
+    if (__comp(*__first2, *__first1)) return false;
+  }
+  return false;
 }
 
 /// Storage for a vector of non-trivial elements
@@ -195,40 +233,6 @@ struct storage {
   /// Destroys all elements of the vector without changing its size (unsafe)
   constexpr void unsafe_destroy_all() noexcept {
     unsafe_destroy(data(), data() + size());
-  }
-
-  /// Requires Movable (note: std::move_iterator is not constexpr)
-  template <class InputIt, REQUIRES_(InputIterator<InputIt>{})>
-  constexpr void move_assign(InputIt first, InputIt last) {
-    unsafe_destroy_all();
-    unsafe_set_size(0);
-    auto b = data();
-    for (; first != last; ++first, ++b) {
-      if (size() < Capacity) {
-        new (b) T(std::move(*first));  // MoveConstructible
-        ++size_;
-      } else {
-        unsafe_destroy_all();
-        unsafe_set_size(0);
-        throw length_error("");
-      }
-    }
-  }
-
-  constexpr void copy_assign(size_t n, T const& u) {
-    unsafe_destroy_all();
-    unsafe_set_size(0);
-    auto b = data();
-    for (; n != 0; --n, ++b) {
-      if (size() < Capacity) {
-        new (b) T(u);  // CopyConstructible
-        ++size_;
-      } else {
-        unsafe_destroy_all();
-        unsafe_set_size(0);
-        throw length_error("");
-      }
-    }
   }
 
  public:
@@ -301,44 +305,6 @@ struct storage<T, Capacity, true> {
   /// Destroys all elements of the vector without changing its size (unsafe)
   static constexpr void unsafe_destroy_all() noexcept {}
 
-  template <class InputIt, REQUIRES_(InputIterator<InputIt>{})>
-  void copy_assign(InputIt first, InputIt last) {
-    size_t new_size = 0;
-    auto b          = data();
-    for (; first != last; ++first, ++b) {
-      if (new_size < Capacity) {
-        *b = *first;
-        ++b;
-        ++new_size;
-      } else {
-        throw length_error("");
-      }
-    }
-    unsafe_set_size(new_size);
-  }
-
-  template <class InputIt, REQUIRES_(InputIterator<InputIt>{})>
-  void move_assign(InputIt first, InputIt last) {
-    size_t new_size = 0;
-    auto b          = data();
-    for (; first != last; ++first, ++b) {
-      if (new_size < Capacity) {
-        *b = std::move(*first);
-        ++b;
-        ++new_size;
-      } else {
-        throw length_error("");
-      }
-    }
-    unsafe_set_size(new_size);
-  }
-
-  void copy_assign(size_t n, const T& u) {
-    if (n > Capacity) { throw length_error(""); }
-    for (size_t i = 0; i != n; ++i) { data_[i] = u; }
-    unsafe_set_size(n);
-  }
-
  public:
   constexpr storage()               = default;
   constexpr storage(storage const&) = default;
@@ -361,7 +327,6 @@ struct storage<T, Capacity, true> {
   constexpr storage& operator=(storage const&) = default;
   constexpr storage(storage&&)                 = default;
   constexpr storage& operator=(storage&&) = default;
-  // constexpr ~storage()                    = default;
 };
 
 template <typename T> struct empty_storage {
@@ -403,10 +368,6 @@ template <typename T> struct empty_storage {
   }
 
   static constexpr void pop_back() noexcept { assert(false); }
-
-  template <class InputIt> void move_assign(InputIt first, InputIt last) {
-    assert(first == last);
-  }
 
   explicit empty_storage(size_t n) { assert(n == size_t(0)); }
   empty_storage()                     = default;
@@ -453,13 +414,15 @@ struct stack_vector
   using base_t::unsafe_set_size;
   using base_t::unsafe_destroy;
   using base_t::unsafe_destroy_all;
-  using base_t::move_assign;
 
   template <typename It>
   using InputIterator = stack_vector_detail::InputIterator<It>;
 
   template <typename From, typename To>
   using Convertible = stack_vector_detail::Convertible<From, To>;
+
+  template <typename U>
+  using CopyConstructible = stack_vector_detail::CopyConstructible<U>;
 
   template <typename U> using uncvref_t = stack_vector_detail::uncvref_t<U>;
 
@@ -512,6 +475,7 @@ struct stack_vector
   constexpr explicit stack_vector(size_type n) { insert(begin(), n); }
 
   /// can always throw if n > Capacity
+  REQUIRES(CopyConstructible<T>{})
   constexpr stack_vector(size_type n, const T& value) {
     insert(begin(), n, value);
   }
@@ -542,11 +506,10 @@ struct stack_vector
   constexpr stack_vector(stack_vector<T, M>&& other) noexcept(
    M <= Capacity and is_nothrow_move_constructible<T>{}
    and is_nothrow_move_assignable<T>{}) {
-    move_assign(begin(other), end(other));
+    move_insert(this->begin(), begin(other), end(other));
   }
 
-  /// same capacity so can only throw if copy constructor or copy assignment
-  /// can
+  /// same capacity so can only throw if copy constructor or copy assignment can
   /// throw
   constexpr stack_vector(stack_vector const& other) noexcept(
    is_nothrow_copy_assignable<T>{} and is_nothrow_copy_constructible<T>{}) {
@@ -562,7 +525,7 @@ struct stack_vector
    is_nothrow_move_assignable<T>{} and is_nothrow_move_constructible<T>{}) {
     using std::begin;
     using std::end;
-    move_assign(begin(other), end(other));
+    move_insert(this->begin(), begin(other), end(other));
   }
   // can always throw if il.size() > capacity()
   template <typename Value, typename... Values,
@@ -597,7 +560,8 @@ struct stack_vector
    is_nothrow_move_assignable<T>{} and is_nothrow_move_constructible<T>{}) {
     using std::begin;
     using std::end;
-    move_assign(begin(other), end(other));
+    clear();
+    move_insert(this->begin(), begin(other), end(other));
     return *this;
   }
 
@@ -617,7 +581,8 @@ struct stack_vector
    is_nothrow_move_assignable<T>{} and is_nothrow_move_constructible<T>{}) {
     using std::begin;
     using std::end;
-    move_assign(begin(other), end(other));
+    clear();
+    move_insert(this->begin(), begin(other), end(other));
     return *this;
   }
 
@@ -626,20 +591,26 @@ struct stack_vector
     clear();
     insert(begin(), first, last);
   }
+
+  REQUIRES(CopyConstructible<T>{})
   constexpr void assign(size_type n, const T& u) {
     clear();
     insert(begin(), n, u);
   }
+  REQUIRES(CopyConstructible<T>{})
   constexpr void assign(initializer_list<T> const& il) {
     using std::begin;
     using std::end;
     clear();
     insert(this->begin(), begin(il), end(il));
   }
+  // cannot move elements out of an initializer_list
+  REQUIRES(CopyConstructible<T>{})
   constexpr void assign(initializer_list<T>&& il) {
     using std::begin;
     using std::end;
-    move_assign(begin(il), end(il));
+    clear();
+    insert(this->begin(), begin(il), end(il));
   }
 
 ///@}  // Construct/copy/move/destroy
@@ -701,7 +672,7 @@ struct stack_vector
 #ifndef stack_vector_DOXYGEN_INVOKED
   // Explicitly deleted to improve error messages since the storage of the
   // vector cannot be resized
-  void reserve(size_type n) = delete;
+  void reserve(size_type n) /* stack_vector has FIXED CAPACITY */ = delete;
 #endif  // stack_vector_DOXYGEN_INVOKED
 
   /// Resizes the container to contain \p sz elements. If elements need to be
@@ -733,7 +704,7 @@ struct stack_vector
   /// - if sz < size, (`size()` - sz) destructions of \p value and
   ///   `size()` will return \p sz on success.
   ///
-  /// TODO: constrain: CopyInsertable
+  REQUIRES(CopyConstructible<T>{})
   constexpr void resize(size_type sz, T const& value) noexcept(
    is_nothrow_copy_constructible<T>{} and is_nothrow_destructible<T>{}) {
     if (sz == size()) { return; }
@@ -846,19 +817,23 @@ struct stack_vector
     return (*this)[pos];
   }
 
+  REQUIRES(Capacity > 0)
   constexpr reference front() noexcept {
     assert(size() > 0);
     return *begin();
   }
+  REQUIRES(Capacity > 0)
   constexpr const_reference front() const noexcept {
     assert(size() > 0);
     return *begin();
   }
 
+  REQUIRES(Capacity > 0)
   constexpr reference back() noexcept {
     assert(size() > 0);
     return *(end() - 1);
   }
+  REQUIRES(Capacity > 0)
   constexpr const_reference back() const noexcept {
     assert(size() > 0);
     return *(end() - 1);
@@ -939,11 +914,14 @@ struct stack_vector
 
   template <class... Args>
   constexpr iterator emplace(const_iterator position, Args&&... args) {
-    return insert(position, value_type(forward<Args>(args)...));
+    value_type a(forward<Args>(args)...);
+    return move_insert(position, &a, &a + 1);
   }
+  REQUIRES(CopyConstructible<T>{})
   constexpr iterator insert(const_iterator position, const_reference x) {
     return insert(position, size_type(1), x);
   }
+  REQUIRES(CopyConstructible<T>{})
   constexpr iterator insert(const_iterator position, size_type n, const T& x) {
     const auto new_size = size() + n;
     if (new_size > capacity()) throw length_error("");
@@ -962,7 +940,10 @@ struct stack_vector
     const auto new_size = size() + n;
     if (new_size > capacity()) throw length_error("");
     auto b = end();
-    while (n != 0) { emplace_back(); --n;}
+    while (n != 0) {
+      emplace_back();
+      --n;
+    }
 
     iterator writable_position = begin() + (position - begin());
     stack_vector_detail::slow_rotate(writable_position, b, end());
@@ -992,6 +973,30 @@ struct stack_vector
     return writable_position;
   }
 
+  template <class InputIt, REQUIRES_(InputIterator<InputIt>{})>
+  constexpr iterator move_insert(const_iterator position, InputIt first,
+                                 InputIt last) {
+    // Decided against optimization for ForwardIterator: we could compute the
+    // distance and throw early if it exceeds the capacity, but that makes
+    // things faster in the exceptional path, and the extra distance computation
+    // makes things slower in the non-exceptional path.
+    //
+    // TODO: apply this optimization for RandomAccessIterator since then it has
+    // ~zero-cost.
+    auto b = end();
+    //    try {  // if copy_constructor throws you get basic-guarantee?
+    for (; first != last; ++first) { push_back(std::move(*first)); }
+    // } catch (...) {
+    //   erase(b, end());
+    //   throw;
+    // }
+    // we insert at the end and then just rotate:
+    auto writable_position = begin() + (position - begin());
+    stack_vector_detail::slow_rotate(writable_position, b, end());
+    return writable_position;
+  }
+
+  REQUIRES(CopyConstructible<T>{})
   constexpr iterator insert(const_iterator position, initializer_list<T> il) {
     using std::begin;
     using std::end;
@@ -1001,17 +1006,15 @@ struct stack_vector
     return erase(position, position + 1);
   }
   constexpr iterator erase(const_iterator first, const_iterator last) {
-    iterator f = begin() + (first - begin());
-    iterator l = begin() + (last - begin());
-    if (last != end()) {
-      for (iterator i = l + 1, e = end(); i != e; ++i) {
-        using stack_vector_detail::swap;
-        swap(*i, *(f++));
-      }
+    assert(first <= last);
+    iterator p = begin() + (first - begin());
+    if (first != last) {
+      unsafe_destroy(stack_vector_detail::move(p + (last - first), end(), p),
+                     end());
+      unsafe_set_size(size() - (last - first));
     }
-    unsafe_set_size(size() - (end() - f));
-    unsafe_destroy(f, l);
-    return end();
+
+    return p;
   }
 
   constexpr void clear() noexcept(is_nothrow_destructible<T>{}) {
@@ -1019,20 +1022,57 @@ struct stack_vector
     unsafe_set_size(0);
   }
 
-  // TODO: this is rough
+  // TODO: this is rough use std::swap
   constexpr void swap(stack_vector& other) noexcept(
    noexcept(stack_vector_detail::swap(declval<T&>(), declval<T&>()))) {
-    stack_vector tmp = other;
-    other            = (*this);
-    (*this)          = tmp;
+    using stack_vector_detail::swap;
+    stack_vector tmp = std::move(other);
+    other            = std::move(*this);
+    (*this)          = std::move(tmp);
   }
+
+  /// TODO: swap for different capacities
 
   ///@}  // Modifiers
 };
+
+template <typename T, std::size_t C0, std::size_t C1>
+constexpr bool operator==(const stack_vector<T, C0>& a,
+                          const stack_vector<T, C1>& b) {
+  return stack_vector_detail::equal(a.begin(), a.end(), b.begin(), b.end(),
+                                    equal_to<>{});
+}
+template <typename T, std::size_t C0, std::size_t C1>
+constexpr bool operator!=(const stack_vector<T, C0>& a,
+                          const stack_vector<T, C1>& b) {
+  return !(a == b);
+}
+template <typename T, std::size_t C0, std::size_t C1>
+constexpr bool operator<(const stack_vector<T, C0>& a,
+                         const stack_vector<T, C1>& b) {
+  return stack_vector_detail::lexicographical_compare(
+   a.begin(), a.end(), b.begin(), b.end(), less<>{});
+}
+template <typename T, std::size_t C0, std::size_t C1>
+constexpr bool operator<=(const stack_vector<T, C0>& a,
+                          const stack_vector<T, C1>& b) {
+  return !(a > b);
+}
+template <typename T, std::size_t C0, std::size_t C1>
+constexpr bool operator>(const stack_vector<T, C0>& a,
+                         const stack_vector<T, C1>& b) {
+  return b < a;
+}
+template <typename T, std::size_t C0, std::size_t C1>
+constexpr bool operator>=(const stack_vector<T, C0>& a,
+                          const stack_vector<T, C1>& b) {
+  return !(a < b);
+}
 
 }  // namespace experimental
 }  // namespace std
 
 #undef REQUIRES_
+#undef REQUIRES
 
 #endif  // STD_EXPERIMENTAL_STACK_VECTOR
