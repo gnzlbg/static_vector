@@ -344,7 +344,6 @@ The list of types is the same as `std::vector`, with the exception of
 
 ## Storage
 
-  ```
 
 ## Construction/Assignment/Destruction
 
@@ -481,11 +480,11 @@ propose anything about them.
      ```
      Working around this issue is _very very painful_.
 
+
 <!-- Links -->
 [stack_alloc]: https://howardhinnant.github.io/stack_alloc.html
 [stack_vector]: http://github.com/gnzlbg/stack_vector
 [boost_static_vector]: http://www.boost.org/doc/libs/1_59_0/doc/html/boost/container/static_vector.html
-
 [travis-shield]: https://img.shields.io/travis/gnzlbg/stack_vector.svg?style=flat-square
 [travis]: https://travis-ci.org/gnzlbg/stack_vector
 [coveralls-shield]: https://img.shields.io/coveralls/gnzlbg/stack_vector.svg?style=flat-square
