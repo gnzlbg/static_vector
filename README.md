@@ -340,7 +340,10 @@ constexpr void pop_back();
 
 template<class... Args>
   constexpr iterator emplace(const_iterator position, Args&&...args);
-constexpr iterator insert(const_iterator position, const T& x);
+constexpr iterator insert(const_iterator position, const value_type& x);
+
+// TODO: document: std::vector does not provide an insert for rvalues/move-only types
+constexpr iterator insert(const_iterator position, value_type&& x);
 constexpr iterator insert(const_iterator position, size_type n, const T& x);
 template<class InputIterator>
   constexpr iterator insert(const_iterator position, InputIterator first, InputIterator last);
