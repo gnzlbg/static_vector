@@ -341,7 +341,7 @@ constexpr stack_vector(stack_vector const& other);
   noexcept(is_nothrow_copy_constructible<value_type>{});
   constexpr stack_vector(stack_vector&& other)
   noexcept(is_nothrow_move_constructible<value_type>{});
-constexpr stack_vector(initializer_list<value_type> il);
+constexpr stack_vector(initializer_list<value_type> il);  // TODO: unimplementable!
 
 static constexpr stack_vector default_initialized(size_t n);
 
@@ -392,9 +392,12 @@ void shrink_to_fit() /* QoI */ = deleted;
 
 constexpr void resize_default_initialized(size_type sz);
 
-constexpr void resize_unchecked(size_type sz);
-constexpr void resize_unchecked_default_initialized(size_type sz);
-constexpr void resize_unchecked(size_type sz, const value_type& c);
+constexpr void resize_unchecked(size_type sz)
+  noexcept(is_nothrow_default_constructible<T>{} and is_nothrow_destructible<T>{});
+constexpr void resize_unchecked(size_type sz, const value_type& c)
+  noexcept(is_nothrow_copy_constructible<T>{} and is_nothrow_destructible<T>{});
+constexpr void resize_unchecked_default_initialized(size_type sz)
+  noexcept(is_nothrow_default_constructible<T>{} and is_nothrow_destructible<T>{});
 
 
 // element access:
@@ -511,11 +514,6 @@ The memory layout of `stack_vector` offers the following guarantees:
 
 
 ## Construction/Assignment/Destruction
-
-
-
-
-
 
 ### Construction
 
@@ -727,6 +725,7 @@ template<std::size_t M, enable_if_t<(C != M)>>
     noexcept(is_nothrow_move_constructible<value_type>{} and C >= M);
 ```
 
+**TODO: the following initializer list constructor is unimplementable!!**
 ```c++
 /// Constructs a stack_vector whose elements are copied from \p il.
 ///
@@ -779,7 +778,40 @@ static constexpr stack_vector default_initialized(size_t n);
 
 ### Assignment
 
+```c++
+constexpr stack_vector<value_type, C>& operator=(stack_vector const& other)
+  noexcept(is_nothrow_copy_assignable<value_type>{});
+```
 
+```c++
+constexpr stack_vector<value_type, C>& operator=(stack_vector && other);
+  noexcept(is_nothrow_move_assignable<value_type>{});
+```
+
+```c++
+template<std::size_t M, enable_if_t<(C != M)>>
+  constexpr stack_vector<value_type, C>& operator=(stack_vector<value_type, M>const& other)
+    noexcept(is_nothrow_copy_assignable<value_type>{} and C >= M);
+```
+
+```c++
+template<std::size_t M, enable_if_t<(C != M)>>
+  constexpr stack_vector<value_type, C>& operator=(stack_vector<value_type, M>&& other);
+    noexcept(is_nothrow_move_assignable<value_type>{} and C >= M);
+```
+
+```c++
+template<class InputIterator>
+constexpr void assign(InputIterator first, InputIterator last);
+```
+
+```c++
+constexpr void assign(size_type n, const value_type& u);
+```
+
+```c++
+constexpr void assign(initializer_list<value_type> il);
+```
 
 ### Destruction
 
@@ -790,34 +822,142 @@ if `value_type` models `TrivialType`. TODO: noexcept-ness?
 constexpr ~stack_vector(); // implicitly generated
 ```
 
-### Static methods
-
-- a `static constexpr stack_vector default_initialized(size_t n)` method is
-  provided which returns a vector of `n` default initialized elements. An
-  alternative would be to provide a tag for this.
-
 ## Iterators
 
-- all iteration methods are constexpr, except
-  - the reverse iterator methods since that would require
-    `std::reverse_iterator` to be constexpr-friendly, and that is not being
-    proposed here.
+For all iterator functions:
 
-- the time complexity of the iterator functions is O(1)
-- the space complexity of the iterator functions is O(1)
-- the iterator functions are noexcept
+```c++
+constexpr iterator               begin()         noexcept;
+constexpr const_iterator         begin()   const noexcept;
+constexpr iterator               end()           noexcept;
+constexpr const_iterator         end()     const noexcept;
 
-## Size
+          reverse_iterator       rbegin()        noexcept;
+          const_reverse_iterator rbegin()  const noexcept;
+          reverse_iterator       rend()          noexcept;
+          const_reverse_iterator rend()    const noexcept;
 
-- the time complexity of the size functions is O(1)
-- the space complexity of the size functions is O(1)
-- the size functions are noexcept
+constexpr const_iterator         cbegin()        noexcept;
+constexpr const_iterator         cend()    const noexcept;
+          const_reverse_iterator crbegin()       noexcept;
+          const_reverse_iterator crend()   const noexcept;
+```
 
+the following holds:
+
+- Requirements: none.
+- Enabled: always.
+- Complexity: constant time and space.
+- Exception safety: never throw.
+- Constexpr: always, except:
+  - for the `reverse_iterator` functions, since `std::reverse_iterator<Iterator>`
+  will not be `constexpr` even for types like `T*`.
+- Effects: none.
+
+
+## Size / capacity
+
+For the following size / capacity functions: 
+
+```c++
+constexpr size_type size()     const noexcept;
+static constexpr size_type capacity() noexcept;
+static constexpr size_type max_size() noexcept;
+constexpr bool empty() const noexcept;
+```
+the following holds:
+
+- Requirements: none.
+- Enabled: always.
+- Complexity: constant time and space.
+- Exception safety: never throw.
+- Constexpr: always.
+- Effects: none.
+
+
+For the checked resize functions:
+
+```c++
+constexpr void resize(size_type sz);
+constexpr void resize(size_type sz, const value_type& c);
+constexpr void resize_default_initialized(size_type sz);
+```
+the following holds:
+
+- Requirements: DefaultInsertable/CopyInsertable.
+- Enabled: if requirements satisfied.
+- Complexity: O(N) time, O(1) space.
+- Exception safety:
+   - basic guarantee: all constructed elements shall be destroyed on failure,
+   - rethrows if `value_type`'s default or copy constructors throws,
+   - throws `bad_alloc` if `new_size > capacity()`.
+- Constexpr: if type models TrivialType.
+- Effects:
+  - if `new_size > size` exactly `new_size - size` elements default/copy constructed.
+  - if `new_size < size` exactly `size - new_size` elements destroyed.
+
+For the unchecked resize functions:
+
+```c++
+constexpr void resize_unchecked(size_type sz)
+  noexcept(is_nothrow_default_constructible<T>{} and is_nothrow_destructible<T>{});
+constexpr void resize_unchecked(size_type sz, const value_type& c)
+  noexcept(is_nothrow_copy_constructible<T>{} and is_nothrow_destructible<T>{});
+constexpr void resize_unchecked_default_initialized(size_type sz)
+  noexcept(is_nothrow_default_constructible<T>{} and is_nothrow_destructible<T>{});
+```
+
+the following holds:
+
+- Requirements: DefaultInsertable/CopyInsertable.
+- Enabled: if requirements satisfied.
+- Complexity: O(N) time, O(1) space.
+- Exception safety:
+  - basic guarantee if default/copy construction throws
+  - undefined behavior if `new_size > capacity()`
+- Constexpr: if type models TrivialType.
+- Effects:
+  - if `new_size > size` exactly `new_size - size` elements default/copy constructed.
+  - if `new_size < size` exactly `size - new_size` elements destroyed.
 
 ## Element access
 
-- should operator[] be noexcept(true) ? TODO: Ask Eric if he thinks this might
-conflict with proxy references in the future
+For the unchecked element access functions:
+
+```c++
+constexpr reference       operator[](size_type n) noexcept; 
+constexpr const_reference operator[](size_type n) const noexcept;
+constexpr reference       front() noexcept;
+constexpr const_reference front() const noexcept;
+constexpr reference       back() noexcept;
+constexpr const_reference back() const noexcept;
+```
+
+the following holds:
+
+- Requirements: none.
+- Enabled: always.
+- Complexity: O(1) in time and space.
+- Exception safety: never throws.
+- Constexpr: if type models TrivialType.
+- Effects: none.
+
+For the checked element access functions:
+
+```c++
+constexpr const_reference at(size_type n) const;
+constexpr reference       at(size_type n);
+```
+
+the following holds:
+
+- Requirements: none.
+- Enabled: always.
+- Complexity: O(1) in time and space.
+- Exception safety:
+  - throws `out_of_range` if `n >= size()`.
+- Constexpr: if type models TrivialType.
+- Effects: none.
 
 ## Swap
 
