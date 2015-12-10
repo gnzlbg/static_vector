@@ -784,10 +784,10 @@ static constexpr stack_vector default_initialized(size_t n);
 ### Destruction
 
 The destructor should be implicitly generated and it should be constexpr
-if `value_type` models `TrivialType`. 
+if `value_type` models `TrivialType`. TODO: noexcept-ness?
 
 ```c++
-constexpr ~stack_vector(); */  // implicitly generated
+constexpr ~stack_vector(); // implicitly generated
 ```
 
 ### Static methods
