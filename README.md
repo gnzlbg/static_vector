@@ -276,7 +276,9 @@ Foot-note: an alternative to `_unchecked` would be to use a tag `unchecked_t`.
 
 ### Constexpr
 
-The whole API of `stack_vector<T, Capacity>` is `constexpr` if `T` is trivial. 
+The whole API of `stack_vector<T, Capacity>` is `constexpr` if `T` models `TrivialType`.
+
+TODO: shouldn't `T` model `LiteralType` ?
 
 ### Explicit instantiation
 
