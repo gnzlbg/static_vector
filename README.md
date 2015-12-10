@@ -276,8 +276,7 @@ Foot-note: an alternative to `_unchecked` would be to use a tag `unchecked_t`.
 
 ### Constexpr
 
-The whole API of `stack_vector<T, Capacity>` is `constexpr` if `T` is trivially
-destructible.
+The whole API of `stack_vector<T, Capacity>` is `constexpr` if `T` is trivial. 
 
 ### Explicit instantiation
 
@@ -329,40 +328,40 @@ typedef reverse_iterator<const_iterator> const_reverse_iterator;
 // construct/copy/move/destroy:
 constexpr stack_vector() noexcept;
 constexpr explicit stack_vector(size_type n);
-constexpr stack_vector(size_type n, const T& value);
+constexpr stack_vector(size_type n, const value_type& value);
 template<class InputIterator>
 constexpr stack_vector(InputIterator first, InputIterator last);
 template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr stack_vector(stack_vector<T, M> const&);
-    noexcept(is_nothrow_copy_constructible<T>{} and C >= M);
+  constexpr stack_vector(stack_vector<value_type, M> const& other);
+    noexcept(is_nothrow_copy_constructible<value_type>{} and C >= M);
 template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr stack_vector(stack_vector<T, M> &&)
-    noexcept(is_nothrow_move_constructible<T>{} and C >= M);
-constexpr stack_vector(stack_vector const&);
-  noexcept(is_nothrow_copy_constructible<T>{});
-  constexpr stack_vector(stack_vector&&)
-  noexcept(is_nothrow_move_constructible<T>{});
-constexpr stack_vector(initializer_list<T>);
+  constexpr stack_vector(stack_vector<value_type, M> && other)
+    noexcept(is_nothrow_move_constructible<value_type>{} and C >= M);
+constexpr stack_vector(stack_vector const& other);
+  noexcept(is_nothrow_copy_constructible<value_type>{});
+  constexpr stack_vector(stack_vector&& other)
+  noexcept(is_nothrow_move_constructible<value_type>{});
+constexpr stack_vector(initializer_list<value_type> il);
 
 static constexpr stack_vector default_initialized(size_t n);
 
-constexpr ~stack_vector();
+/* constexpr ~stack_vector(); */  // implicitly generated
 
-constexpr stack_vector<T, C>& operator=(stack_vector const&)
-  noexcept(is_nothrow_copy_assignable<T>{});
-constexpr stack_vector<T, C>& operator=(stack_vector &&);
-  noexcept(is_nothrow_move_assignable<T>{});
+constexpr stack_vector<value_type, C>& operator=(stack_vector const& other)
+  noexcept(is_nothrow_copy_assignable<value_type>{});
+constexpr stack_vector<value_type, C>& operator=(stack_vector && other);
+  noexcept(is_nothrow_move_assignable<value_type>{});
 template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr stack_vector<T, C>& operator=(stack_vector<T, M>const&)
-    noexcept(is_nothrow_copy_assignable<T>{} and C >= M);
+  constexpr stack_vector<value_type, C>& operator=(stack_vector<value_type, M>const& other)
+    noexcept(is_nothrow_copy_assignable<value_type>{} and C >= M);
 template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr stack_vector<T, C>& operator=(stack_vector<T, M>&&);
-    noexcept(is_nothrow_move_assignable<T>{} and C >= M);
+  constexpr stack_vector<value_type, C>& operator=(stack_vector<value_type, M>&& other);
+    noexcept(is_nothrow_move_assignable<value_type>{} and C >= M);
 
 template<class InputIterator>
 constexpr void assign(InputIterator first, InputIterator last);
-constexpr void assign(size_type n, const T& u);
-constexpr void assign(initializer_list<T>);
+constexpr void assign(size_type n, const value_type& u);
+constexpr void assign(initializer_list<value_type> il);
 
 // iterators:
 constexpr iterator               begin()         noexcept;
@@ -386,7 +385,7 @@ constexpr size_type size()     const noexcept;
 static constexpr size_type capacity() noexcept;
 static constexpr size_type max_size() noexcept;
 constexpr void resize(size_type sz);
-constexpr void resize(size_type sz, const T& c);
+constexpr void resize(size_type sz, const value_type& c);
 constexpr bool empty() const noexcept;
 void reserve(size_type n) /* QoI */ = deleted;
 void shrink_to_fit() /* QoI */ = deleted; 
@@ -395,7 +394,7 @@ constexpr void resize_default_initialized(size_type sz);
 
 constexpr void resize_unchecked(size_type sz);
 constexpr void resize_unchecked_default_initialized(size_type sz);
-constexpr void resize_unchecked(size_type sz, const T& c);
+constexpr void resize_unchecked(size_type sz, const value_type& c);
 
 
 // element access:
@@ -415,74 +414,72 @@ constexpr const T* data() const noexcept;
 // modifiers:
 template<class... Args>
   constexpr void emplace_back(Args&&... args);
-constexpr void push_back(const T& x);
-constexpr void push_back(T&& x);
+constexpr void push_back(const value_type& x);
+constexpr void push_back(value_type&& x);
 constexpr void pop_back();
 
 template<class... Args>
   constexpr iterator emplace(const_iterator position, Args&&...args);
 constexpr iterator insert(const_iterator position, const value_type& x);
 
-// TODO: document: std::vector does not provide an insert for rvalues/move-only types
 constexpr iterator insert(const_iterator position, value_type&& x);
-constexpr iterator insert(const_iterator position, size_type n, const T& x);
+constexpr iterator insert(const_iterator position, size_type n, const value_type& x);
 template<class InputIterator>
   constexpr iterator insert(const_iterator position, InputIterator first, InputIterator last);
 
-constexpr iterator insert(const_iterator position, initializer_list<T> il);
+constexpr iterator insert(const_iterator position, initializer_list<value_type> il);
 
 
 template<class... Args>
   constexpr void emplace_back_unchecked(Args&&... args)
-    noexcept(NothrowConstructible<T, Args...>{});  // TODO
-constexpr void push_back_unchecked(const T& x)
-  noexcept(is_nothrow_copy_constructible<T>{});
-constexpr void push_back_unchecked(T&& x)
-  noexcept(is_nothrow_move_constructible<T>{});
+    noexcept(NothrowConstructible<value_type, Args...>{});  // TODO
+constexpr void push_back_unchecked(const value_type& x)
+  noexcept(is_nothrow_copy_constructible<value_type>{});
+constexpr void push_back_unchecked(value_type&& x)
+  noexcept(is_nothrow_move_constructible<value_type>{});
 
 template<class... Args>
   constexpr iterator emplace_unchecked(const_iterator position, Args&&...args)
-    noexcept(NothrowConstructible<T, Args...>{} and is_nothrow_swappable<T>{});  // TODO
+    noexcept(NothrowConstructible<value_type, Args...>{} and is_nothrow_swappable<value_type>{});  // TODO
 
 constexpr iterator insert_unchecked(const_iterator position, const value_type& x)
-  noexcept(is_nothrow_copy_constructible<T>{} and is_nothrow_swappable<T>{});
+  noexcept(is_nothrow_copy_constructible<value_type>{} and is_nothrow_swappable<value_type>{});
 
-// TODO: document: std::vector does not provide an insert for rvalues/move-only types
 constexpr iterator insert_unchecked(const_iterator position, value_type&& x)
-  noexcept(is_nothrow_move_constructible<T>{} and is_nothrow_swappable<T>{});
-constexpr iterator insert_unchecked(const_iterator position, size_type n, const T& x)
-    noexcept(is_nothrow_copy_constructible<T>{} and is_nothrow_swappable<T>{});
+  noexcept(is_nothrow_move_constructible<value_type>{} and is_nothrow_swappable<value_type>{});
+constexpr iterator insert_unchecked(const_iterator position, size_type n, const value_type& x)
+    noexcept(is_nothrow_copy_constructible<value_type>{} and is_nothrow_swappable<value_type>{});
 template<class InputIterator>
   constexpr iterator insert_unchecked(const_iterator position, InputIterator first, InputIterator last)
-    noexcept(is_nothrow_copy_constructible<T>{} and is_nothrow_swappable<T>{});
+    noexcept(is_nothrow_copy_constructible<value_type>{} and is_nothrow_swappable<value_type>{});
 
-constexpr iterator insert_unchecked(const_iterator position, initializer_list<T> il)
-  noexcept(is_nothrow_copy_constructible<T>{} and is_nothrow_swappable<T>{});
+constexpr iterator insert_unchecked(const_iterator position, initializer_list<value_type> il)
+  noexcept(is_nothrow_copy_constructible<value_type>{} and is_nothrow_swappable<value_type>{});
 
 constexpr iterator erase(const_iterator position)
-  noexcept(is_nothrow_destructible<T>{} and is_nothrow_swappable<T>{});
+  noexcept(is_nothrow_destructible<value_type>{} and is_nothrow_swappable<value_type>{});
 constexpr iterator erase(const_iterator first, const_iterator last)
-  noexcept(is_nothrow_destructible<T>{} and is_nothrow_swappable<T>{});
+  noexcept(is_nothrow_destructible<value_type>{} and is_nothrow_swappable<value_type>{});
 
-constexpr void clear() noexcept(is_nothrow_destructible<T>{});
+constexpr void clear() noexcept(is_nothrow_destructible<value_type>{});
 
-constexpr void swap(stack_vector<T, C>&)
-  noexcept(noexcept(swap(declval<T&>(), declval<T&>()))));
+constexpr void swap(stack_vector<value_type, C>&)
+  noexcept(noexcept(swap(declval<value_type&>(), declval<value_type&>()))));
 };
 
 // TODO: noexcept specification missing
 template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator==(const stack_vector<T, C0>& a, const stack_vector<T, C1>& b);
+constexpr bool operator==(const stack_vector<value_type, C0>& a, const stack_vector<value_type, C1>& b);
 template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator!=(const stack_vector<T, C0>& a, const stack_vector<T, C1>& b);
+constexpr bool operator!=(const stack_vector<value_type, C0>& a, const stack_vector<value_type, C1>& b);
 template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator<(const stack_vector<T, C0>& a, const stack_vector<T, C1>& b);
+constexpr bool operator<(const stack_vector<value_type, C0>& a, const stack_vector<value_type, C1>& b);
 template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator<=(const stack_vector<T, C0>& a, const stack_vector<T, C1>& b);
+constexpr bool operator<=(const stack_vector<value_type, C0>& a, const stack_vector<value_type, C1>& b);
 template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator>(const stack_vector<T, C0>& a, const stack_vector<T, C1>& b);
+constexpr bool operator>(const stack_vector<value_type, C0>& a, const stack_vector<value_type, C1>& b);
 template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator>=(const stack_vector<T, C0>& a, const stack_vector<T, C1>& b);
+constexpr bool operator>=(const stack_vector<value_type, C0>& a, const stack_vector<value_type, C1>& b);
 
 ```
 
@@ -515,13 +512,274 @@ The memory layout of `stack_vector` offers the following guarantees:
 
 ## Construction/Assignment/Destruction
 
-### Copy construction
 
-### Copy assignment
 
-### Move construction
+/* constexpr ~stack_vector(); */  // implicitly generated
 
-### Move assignment
+
+### Construction
+
+```c++
+/// Constructs an empty stack_vector.
+///
+/// Requirements: none.
+///
+/// Enabled: always.
+///
+/// Complexity:
+/// - time: O(1),
+/// - space: O(1).
+///
+/// Exception safety: never throws.
+///
+/// Constexpr: always.
+///
+/// Iterator invalidation: none.
+///
+/// Effects: none.
+/// - it is guaranteed that no elements will be constructed unless `value_type`
+/// models `TrivialType`, in which case this guarantee is implementation defined.
+///
+constexpr stack_vector() noexcept;
+```
+
+```c++
+/// Constructs a stack_vector containing \p n default-inserted elements.
+///
+/// Requirements: `value_type` shall be `DefaultInsertable` into `*this`.
+///
+/// Enabled: if requirements are met.
+///
+/// Complexity:
+/// - time: O(N) calls to `value_type`'s default constructor,
+/// - space: O(1).
+///
+/// Exception safety:
+/// - basic guarantee: all constructed elements shall be destroyed on failure,
+/// - rethrows if `value_type`'s default constructor throws,
+/// - throws `bad_alloc` if `\p n > capacity()`.
+///
+/// Constexpr: if `value_type` models `TrivialType`.
+///
+/// Iterator invalidation: none.
+///
+/// Effects: exactly \p n calls to `value_type`s default constructor.
+///
+constexpr explicit stack_vector(size_type n);
+```
+
+```c++
+/// Constructs a stack_vector containing \p n copies of \p value.
+///
+/// Requirements: `value_type` shall be `CopyInsertable` into `*this`.
+///
+/// Enabled: if requirements are met.
+///
+/// Complexity:
+/// - time: O(N) calls to `value_type`'s copy constructor,
+/// - space: O(1).
+///
+/// Exception safety: 
+/// - basic guarantee: all constructed elements shall be destroyed on failure,
+/// - rethrows if `value_type`'s copy constructor throws,
+/// - throws `bad_alloc` if `\p n > capacity()`.
+///
+/// Constexpr: if `value_type` models `TrivialType`.
+///
+/// Iterator invalidation: none.
+///
+/// Effects: exactly \p n calls to `value_type`s copy constructor.
+///
+constexpr stack_vector(size_type n, const value_type& value);
+```
+
+```c++ 
+/// Constructs a stack_vector equal to the range [\p first, \p last).
+///
+/// Requirements: `value_type` shall be either:
+/// - `CopyInsertable` into `*this` _if_ the reference type of `InputIterator`
+///    is an lvalue reference, or
+/// - `MoveInsertable` into `*this` _if_ the reference type of `InputIterator`
+///    is an rvalue reference.
+///
+/// Enabled: if requirements are met.
+///
+/// Complexity:
+/// - time: O(N) calls to `value_type`'s copy or move constructor,
+/// - space: O(1).
+///
+/// Exception safety: 
+/// - basic guarantee: all constructed elements shall be destroyed on failure,
+/// - rethrows if `value_type`'s copy or move constructors throws,
+/// - throws `bad_alloc` if `\p n > capacity()`.
+///
+/// Constexpr: if `value_type` models `TrivialType`.
+///
+/// Iterator invalidation: none.
+///
+/// Effects: exactly \p `last - first` calls to `value_type`s copy or move constructor.
+///
+template<class InputIterator>
+constexpr stack_vector(InputIterator first, InputIterator last);
+```
+
+```c++
+/// Constructs a stack_vector whose elements are copied from \p other.
+///
+/// Requirements: `value_type` shall be `CopyInsertable` into `*this`.
+///
+/// Enabled: if requirements are met.
+///
+/// Complexity:
+/// - time: O(N) calls to `value_type`'s copy constructor,
+/// - space: O(1).
+///
+/// Exception safety: 
+/// - basic guarantee: all constructed elements shall be destroyed on failure,
+/// - rethrows if `value_type`'s copy constructor throws.
+///
+/// Constexpr: if `value_type` models `TrivialType`.
+///
+/// Iterator invalidation: none.
+///
+/// Effects: exactly \p `other.size()` calls to `value_type`s copy constructor.
+///
+constexpr stack_vector(stack_vector const&);
+  noexcept(is_nothrow_copy_constructible<value_type>{});
+```
+
+```c++
+/// Constructs a stack_vector whose elements are copied from \p other.
+///
+/// Requirements: `value_type` shall be `CopyInsertable` into `*this`.
+///
+/// Enabled: if requirements are met.
+///
+/// Complexity:
+/// - time: O(N) calls to `value_type`'s copy constructor,
+/// - space: O(1).
+///
+/// Exception safety: 
+/// - basic guarantee: all constructed elements shall be destroyed on failure,
+/// - rethrows if `value_type`'s copy constructor throws,
+/// - if `C<M`: throws `bad_alloc` if \p `other.size() > capacity()`.
+///
+/// Constexpr: if `value_type` models `TrivialType`.
+///
+/// Iterator invalidation: none.
+///
+/// Effects: exactly \p `other.size()` calls to `value_type`s copy constructor.
+///
+template<std::size_t M, enable_if_t<(C != M)>>
+  constexpr stack_vector(stack_vector<value_type, M> const& other);
+    noexcept(is_nothrow_copy_constructible<value_type>{} and C >= M);
+```
+
+```c++
+/// Constructs a stack_vector whose elements are moved from \p other.
+///
+/// Requirements: `value_type` shall be `MoveInsertable` into `*this`.
+///
+/// Enabled: if requirements are met.
+///
+/// Complexity:
+/// - time: O(N) calls to `value_type`'s move constructor,
+/// - space: O(1).
+///
+/// Exception safety: 
+/// - basic guarantee: all constructed elements shall be destroyed on failure,
+/// - rethrows if `value_type`'s move constructor throws.
+///
+/// Constexpr: if `value_type` models `TrivialType`.
+///
+/// Iterator invalidation: none.
+///
+/// Effects: exactly \p `other.size()` calls to `value_type`s move constructor.
+///
+constexpr stack_vector(stack_vector&&)
+  noexcept(is_nothrow_move_constructible<value_type>{});
+```
+
+```c++
+/// Constructs a stack_vector whose elements are moved from \p other.
+///
+/// Requirements: `value_type` shall be `MoveInsertable` into `*this`.
+///
+/// Enabled: if requirements are met.
+///
+/// Complexity:
+/// - time: O(N) calls to `value_type`'s move constructor,
+/// - space: O(1).
+///
+/// Exception safety: 
+/// - basic guarantee: all constructed elements shall be destroyed on failure,
+/// - rethrows if `value_type`'s move constructor throws,
+/// - if `C<M`: throws `bad_alloc` if \p `other.size() > capacity()`.
+///
+/// Constexpr: if `value_type` models `TrivialType`.
+///
+/// Iterator invalidation: none.
+///
+/// Effects: exactly \p `other.size()` calls to `value_type`s move constructor.
+///
+template<std::size_t M, enable_if_t<(C != M)>>
+  constexpr stack_vector(stack_vector<value_type, M> &&)
+    noexcept(is_nothrow_move_constructible<value_type>{} and C >= M);
+```
+
+```c++
+/// Constructs a stack_vector whose elements are copied from \p il
+///
+/// Requirements: `value_type` shall be `CopyInsertable` into `*this`
+///
+/// Enabled: if requirements are met.
+///
+/// Complexity:
+/// - time: O(N) calls to `value_type`'s copy constructor,
+/// - space: O(1).
+///
+/// Exception safety: 
+/// - basic guarantee: all constructed elements shall be destroyed on failure,
+/// - rethrows if `value_type`'s copy or move constructors throws,
+/// - throws `bad_alloc` if `\p il.size() > capacity()`.
+///
+/// Constexpr: if `value_type` models `TrivialType`.
+///
+/// Iterator invalidation: none.
+///
+/// Effects: exactly \p `il.size()` calls to `value_type`s copy constructor.
+///
+constexpr stack_vector(initializer_list<value_type> il);
+```
+
+```c++
+/// Returns a stack_vector containing \p n default-initialied elements
+///
+/// Requirements: none.
+///
+/// Enabled: always.
+///
+/// Complexity:
+/// - time: O(N).
+/// - space: O(1).
+///
+/// Exception safety:
+/// - basic guarantee: all constructed elements shall be destroyed on failure,
+/// - throws `bad_alloc` if `\p n > capacity()`.
+///
+/// Constexpr: if `value_type` models `TrivialType`.
+///
+/// Iterator invalidation: none.
+///
+/// Effects: exactly \p n default initializations of `value_type`.
+/// - it is guaranteed that the element's will not be value-initialized.
+///
+static constexpr stack_vector default_initialized(size_t n);
+```
+
+### Assignment
+
+
 
 ### Destruction
 
@@ -591,7 +849,11 @@ Hinnant + ?? TODO: check) `<algorithm>` and `<vector>` and in particular their
 Anybody else who finds errors, and helps improve this proposal and/or the
 implementation.
 
-# Appendix A. Rough edges in C++14
+# Appendix A: Standad wording
+
+Not part of this revision.
+
+# Appendix B: Rough edges in C++14
 
 
 There are some rough edges in C++14 that complicate the implementation of this
