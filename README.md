@@ -514,7 +514,7 @@ The memory layout of `stack_vector` offers the following guarantees:
 
 
 
-/* constexpr ~stack_vector(); */  // implicitly generated
+
 
 
 ### Construction
@@ -728,7 +728,7 @@ template<std::size_t M, enable_if_t<(C != M)>>
 ```
 
 ```c++
-/// Constructs a stack_vector whose elements are copied from \p il
+/// Constructs a stack_vector whose elements are copied from \p il.
 ///
 /// Requirements: `value_type` shall be `CopyInsertable` into `*this`
 ///
@@ -753,7 +753,7 @@ constexpr stack_vector(initializer_list<value_type> il);
 ```
 
 ```c++
-/// Returns a stack_vector containing \p n default-initialied elements
+/// Returns a stack_vector containing \p n default-initialied elements.
 ///
 /// Requirements: none.
 ///
@@ -782,6 +782,13 @@ static constexpr stack_vector default_initialized(size_t n);
 
 
 ### Destruction
+
+The destructor should be implicitly generated and it should be constexpr
+if `value_type` models `TrivialType`. 
+
+```c++
+constexpr ~stack_vector(); */  // implicitly generated
+```
 
 ### Static methods
 
