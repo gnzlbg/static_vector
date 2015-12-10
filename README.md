@@ -78,9 +78,8 @@ leaf node within an octree. The maximum number of neighbors that a node can have
 is known for a 2:1 balanced octree, such that:
 
 ```c++
-template<std::size_t Dim>
 stack_vector<node_iterator, max_number_of_leaf_neighbors>
-leaf_neighbors(octree<Dim> const&, node_iterator);
+leaf_neighbors(octree const&, node_iterator);
 ```
 
 # Previous work and implementation
@@ -101,7 +100,7 @@ The requirements of `stack_vector` are:
   
 Given these requirements, the following approaches cannot work:
 
-### Failing approach 1: stack allocator for `std::vector`
+### Failed approach 1: stack allocator for `std::vector`
 
 Trying to reuse `std::vector` with a stack-only allocator (e.g. like a modified
 Howard Hinnant's [`stack_alloc`][stack_alloc]) doesn't work because:
@@ -114,7 +113,7 @@ Howard Hinnant's [`stack_alloc`][stack_alloc]) doesn't work because:
      its capacity even though for a stack-only allocator the capacity is fixed
      at compile-time).
 
-### Failing approach 2: stack allocator with heap-fallback for `std::vector`
+### Failed approach 2: stack allocator with heap-fallback for `std::vector`
 
 Reusing Howard Hinnant's [`stack_alloc`][stack_alloc] one can implement a
 `stack_vector` that works but has the following problems:
@@ -125,7 +124,7 @@ Reusing Howard Hinnant's [`stack_alloc`][stack_alloc] one can implement a
   2. The resulting type is one word of memory too large.
 
 
-### Failing approach 3: `std::vector::growth_factor()` + stack allocator
+### Failed approach 3: `std::vector::growth_factor()` + stack allocator
 
 The main problem with the two failed approaches below has nothing to do with the
 `Allocator` used to customize `std::vector`, but rather with the
@@ -138,12 +137,12 @@ growth factor at compile-time.
 
 Since the allocator does not know anything about the container, an adaptor must
 be written. Since this adaptor will store a `std::vector` inside, it is
-necesarily going to contain an unnecessary word of storage for its capacity.
+necessarily going to contain an unnecessary word of storage for its capacity.
 
 This adaptor can store an arena that can hold enough elements for a desired
 capacity, however, this arena will be unnecessary big, since in the worst case
 the vector will trigger a reallocation after (Capacity - 1) elements, so the
-arena must be able to store GrowthFactor * (Capacity - 1) elements to deal with
+arena must be able to store `GrowthFactor * (Capacity - 1)` elements to deal with
 the worst case.
 
 TODO: Can a std::vector implementation use a dynamic growth factor? (If that is
@@ -189,7 +188,7 @@ discussed later are marked as such):
   3. Constexpr (discussed in subsection Constexpr):
      - whole API is constexpr for types with a trivial destructor.
 
-  4. Explicit instantiabiltiy (discussed in subsection Explicit instantiation):
+  4. Explicit instantiation support (discussed in subsection Explicit instantiation):
      - it is possible to explicitly instantiate `stack_vector` for types that
        are both `CopyConstructible` and `MoveConstructible`.
 
@@ -215,7 +214,7 @@ destructible.
 
 ### Explicit instantiation
 
-It is technically possible to allow explicit instaintations of `stack_vector`
+It is technically possible to allow explicit instantiations of `stack_vector`
 for types that are not both `MoveConstructible` and `CopyConstructible` but
 doing so is so painful that it is left at first as a Quality of Implementation
 issue. Implementations are encouraged to do so.
@@ -446,7 +445,7 @@ b.swap(c); // always fails
 
 ## TODO: Iterator invalidation
 
-### List of functions that can potentionally invalidate iterators and how
+### List of functions that can potentially invalidate iterators and how
 
 
 ## Other
