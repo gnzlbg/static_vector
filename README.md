@@ -116,13 +116,13 @@ implementation is provided for standardization purposes here:
 
 The requirements of `stack_vector` are:
 
-  0. dynamically-resizable contiguous random-access sequence container with O(1)
+  1. dynamically-resizable contiguous random-access sequence container with O(1)
      insert/erase at the end, and O(N) insert/erase otherwise, whose elements
      are stored internally within the object,
 
-  1. it's API should be as similar to `vector<T,A>` API as possible,
-  2. differences with `vector<T, A>`s API should be as explicit as possible, and
-  3. it should be as efficient as possible.
+  2. it's API should be as similar to `vector<T,A>` API as possible,
+  3. differences with `vector<T, A>`s API should be as explicit as possible, and
+  4. it should be as efficient as possible.
   
 Given these requirements, the following approaches cannot work:
 
@@ -210,7 +210,6 @@ discussed later are marked as such):
      - `data() == begin() == end() == unspecified unique value` (`nullptr` is
      intended) (like `std::array`).
      - `swap` is `noexcept(true)` (like `std::array`).
-     - `front` and `back` are _disabled_.
 
   2. Exception safety (discussed in sub-section Exception Safety):
      - same as `std::vector`: throwing copy/move constructors retain only the
@@ -961,6 +960,8 @@ the following holds:
 - Constexpr: if type models TrivialType.
 - Effects: none.
 
+
+
 For the checked element access functions:
 
 ```c++
@@ -1081,7 +1082,9 @@ propose anything about them.
   5. `std::aligned_storage` is impossible to use in `constexpr` code because one needs to:
      - `reinterpret_cast` to the elements pointer type,
      - use placement new, and
-     - call explicit destructors. None of these three things can be used in
+     - call explicit destructors.
+
+     None of these three things can be used in
      `constexpr` code, and the implementation of `stack_vector` and
      `std::variant` suffers from this.
 
