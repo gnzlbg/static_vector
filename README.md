@@ -306,6 +306,15 @@ An alternative would be to provide a tag like `std::default_initialized_t` and
 use it to overload the `resize` method and the sized constructor. The effect is
 the same.
 
+### Iterator invalidation
+
+Since the elements are allocated on the stack, the iterator invalidation rules
+are different to that of `std::vector`. For example:
+
+- moving a vector into another vector, invalidates all iterators,
+- swapping two vectors invalidates all iterators,
+- inserting elements does not invalidate iterators.
+
 ### Proposed API
 
 ```c++
@@ -977,6 +986,20 @@ the same as for the unchecked element access holds. But furthermore:
 - if the container is empty, `data() == begin() == end()`
 - if the container has zero-capacity, `data() == begin() == end() == implementation-defined`
 
+## Modifiers
+
+### Emplace back
+
+### Push back
+
+### Pop back
+
+### Emplace
+
+### Insert
+
+### Erase
+
 ## Swap
 
 TODO: the paragraph below is wrong, we should support swapping vectors of different capacity
@@ -994,18 +1017,17 @@ a.swap(c); // works
 b.swap(c); // always fails
 ```
 
-## TODO: Iterator invalidation
+## Comparision operators
 
-### List of functions that can potentially invalidate iterators and how
+## List of functions that can potentionally invalidate iterators
 
-
-## Other
-
+- `resize(n)`, `resize(n, v)`, `resize_default_initialized(n)`
+- `resize_unchecked(n)`, `resize_unchecked(n, v)`, `resize_default_initialized_unchecked(n)`
+- `pop_back`
+- `erase`
 - `swap`
-- `fill`
 
-
-# Acknowledgements
+# Acknowledgments
 
 The authors of Boost.Container's `boost::container::static_vector` (Adam
 Wulkiewicz, Andrew Hundt, and Ion Gaztanaga). The authors of libc++ (Howard
