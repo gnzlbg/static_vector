@@ -1022,9 +1022,17 @@ struct stack_vector
     unsafe_set_size(0);
   }
 
+  template <typename Other>
+  constexpr enable_if_t<is_same<uncvref_t<Other>, stack_vector>{}
+                        and Capacity == 0>
+   swap(Other&) noexcept(true) {}
+
   // TODO: this is rough use std::swap
-  constexpr void swap(stack_vector& other) noexcept(
-   noexcept(stack_vector_detail::swap(declval<T&>(), declval<T&>()))) {
+  template <typename Other>
+  constexpr enable_if_t<is_same<uncvref_t<Other>, stack_vector>{}
+                        and Capacity != 0>
+   swap(Other& other) noexcept(
+    noexcept(stack_vector_detail::swap(declval<T&>(), declval<T&>()))) {
     using stack_vector_detail::swap;
     stack_vector tmp = std::move(other);
     other            = std::move(*this);

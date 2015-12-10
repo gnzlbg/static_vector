@@ -1,25 +1,43 @@
 # stack_vector [![Travis build status][travis-shield]][travis] [![Coveralls.io code coverage][coveralls-shield]][coveralls] [![Docs][docs-shield]][docs]
 
-> A dynamically-resizable vector with stack storage (revision -1)
+> A dynamically-resizable vector with fixed capacity (revision -1)
+
+
+**Design issues**
+
+- broken `initializer_list` support. The current proposal has no initializer
+  list constructor, but a variadic constructor that allows
+  "initializer-list"-like usage and constexpr. Since this constructor is too
+  gready, it is disabled for lists of < 2 elements... A decision has to be
+  made here: either drop constexpr support and support initializer lists
+  properly, or maybe don't support initializer lists at all.
+
+- interoperability between vectors of different capacity: to which extent is it
+  worth it to support this. What exception-safety guarantees should be provided.
+
 
 # Introduction
 
-This paper proposes a dynamically resizable vector with internal storage (within
-the object itself) provisionally called `stack_vector<T, Capacity>`. Its API is
-almost a 1:1 map of `std::vector<T, A>`s API. The exactly same API cannot be
-provided (e.g. because `stack_vector` lacks an `Allocator`).
+This paper proposes a dynamically-resizable `vector` with fixed capacity and
+contiguous internal storage, that is, the elements are stored within the vector
+object itself. 
 
-This utility solves a single performance problem that can result from using
-`std::vector`: too many memory allocations. The trade-off is that a bound on the
-maximum number of elements that the `stack_vector` can hold must be known at
-compile-time. For a wide range of applications this is the case (see sec.
-Motivation).
+Its API is almost a 1:1 map of `std::vector<T, A>`s API. It is a sequence
+random-access container with contiguous storage, O(1) insertion and removal of
+elements at the end, and O(N) insertion and removal otherwise. Like
+`std::vector`, the elements are initialized on insertion and destroyed on
+removal.
 
-In this paper the utility of a dynamically resizable vector with internal
-storage is addressed, the design space is explored, an implementation is
-provided, and an API is proposed in standard-wording style, but standard wording
-is not provided. Finally in the Appendix A standard library and language
-features that simplify/complicate the implementation of this type are mentioned.
+This container is useful when one would otherwise use a `std::vector`, but:
+
+- memory allocation is not desired _and_ the maximum capacity is bounded at
+  compile-time,
+- static allocation of objects with complex lifetimes is required (TODO: find
+  example?).
+
+This paper addresses the utility of this container, explores the design space,
+the existing trade-offs, and for a particular choice of trade-offs proposes an
+API with standard-like wording and provides an implementation thereof. 
 
 # Motivation
 
@@ -74,18 +92,16 @@ implementation is provided for standardization purposes here:
 
 # Design space
 
-## Requirements
-
 The requirements of `stack_vector` are:
 
-  1. **Handyness**: replacing `vector<T,A>` with `stack_vector<T,C>` should be
-     as easy as possible.
-  2. **Performance**: `stack_vector<T,C>` should be as efficient as possible
-     since its raison-d'etre is a performance optimization.
+  1. `stack_vector<T,C>`s API should be as similar to
+     `vector<T,A>` API as possible, 
+  2. differences with `vector<T, A>`s API should be as explicit as possible, and
+  3. `stack_vector<T,C>` should be as efficient as possible.
+  
+Given these requirements, the following approaches cannot work:
 
-## Failed Approaches
-
-### The stack-only allocator approach
+### Failing approach 1: stack allocator for `std::vector`
 
 Trying to reuse `std::vector` with a stack-only allocator (e.g. like a modified
 Howard Hinnant's [`stack_alloc`][stack_alloc]) doesn't work because:
@@ -98,7 +114,7 @@ Howard Hinnant's [`stack_alloc`][stack_alloc]) doesn't work because:
      its capacity even though for a stack-only allocator the capacity is fixed
      at compile-time).
 
-### The `stack_allocator` with heap-fallback approach
+### Failing approach 2: stack allocator with heap-fallback for `std::vector`
 
 Reusing Howard Hinnant's [`stack_alloc`][stack_alloc] one can implement a
 `stack_vector` that works but has the following problems:
@@ -109,15 +125,46 @@ Reusing Howard Hinnant's [`stack_alloc`][stack_alloc] one can implement a
   2. The resulting type is one word of memory too large.
 
 
-## Proposed Approach: new `stack_vector` type
+### Failing approach 3: `std::vector::growth_factor()` + stack allocator
 
-The main draw-back of introducing a `stack_vector<T, Capacity>` type is:
+The main problem with the two failed approaches below has nothing to do with the
+`Allocator` used to customize `std::vector`, but rather with the
+implementation-defined growth factor, which cannot be worked around externally
+in a reliable way since there is no way to query it portably at compile-time.
+
+In this approach `std::vector`s API is extended to provide a `static constexpr
+double growth_factor() noexcept(true)` member function that allows querying its
+growth factor at compile-time.
+
+Since the allocator does not know anything about the container, an adaptor must
+be written. Since this adaptor will store a `std::vector` inside, it is
+necesarily going to contain an unnecessary word of storage for its capacity.
+
+This adaptor can store an arena that can hold enough elements for a desired
+capacity, however, this arena will be unnecessary big, since in the worst case
+the vector will trigger a reallocation after (Capacity - 1) elements, so the
+arena must be able to store GrowthFactor * (Capacity - 1) elements to deal with
+the worst case.
+
+TODO: Can a std::vector implementation use a dynamic growth factor? (If that is
+the case this approach cannot possibly ever work).
+
+
+## A new sequence container
+
+The problems with the three failed approaches above are intrinsic with
+`std::vector` implementation. For this reason, a new container, `stack_vector<T,
+Capacity>` is proposed in this section.
+
+The main draw-backs of introducing a `stack_vector<T, Capacity>` type is:
 
   1. Code bloat: for each type `T`, and for each `Capacity`, a significant
      amount of code will be generated.
 
 I don't have a good solution to this problem. Type-erasing the capacity would
 hinder performance.
+
+  - TODO: does Boost.Container static vector deal with this somehow?
 
 The main advantages of introducing a new type are that we can get:
 

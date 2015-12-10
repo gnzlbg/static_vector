@@ -109,7 +109,6 @@ class A {
 };
 
 int main() {
-  std::cerr << "here-10" << std::endl;
   {  // const
     vector<const int, 0> v0 = {};
     test_bounds(v0, 0);
@@ -128,11 +127,9 @@ int main() {
 
     vector<const int, 3> v3 = {1, 2, 3};
     test_bounds(v3, 3);
-    std::cerr << "here-1" << std::endl;
     constexpr vector<const int, 3> vc3 = {1, 2, 3};
     test_bounds(vc3, 3);
     static_assert(test_bounds(vc3, 3), "");
-    std::cerr << "here00" << std::endl;
   }
 
   auto test_contiguous = [](auto&& c) {
@@ -144,11 +141,11 @@ int main() {
   {  // contiguous
     typedef int T;
     typedef vector<T, 3> C;
-    test_contiguous(C());
-    std::cerr << "here00000000" << std::endl;
+    auto e = C();
+    assert(e.empty());
+    test_contiguous(e);
     test_contiguous(C(3, 5));
   }
-  std::cerr << "here00000" << std::endl;
   {  // default construct element
     typedef int T;
     typedef vector<T, 3> C;
@@ -167,7 +164,6 @@ int main() {
     assert(std::distance(i, j) == 0);
     assert(i == j);
   }
-  std::cerr << "here0000" << std::endl;
   {  // const iterator
     typedef int T;
     typedef vector<T, 3> C;
@@ -187,7 +183,6 @@ int main() {
     assert(i == j);
     assert(i == c.end());
   }
-  std::cerr << "here000" << std::endl;
   {  // iterator constructor
     typedef int T;
     typedef vector<T, 10> C;
@@ -202,7 +197,6 @@ int main() {
     *i = 10;
     assert(*i == 10);
     assert(std::distance(std::begin(c), std::end(c)) == 10);
-    std::cerr << "here0" << std::endl;
   }
   {  // N3644 testing
     typedef vector<int, 10> C;
@@ -233,22 +227,21 @@ int main() {
   {  // capacity
     vector<int, 10> a;
     assert(a.capacity() == std::size_t(10));
+    assert(a.empty());
     for (int i = 0; i != 10; ++i) { a.push_back(0); }
     assert(a.capacity() == std::size_t(10));
     assert(a.size() == std::size_t(10));
+    assert(!a.empty());
   }
 
   {  // resize copyable
     using Copyable = int;
-    std::cerr << "here1" << std::endl;
     vector<Copyable, 10> a(std::size_t(10), 5);
-    std::cerr << "here2" << std::endl;
     assert(a.size() == std::size_t(10));
     assert(a.capacity() == std::size_t(10));
     test_contiguous(a);
     for (int i = 0; i != 10; ++i) assert(a[i] == 5);
     a.resize(5);
-    std::cerr << a.size() << std::endl;
     assert(a.size() == std::size_t(5));
 
     assert(a.capacity() == std::size_t(10));
@@ -265,6 +258,8 @@ int main() {
     assert(a[9] == 3);
     assert(a.size() == std::size_t(10));
     assert(a.capacity() == std::size_t(10));
+    a.resize(5, 2);
+    for (int i = 0; i != 5; ++i) assert(a[i] == 5);
     test_contiguous(a);
   }
   {  // resize move-only
@@ -409,7 +404,8 @@ int main() {
     assert(c.front() == 0);
     assert(c[0] == 0);
     c.clear();
-    c.push_back(1);
+    int one = 1;
+    c.push_back(one);
     assert(c.back() == 1);
     assert(c.front() == 1);
     assert(c[0] == 1);
