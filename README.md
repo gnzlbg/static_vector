@@ -894,7 +894,9 @@ the following holds:
 - Constexpr: if type models TrivialType.
 - Effects:
   - if `new_size > size` exactly `new_size - size` elements default/copy constructed.
-  - if `new_size < size` exactly `size - new_size` elements destroyed.
+  - if `new_size < size`:
+      - exactly `size - new_size` elements destroyed.
+      - all iterators pointing to elements at position > `new_size` are invalidated.
 
 For the unchecked resize functions:
 
@@ -918,7 +920,9 @@ the following holds:
 - Constexpr: if type models TrivialType.
 - Effects:
   - if `new_size > size` exactly `new_size - size` elements default/copy constructed.
-  - if `new_size < size` exactly `size - new_size` elements destroyed.
+  - if `new_size < size`:
+      - exactly `size - new_size` elements destroyed.
+      - all iterators pointing to elements at position > `new_size` are invalidated.
 
 ## Element access
 
