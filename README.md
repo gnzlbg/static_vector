@@ -854,6 +854,8 @@ the following holds:
   will not be `constexpr` even for types like `T*`.
 - Effects: none.
 
+There are also some guarantees between the results of `data` and the iterator
+functions that are explained in the section "Element / data access" below.
 
 ## Size / capacity
 
@@ -924,7 +926,7 @@ the following holds:
       - exactly `size - new_size` elements destroyed.
       - all iterators pointing to elements at position > `new_size` are invalidated.
 
-## Element access
+## Element /data access
 
 For the unchecked element access functions:
 
@@ -962,6 +964,18 @@ the following holds:
   - throws `out_of_range` if `n >= size()`.
 - Constexpr: if type models TrivialType.
 - Effects: none.
+
+For the data access:
+
+```c++
+constexpr       T* data()       noexcept;
+constexpr const T* data() const noexcept;
+```
+
+the same as for the unchecked element access holds. But furthermore:
+
+- if the container is empty, `data() == begin() == end()`
+- if the container has zero-capacity, `data() == begin() == end() == implementation-defined`
 
 ## Swap
 
