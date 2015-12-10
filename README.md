@@ -272,11 +272,13 @@ assertions, calls to exit or terminate, or even a callback, but issues with C++
 dialects are not for this proposal to solve and will not be discussed here
 further.
 
-Foot-note: an alternative to `_unchecked` would be to use a tag `unchecked_t`.
+Foot-note: an alternative to `_unchecked`-named functions would be to use tag
+dispatching with, e.g., `std::unchecked_t`.
 
 ### Constexpr
 
-The whole API of `stack_vector<T, Capacity>` is `constexpr` if `T` models `TrivialType`.
+The whole API of `stack_vector<T, Capacity>` is `constexpr` if `T` models
+`TrivialType`.
 
 TODO: shouldn't `T` model `LiteralType` ?
 
@@ -738,7 +740,7 @@ template<std::size_t M, enable_if_t<(C != M)>>
 
 **TODO: the following initializer list constructor is unimplementable!!**
 ```c++
-/// Constructs a stack_vector whose elements are copied from \p il.
+/// Constructs a stack_vector with elements copied from [il.begin(), il.end()).
 ///
 /// Requirements: `value_type` shall be `CopyInsertable` into `*this`
 ///
@@ -1037,6 +1039,16 @@ Hinnant + ?? TODO: check) `<algorithm>` and `<vector>` and in particular their
 `<vector>` test suite which I extensively used in the prototype implementation.
 Anybody else who finds errors, and helps improve this proposal and/or the
 implementation.
+
+# References
+
+- [Boost.Container::static_vector][boost_static_vector].
+  - Discussions in the Boost developers mailing list:
+  - [Interest in StaticVector - fixed capacity vector](https://groups.google.com/d/topic/boost-developers-archive/4n1QuJyKTTk/discussion).
+  - [Stack-based vector container](https://groups.google.com/d/topic/boost-developers-archive/9BEXjV8ZMeQ/discussion).
+  - [static_vector: fixed capacity vector update](https://groups.google.com/d/topic/boost-developers-archive/d5_Kp-nmW6c/discussion).
+- [Howard Hinnant's stack_alloc][stack_alloc].
+
 
 # Appendix A: Standad wording
 
