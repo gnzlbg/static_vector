@@ -264,7 +264,8 @@ can trigger an assertion on undefined behavior):
   - checked (throws `bad_alloc` like `std::vector`): `push_back`,
     `emplace_back`, `emplace`, `insert`, ...
   - unchecked (undefined behavior, assertion encouraged): `push_back_unchecked`,
-  `emplace_back_unchecked`, `emplace_unchecked`, `insert_unchecked`
+  `emplace_back_unchecked`, `emplace_unchecked`, `insert_unchecked`,
+  `resize_unchecked`
 
 Non-conforming implementations could in practice replace exceptions with
 assertions, calls to exit or terminate, or even a callback, but issues with C++
@@ -291,6 +292,20 @@ Even though `stack_vector`s of different capacity have different types, it is
 useful to be able to compare them and convert them. Since the capacities are
 different, and the number of elements is not known till run-time, the
 conversions and swap must be allowed to throw.
+
+### Default initialization
+
+Default initialization of elements is provided by:
+
+```c++
+static constexpr stack_vector default_initialized(size_t n);
+constexpr void resize_default_initialized(size_type sz);
+constexpr void resize_unchecked_default_initialized(size_type sz);
+```
+
+An alternative would be to provide a tag like `std::default_initialized_t` and
+use it to overload the `resize` method and the sized constructor. The effect is
+the same.
 
 ### Proposed API
 
@@ -375,6 +390,13 @@ constexpr void resize(size_type sz, const T& c);
 constexpr bool empty() const noexcept;
 void reserve(size_type n) /* QoI */ = deleted;
 void shrink_to_fit() /* QoI */ = deleted; 
+
+constexpr void resize_default_initialized(size_type sz);
+
+constexpr void resize_unchecked(size_type sz);
+constexpr void resize_unchecked_default_initialized(size_type sz);
+constexpr void resize_unchecked(size_type sz, const T& c);
+
 
 // element access:
 constexpr reference       operator[](size_type n) noexcept; 
