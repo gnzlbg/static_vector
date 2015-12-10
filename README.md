@@ -33,7 +33,9 @@ This container is useful when one would otherwise use a `std::vector`, but:
 - memory allocation is not desired _and_ the maximum capacity is bounded at
   compile-time,
 - static allocation of objects with complex lifetimes is required (TODO: find
-  example?).
+  example?),
+- storing a bounded number of non-default constructible objects (`std::array`
+  won't work here).
 
 This paper addresses the utility of this container, explores the design space,
 the existing trade-offs, and for a particular choice of trade-offs proposes an
@@ -93,10 +95,13 @@ implementation is provided for standardization purposes here:
 
 The requirements of `stack_vector` are:
 
-  1. `stack_vector<T,C>`s API should be as similar to
-     `vector<T,A>` API as possible, 
+  0. dynamically-resizable contiguous random-access sequence container with O(1)
+     insert/erase at the end, and O(N) insert/erase otherwise, whose elements
+     are stored internally within the object,
+
+  1. it's API should be as similar to `vector<T,A>` API as possible,
   2. differences with `vector<T, A>`s API should be as explicit as possible, and
-  3. `stack_vector<T,C>` should be as efficient as possible.
+  3. it should be as efficient as possible.
   
 Given these requirements, the following approaches cannot work:
 
@@ -122,6 +127,10 @@ Reusing Howard Hinnant's [`stack_alloc`][stack_alloc] one can implement a
      factor of `std::vector`.
 
   2. The resulting type is one word of memory too large.
+
+On the other hand, `std::vector` with `stack_alloc` is perfect when a fallback
+to the heap is desired, so `stack_vector` should not try to accommodate such an
+use case.
 
 
 ### Failed approach 3: `std::vector::growth_factor()` + stack allocator
@@ -200,12 +209,47 @@ discussed later are marked as such):
 
 ### Exception Safety
 
-Since `stack_vector` does not allocate memory, the only operations that can
-actually throw (even though _everything_ can throw) are constructors,
-assignments, destructors, and swap. The approach followed by `std::vector` is to
-offer the strong-exception safety guarantee if these operations do not throw,
-and the basic guarantee otherwise. The same guarantee is offered for
-`stack_vector`.
+Since `stack_vector<T, Capacity>` does not allocate memory, the only operations
+that can actually fail are:
+
+  1. `T` constructors, assignment, destructor, and swap,
+  2. insertion exceeding the capacity (`push_back`, `insert`, `emplace`, ..),
+  3. out-of-bounds access (`front/back/pop_back` when empty, unchecked
+     random-access).
+
+Like for `std::vector`, if (1) fails, the basic guarantee is provided and the
+exception is rethrown.
+
+Point (2) is controversal. The capacity of the vector is fixed at compile-time.
+Is exceeding the capacity:
+
+  - a) a logic error, and should be undefined behavior and asserted?
+  - b) a logic error, and should throw a `logic_error` exception?
+  - c) an out-of-memory error, since the vector cannot grow, and should be throw a
+    `bad_alloc` exception?
+
+Furthermore, since this class is very useful in embedded enviroments, should it
+use exceptions at all?
+
+Finally, since the capacity is known at compile-time, checked `push_back` incurs
+O(N) checks, but the calle might know the exact number of elements that are
+going to be inserted and might want to extract this check from the loop.
+
+Addressing all these issues and concerns is arguably not easy. A good compromise
+is provided by checked `std::vector`-like methods, and unchecked methods (that
+can trigger an assertion on undefined behavior):
+
+  - checked (throws `bad_alloc` like `std::vector`): `push_back`,
+    `emplace_back`, `emplace`, `insert`, ...
+  - unchecked (undefined behavior, assertion encouraged): `push_back_unchecked`,
+  `emplace_back_unchecked`, `emplace_unchecked`, `insert_unchecked`
+
+Non-conforming implementations could in practice replace exceptions with
+assertions, calls to exit or terminate, or even a callback, but issues with C++
+dialects are not for this proposal to solve and will not be discussed here
+further.
+
+Foot-note: an alternative to `_unchecked` would be to use a tag `unchecked_t`.
 
 ### Constexpr
 
@@ -224,7 +268,16 @@ issue. Implementations are encouraged to do so.
 Even though `stack_vector`s of different capacity have different types, it is
 useful to be able to compare them and convert them. Since the capacities are
 different, and the number of elements is not known till run-time, the
-conversions and swap must be allowed to throw. 
+conversions and swap must be allowed to throw.
+
+
+### Layout (TODO)
+
+The memory layout of `stack_vector` offers the following guarantees:
+
+- the elements are properly aligned ... wording
+- the size parameter is as small as possible (e.g. for Capacity < 256 an
+  unsigned char is enough).
 
 ### Bikeshedding/naming
 
@@ -241,6 +294,7 @@ Other names are:
 - `non_allocating_vector`
 - `static_vector` (Boost.Container's name for it)
 - `internal_vector`
+- `small_vector`
 
 ### Proposed API
 
@@ -274,6 +328,8 @@ template<std::size_t M, enable_if_t<(C != M)>>
 constexpr stack_vector(stack_vector const&);
 constexpr stack_vector(stack_vector&&);
 constexpr stack_vector(initializer_list<T>);
+
+static constexpr stack_vector default_initialized(size_t n);
 
 constexpr ~stack_vector();
 
@@ -348,6 +404,25 @@ template<class InputIterator>
   constexpr iterator insert(const_iterator position, InputIterator first, InputIterator last);
 
 constexpr iterator insert(const_iterator position, initializer_list<T> il);
+
+
+template<class... Args>
+  constexpr void emplace_back_unchecked(Args&&... args);
+constexpr void push_back_unchecked(const T& x);
+constexpr void push_back_unchecked(T&& x);
+
+template<class... Args>
+  constexpr iterator emplace_unchecked(const_iterator position, Args&&...args);
+constexpr iterator insert_unchecked(const_iterator position, const value_type& x);
+
+// TODO: document: std::vector does not provide an insert for rvalues/move-only types
+constexpr iterator insert_unchecked(const_iterator position, value_type&& x);
+constexpr iterator insert_unchecked(const_iterator position, size_type n, const T& x);
+template<class InputIterator>
+  constexpr iterator insert_unchecked(const_iterator position, InputIterator first, InputIterator last);
+
+constexpr iterator insert_unchecked(const_iterator position, initializer_list<T> il);
+
 constexpr iterator erase(const_iterator position);
 constexpr iterator erase(const_iterator first, const_iterator last);
 
@@ -391,7 +466,7 @@ The list of types is the same as `std::vector`, with the exception of
 `allocator_type`.
 
 
-## Storage
+## Storage / Layout
 
 
 ## Construction/Assignment/Destruction
@@ -405,6 +480,12 @@ The list of types is the same as `std::vector`, with the exception of
 ### Move assignment
 
 ### Destruction
+
+### Static methods
+
+- a `static constexpr stack_vector default_initialized(size_t n)` method is
+  provided which returns a vector of `n` default initialized elements. An
+  alternative would be to provide a tag for this.
 
 ## Iterators
 
@@ -430,6 +511,9 @@ The list of types is the same as `std::vector`, with the exception of
 conflict with proxy references in the future
 
 ## Swap
+
+TODO: the paragraph below is wrong, we should support swapping vectors of different capacity
+TODO: swap is, as for `std::array`, O(N), which might be controversial.
 
 For simplicity only `stack_vector`s of the same type can be swapped. Allowing
 `stack_vector`s of different types to be swapped is possible but that swap
