@@ -41,6 +41,27 @@ This paper addresses the utility of this container, explores the design space,
 the existing trade-offs, and for a particular choice of trade-offs proposes an
 API with standard-like wording and provides an implementation thereof. 
 
+##### Bikeshedding
+
+In this paper, the proposed container is named `stack_vector`. This name is a
+bit of a lie since in the following the `stack_vector` elements will be on the
+heap:
+
+```c++
+std::vector<stack_vector<float, 10>> where_is_my_mind;
+```
+
+Just mentally replace the name `stack_vector` with any of the following names:
+
+- `static_vector` (Boost.Container's name for it)
+- `fixed_capacity_vector`
+- `fixed_vector`
+- `non_allocating_vector`
+- `internal_vector`
+- `small_vector`
+
+or a name of your preference.
+
 # Motivation
 
 ## Split square with line in two dimensions
@@ -58,7 +79,7 @@ using polygon2d = stack_vector<point<2>, N>;
 pair<polygon2d<5>, polygon2d<5>> split(polygon<4> square, polygon<2> line);
 ```
 
-Wether these polygons are to be stored on the stack or on the heap is
+Whether these polygons are to be stored on the stack or on the heap is
 irrelevant. We can easily put them on the heap if needed:
 
 ```c++
@@ -184,7 +205,8 @@ Now follows a list of the concrete requirements for an implementation (those
 discussed later are marked as such):
 
   1. if `Capacity == 0`:
-     - it should have zero-size so that it can be used with EBO.
+     - it should have zero-size so that it can be inherited from and the empty
+       base optimization will trigger.
      - `data() == begin() == end() == unspecified unique value` (`nullptr` is
      intended) (like `std::array`).
      - `swap` is `noexcept(true)` (like `std::array`).
@@ -253,7 +275,7 @@ Foot-note: an alternative to `_unchecked` would be to use a tag `unchecked_t`.
 
 ### Constexpr
 
-The whole API of `stacK_vector<T, Capacity>` is `constexpr` if `T` is trivally
+The whole API of `stack_vector<T, Capacity>` is `constexpr` if `T` is trivially
 destructible.
 
 ### Explicit instantiation
@@ -269,32 +291,6 @@ Even though `stack_vector`s of different capacity have different types, it is
 useful to be able to compare them and convert them. Since the capacities are
 different, and the number of elements is not known till run-time, the
 conversions and swap must be allowed to throw.
-
-
-### Layout (TODO)
-
-The memory layout of `stack_vector` offers the following guarantees:
-
-- the elements are properly aligned ... wording
-- the size parameter is as small as possible (e.g. for Capacity < 256 an
-  unsigned char is enough).
-
-### Bikeshedding/naming
-
-The current name, `stack_vector`, is a lie. Consider:
-
-```c++
-std::vector<stack_vector<float, 10>> where_is_my_mind;
-```
-
-Other names are:
-
-- `fixed_capacity_vector`
-- `fixed_vector`
-- `non_allocating_vector`
-- `static_vector` (Boost.Container's name for it)
-- `internal_vector`
-- `small_vector`
 
 ### Proposed API
 
@@ -315,35 +311,43 @@ typedef T const* const_pointer;
 typedef reverse_iterator<iterator> reverse_iterator;
 typedef reverse_iterator<const_iterator> const_reverse_iterator;
 
-// construct/copy/move/destroy: TODO: consider conditionally noexcept?
+// construct/copy/move/destroy:
 constexpr stack_vector() noexcept;
 constexpr explicit stack_vector(size_type n);
 constexpr stack_vector(size_type n, const T& value);
 template<class InputIterator>
 constexpr stack_vector(InputIterator first, InputIterator last);
-  template<std::size_t M, enable_if_t<(C != M)>>
-constexpr stack_vector(stack_vector<T, M> const&);
 template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr stack_vector(stack_vector<T, M> &&);
+  constexpr stack_vector(stack_vector<T, M> const&);
+    noexcept(is_nothrow_copy_constructible<T>{} and C >= M);
+template<std::size_t M, enable_if_t<(C != M)>>
+  constexpr stack_vector(stack_vector<T, M> &&)
+    noexcept(is_nothrow_move_constructible<T>{} and C >= M);
 constexpr stack_vector(stack_vector const&);
-constexpr stack_vector(stack_vector&&);
+  noexcept(is_nothrow_copy_constructible<T>{});
+  constexpr stack_vector(stack_vector&&)
+  noexcept(is_nothrow_move_constructible<T>{});
 constexpr stack_vector(initializer_list<T>);
 
 static constexpr stack_vector default_initialized(size_t n);
 
 constexpr ~stack_vector();
 
-constexpr stack_vector<T, C>& operator=(stack_vector<T, C>const&);
-constexpr stack_vector<T, C>& operator=(stack_vector<T, C>&&);
+constexpr stack_vector<T, C>& operator=(stack_vector const&)
+  noexcept(is_nothrow_copy_assignable<T>{});
+constexpr stack_vector<T, C>& operator=(stack_vector &&);
+  noexcept(is_nothrow_move_assignable<T>{});
 template<std::size_t M, enable_if_t<(C != M)>>
-constexpr stack_vector<T, C>& operator=(stack_vector<T, M>const&);
+  constexpr stack_vector<T, C>& operator=(stack_vector<T, M>const&)
+    noexcept(is_nothrow_copy_assignable<T>{} and C >= M);
 template<std::size_t M, enable_if_t<(C != M)>>
-constexpr stack_vector<T, C>& operator=(stack_vector<T, M>&&);
+  constexpr stack_vector<T, C>& operator=(stack_vector<T, M>&&);
+    noexcept(is_nothrow_move_assignable<T>{} and C >= M);
 
 template<class InputIterator>
 constexpr void assign(InputIterator first, InputIterator last);
 constexpr void assign(size_type n, const T& u);
-cosntexpr void assign(initializer_list<T>);
+constexpr void assign(initializer_list<T>);
 
 // iterators:
 constexpr iterator               begin()         noexcept;
@@ -369,8 +373,8 @@ static constexpr size_type max_size() noexcept;
 constexpr void resize(size_type sz);
 constexpr void resize(size_type sz, const T& c);
 constexpr bool empty() const noexcept;
-void reserve(size_type n) = deleted;  // TODO: QoI?
-void shrink_to_fit() = deleted; // TODO: QoI?
+void reserve(size_type n) /* QoI */ = deleted;
+void shrink_to_fit() /* QoI */ = deleted; 
 
 // element access:
 constexpr reference       operator[](size_type n) noexcept; 
@@ -407,32 +411,44 @@ constexpr iterator insert(const_iterator position, initializer_list<T> il);
 
 
 template<class... Args>
-  constexpr void emplace_back_unchecked(Args&&... args);
-constexpr void push_back_unchecked(const T& x);
-constexpr void push_back_unchecked(T&& x);
+  constexpr void emplace_back_unchecked(Args&&... args)
+    noexcept(NothrowConstructible<T, Args...>{});  // TODO
+constexpr void push_back_unchecked(const T& x)
+  noexcept(is_nothrow_copy_constructible<T>{});
+constexpr void push_back_unchecked(T&& x)
+  noexcept(is_nothrow_move_constructible<T>{});
 
 template<class... Args>
-  constexpr iterator emplace_unchecked(const_iterator position, Args&&...args);
-constexpr iterator insert_unchecked(const_iterator position, const value_type& x);
+  constexpr iterator emplace_unchecked(const_iterator position, Args&&...args)
+    noexcept(NothrowConstructible<T, Args...>{} and is_nothrow_swappable<T>{});  // TODO
+
+constexpr iterator insert_unchecked(const_iterator position, const value_type& x)
+  noexcept(is_nothrow_copy_constructible<T>{} and is_nothrow_swappable<T>{});
 
 // TODO: document: std::vector does not provide an insert for rvalues/move-only types
-constexpr iterator insert_unchecked(const_iterator position, value_type&& x);
-constexpr iterator insert_unchecked(const_iterator position, size_type n, const T& x);
+constexpr iterator insert_unchecked(const_iterator position, value_type&& x)
+  noexcept(is_nothrow_move_constructible<T>{} and is_nothrow_swappable<T>{});
+constexpr iterator insert_unchecked(const_iterator position, size_type n, const T& x)
+    noexcept(is_nothrow_copy_constructible<T>{} and is_nothrow_swappable<T>{});
 template<class InputIterator>
-  constexpr iterator insert_unchecked(const_iterator position, InputIterator first, InputIterator last);
+  constexpr iterator insert_unchecked(const_iterator position, InputIterator first, InputIterator last)
+    noexcept(is_nothrow_copy_constructible<T>{} and is_nothrow_swappable<T>{});
 
-constexpr iterator insert_unchecked(const_iterator position, initializer_list<T> il);
+constexpr iterator insert_unchecked(const_iterator position, initializer_list<T> il)
+  noexcept(is_nothrow_copy_constructible<T>{} and is_nothrow_swappable<T>{});
 
-constexpr iterator erase(const_iterator position);
-constexpr iterator erase(const_iterator first, const_iterator last);
+constexpr iterator erase(const_iterator position)
+  noexcept(is_nothrow_destructible<T>{} and is_nothrow_swappable<T>{});
+constexpr iterator erase(const_iterator first, const_iterator last)
+  noexcept(is_nothrow_destructible<T>{} and is_nothrow_swappable<T>{});
 
-constexpr void clear() noexcept;
+constexpr void clear() noexcept(is_nothrow_destructible<T>{});
 
 constexpr void swap(stack_vector<T, C>&)
   noexcept(noexcept(swap(declval<T&>(), declval<T&>()))));
-
 };
 
+// TODO: noexcept specification missing
 template<typename T, std::size_t C0, std::size_t C1>
 constexpr bool operator==(const stack_vector<T, C0>& a, const stack_vector<T, C1>& b);
 template<typename T, std::size_t C0, std::size_t C1>
@@ -466,7 +482,13 @@ The list of types is the same as `std::vector`, with the exception of
 `allocator_type`.
 
 
-## Storage / Layout
+## Storage / Layout guarantees
+
+The memory layout of `stack_vector` offers the following guarantees:
+
+- the elements are properly aligned ... wording
+- the size parameter is as small as possible (e.g. for Capacity < 256 an
+  unsigned char is enough).
 
 
 ## Construction/Assignment/Destruction
