@@ -51,6 +51,7 @@
 #include <cstddef>     // for size_t
 #include <functional>  // for less and equal_to
 #include <iterator>    // for reverse_iterator
+#include <limits>      // for numeric_limits
 #include <stdexcept>   // for length_error
 #include <type_traits>
 
@@ -110,6 +111,18 @@ struct CopyConstructible : is_copy_constructible<uncvref_t<T>> {};
 #define REQUIRES(...)       \
   template <int dummy = 42, \
             typename  = enable_if_t<(dummy == 43) || (__VA_ARGS__)>>
+
+template <std::size_t N>
+using smallest_size_type
+ = conditional_t<(N < numeric_limits<uint8_t>::max()), uint8_t,
+                 conditional_t<(N < numeric_limits<uint16_t>::max()), uint16_t,
+                               conditional_t<(N < numeric_limits<uint32_t>::
+                                                   max()),
+                                             uint32_t,
+                                             conditional_t<(N
+                                                            < numeric_limits<uint64_t>::
+                                                               max()),
+                                                           uint64_t, size_t>>>>;
 
 template <typename InputIt, typename OutputIt,
           REQUIRES_(InputIterator<InputIt>{} and OutputIterator<OutputIt>{})>
@@ -180,7 +193,7 @@ struct storage {
 
  private:
   aligned_storage_t<sizeof(T), alignment_of<T>::value> data_[Capacity];
-  size_t size_ = 0;
+  smallest_size_type<Capacity> size_ = 0;
 
  public:
   /// Direct access to the underlying storage
@@ -257,8 +270,8 @@ struct storage<T, Capacity, true> {
   static_assert(Capacity != size_t{0}, "");
 
  private:
-  T data_[Capacity]{};
-  size_t size_ = 0;
+  alignas(T) T data_[Capacity]{};
+  smallest_size_type<Capacity> size_ = 0;
 
  public:
   /// Direct access to the underlying storage
