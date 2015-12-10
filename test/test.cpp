@@ -108,6 +108,11 @@ class A {
   double getd() const { return d_; }
 };
 
+template <typename T, int N> struct vec {
+  vec() {}
+  vec(std::initializer_list<T>) {}
+};
+
 int main() {
   {  // const
     vector<const int, 0> v0 = {};
@@ -669,31 +674,133 @@ assert(d[13] == 1);
 }
 }
 
-{  // insert iter iter
+{// insert iter iter
+ {vector<int, 120> v(100);
+int a[]             = {1, 2, 3, 4, 5};
+const std::size_t N = sizeof(a) / sizeof(a[0]);
+vector<int, 120>::iterator i = v.insert(v.cbegin() + 10, (a + 0), (a + N));
+assert(v.size() == 100 + N);
+assert(i == v.begin() + 10);
+int j;
+for (j = 0; j < 10; ++j) assert(v[j] == 0);
+for (std::size_t k = 0; k < N; ++j, ++k) assert(v[j] == a[k]);
+for (; j < 105; ++j) assert(v[j] == 0);
+}
+{
+  vector<int, 120> v(100);
+  size_t sz        = v.size();
+  int a[]          = {1, 2, 3, 4, 5};
+  const unsigned N = sizeof(a) / sizeof(a[0]);
+  vector<int, 120>::iterator i = v.insert(v.cbegin() + 10, (a + 0), (a + N));
+  assert(v.size() == sz + N);
+  assert(i == v.begin() + 10);
+  std::size_t j;
+  for (j = 0; j < 10; ++j) assert(v[j] == 0);
+  for (std::size_t k = 0; k < N; ++j, ++k) assert(v[j] == a[k]);
+  for (; j < v.size(); ++j) assert(v[j] == 0);
+}
+}
+
+{// insert iter rvalue
+ {vector<moint, 103> v(100);
+vector<moint, 103>::iterator i = v.insert(v.cbegin() + 10, moint(3));
+assert(v.size() == 101);
+assert(i == v.begin() + 10);
+int j;
+for (j = 0; j < 10; ++j) assert(v[j] == moint());
+assert(v[j] == moint(3));
+for (++j; j < 101; ++j) assert(v[j] == moint());
+}
+}
+
+{// insert iter size
+ {vector<int, 130> v(100);
+vector<int, 130>::iterator i = v.insert(v.cbegin() + 10, 5, 1);
+assert(v.size() == 105);
+assert(i == v.begin() + 10);
+int j;
+for (j = 0; j < 10; ++j) assert(v[j] == 0);
+for (; j < 15; ++j) assert(v[j] == 1);
+for (++j; j < 105; ++j) assert(v[j] == 0);
+}
+{
+  vector<int, 130> v(100);
+  size_t sz = v.size();
+  vector<int, 130>::iterator i = v.insert(v.cbegin() + 10, 5, 1);
+  assert(v.size() == sz + 5);
+  assert(i == v.begin() + 10);
+  int j;
+  for (j = 0; j < 10; ++j) assert(v[j] == 0);
+  for (; j < 15; ++j) assert(v[j] == 1);
+  for (++j; j < v.size(); ++j) assert(v[j] == 0);
+}
+{
+  vector<int, 130> v(100);
+  size_t sz = v.size();
+  vector<int, 130>::iterator i = v.insert(v.cbegin() + 10, 5, 1);
+  assert(v.size() == sz + 5);
+  assert(i == v.begin() + 10);
+  int j;
+  for (j = 0; j < 10; ++j) assert(v[j] == 0);
+  for (; j < 15; ++j) assert(v[j] == 1);
+  for (++j; j < v.size(); ++j) assert(v[j] == 0);
+}
+}
+
+{// iter value:
+ {vector<int, 130> v(100);
+vector<int, 130>::iterator i = v.insert(v.cbegin() + 10, 1);
+assert(v.size() == 101);
+assert(i == v.begin() + 10);
+int j;
+for (j = 0; j < 10; ++j) assert(v[j] == 0);
+assert(v[j] == 1);
+for (++j; j < 101; ++j) assert(v[j] == 0);
+}
+{
+  vector<int, 130> v(100);
+  size_t sz = v.size();
+  vector<int, 130>::iterator i = v.insert(v.cbegin() + 10, 1);
+  assert(v.size() == sz + 1);
+  assert(i == v.begin() + 10);
+  int j;
+  for (j = 0; j < 10; ++j) assert(v[j] == 0);
+  assert(v[j] == 1);
+  for (++j; j < v.size(); ++j) assert(v[j] == 0);
+}
+{
+  vector<int, 130> v(100);
+  v.pop_back();
+  v.pop_back();  // force no reallocation
+  size_t sz = v.size();
+  vector<int, 130>::iterator i = v.insert(v.cbegin() + 10, 1);
+  assert(v.size() == sz + 1);
+  assert(i == v.begin() + 10);
+  int j;
+  for (j = 0; j < 10; ++j) assert(v[j] == 0);
+  assert(v[j] == 1);
+  for (++j; j < v.size(); ++j) assert(v[j] == 0);
+}
+}
+
+{  // push back move only
   {
-    vector<int, 120> v(100);
-    int a[]             = {1, 2, 3, 4, 5};
-    const std::size_t N = sizeof(a) / sizeof(a[0]);
-    vector<int, 120>::iterator i = v.insert(v.cbegin() + 10, (a + 0), (a + N));
-    assert(v.size() == 100 + N);
-    assert(i == v.begin() + 10);
-    int j;
-    for (j = 0; j < 10; ++j) assert(v[j] == 0);
-    for (std::size_t k = 0; k < N; ++j, ++k) assert(v[j] == a[k]);
-    for (; j < 105; ++j) assert(v[j] == 0);
-  }
-  {
-    vector<int, 120> v(100);
-    size_t sz        = v.size();
-    int a[]          = {1, 2, 3, 4, 5};
-    const unsigned N = sizeof(a) / sizeof(a[0]);
-    vector<int, 120>::iterator i = v.insert(v.cbegin() + 10, (a + 0), (a + N));
-    assert(v.size() == sz + N);
-    assert(i == v.begin() + 10);
-    std::size_t j;
-    for (j = 0; j < 10; ++j) assert(v[j] == 0);
-    for (std::size_t k = 0; k < N; ++j, ++k) assert(v[j] == a[k]);
-    for (; j < v.size(); ++j) assert(v[j] == 0);
+    vector<moint, 6> c;
+    c.push_back(moint(0));
+    assert(c.size() == 1);
+    for (int j = 0; j < c.size(); ++j) assert(c[j] == moint(j));
+    c.push_back(moint(1));
+    assert(c.size() == 2);
+    for (int j = 0; j < c.size(); ++j) assert(c[j] == moint(j));
+    c.push_back(moint(2));
+    assert(c.size() == 3);
+    for (int j = 0; j < c.size(); ++j) assert(c[j] == moint(j));
+    c.push_back(moint(3));
+    assert(c.size() == 4);
+    for (int j = 0; j < c.size(); ++j) assert(c[j] == moint(j));
+    c.push_back(moint(4));
+    assert(c.size() == 5);
+    for (int j = 0; j < c.size(); ++j) assert(c[j] == moint(j));
   }
 }
 

@@ -921,6 +921,11 @@ struct stack_vector
   constexpr iterator insert(const_iterator position, const_reference x) {
     return insert(position, size_type(1), x);
   }
+
+  constexpr iterator insert(const_iterator position, value_type&& x) {
+    return move_insert(position, &x, &x + 1);
+  }
+
   REQUIRES(CopyConstructible<T>{})
   constexpr iterator insert(const_iterator position, size_type n, const T& x) {
     const auto new_size = size() + n;
@@ -936,7 +941,8 @@ struct stack_vector
     return writable_position;
   }
 
-  constexpr iterator insert(const_iterator position, size_type n) {
+  template <typename SizeType, REQUIRES_(is_same<SizeType, size_type>{})>
+  constexpr iterator insert(const_iterator position, SizeType n) {
     const auto new_size = size() + n;
     if (new_size > capacity()) throw length_error("");
     auto b = end();

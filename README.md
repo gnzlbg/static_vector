@@ -452,6 +452,15 @@ b.swap(c); // always fails
 - `fill`
 
 
+# Acknowledgements
+
+The authors of Boost.Container's `boost::container::static_vector` (Adam
+Wulkiewicz, Andrew Hundt, and Ion Gaztanaga). The authors of libc++ (Howard
+Hinnant + ?? TODO: check) `<algorithm>` and `<vector>` and in particular their
+`<vector>` test suite which I extensively used in the prototype implementation.
+Anybody else who finds errors, and helps improve this proposal and/or the
+implementation.
+
 # Appendix A. Rough edges in C++14
 
 
@@ -463,8 +472,9 @@ propose anything about them.
       raw-pointer (which is constexpr).
 
   2. `std::array` is not fully `constexpr` (`data`, `begin/end`, `non-const
-     operator[]`, `swap`...) and as a consequence `stack_vector`s
-     implementation uses a C Array.
+     operator[]`, `swap`...) and as a consequence `stack_vector`s implementation
+     uses a C Array for trivially destructible types. If the types are also
+     trivially constructible, then `std::array` would have been a better fit.
 
   3. the `<algorithms>` are not `constexpr` even though it is trivial to make
      all of them but 3 (the allocating algorithms) `constexpr`. The API of the
