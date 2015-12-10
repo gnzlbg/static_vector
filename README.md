@@ -995,17 +995,96 @@ the same as for the unchecked element access holds. But furthermore:
 
 ### Emplace back
 
+```c++
+template<class... Args>
+constexpr void emplace_back(Args&&... args);
+```
+
+``` c++
+template<class... Args>
+  constexpr void emplace_back_unchecked(Args&&... args)
+    noexcept(NothrowConstructible<value_type, Args...>{});
+```
+
 ### Push back
 
+```c++
+constexpr void push_back(const value_type& x);
+constexpr void push_back(value_type&& x);
+```
+```c++
+constexpr void push_back_unchecked(const value_type& x)
+  noexcept(is_nothrow_copy_constructible<value_type>{});
+constexpr void push_back_unchecked(value_type&& x)
+  noexcept(is_nothrow_move_constructible<value_type>{});
+```
+
 ### Pop back
+```c++
+constexpr void pop_back();
+```
+
 
 ### Emplace
+```c++
+template<class... Args>
+  constexpr void emplace_back(Args&&... args);
+```
+
+```c++
+template<class... Args>
+  constexpr iterator emplace_unchecked(const_iterator position, Args&&...args)
+    noexcept(NothrowConstructible<value_type, Args...>{} and is_nothrow_swappable<value_type>{});  // TODO
+```
 
 ### Insert
+```c++
+constexpr iterator insert(const_iterator position, const value_type& x);
+constexpr iterator insert(const_iterator position, value_type&& x);
+constexpr iterator insert(const_iterator position, size_type n, const value_type& x);
+template<class InputIterator>
+  constexpr iterator insert(const_iterator position, InputIterator first, InputIterator last);
+constexpr iterator insert(const_iterator position, initializer_list<value_type> il);
+```
+
+```c++
+constexpr iterator insert_unchecked(const_iterator position, const value_type& x)
+  noexcept(is_nothrow_copy_constructible<value_type>{} and is_nothrow_swappable<value_type>{});
+
+constexpr iterator insert_unchecked(const_iterator position, value_type&& x)
+  noexcept(is_nothrow_move_constructible<value_type>{} and is_nothrow_swappable<value_type>{});
+constexpr iterator insert_unchecked(const_iterator position, size_type n, const value_type& x)
+    noexcept(is_nothrow_copy_constructible<value_type>{} and is_nothrow_swappable<value_type>{});
+template<class InputIterator>
+  constexpr iterator insert_unchecked(const_iterator position, InputIterator first, InputIterator last)
+    noexcept(is_nothrow_copy_constructible<value_type>{} and is_nothrow_swappable<value_type>{});
+
+constexpr iterator insert_unchecked(const_iterator position, initializer_list<value_type> il)
+  noexcept(is_nothrow_copy_constructible<value_type>{} and is_nothrow_swappable<value_type>{});
+```
 
 ### Erase
 
-## Swap
+```c++
+constexpr iterator erase(const_iterator position)
+  noexcept(is_nothrow_destructible<value_type>{} and is_nothrow_swappable<value_type>{});
+constexpr iterator erase(const_iterator first, const_iterator last)
+  noexcept(is_nothrow_destructible<value_type>{} and is_nothrow_swappable<value_type>{});
+```
+
+### Clear
+
+```c++
+constexpr void clear() noexcept(is_nothrow_destructible<value_type>{});
+```
+
+
+### Swap
+
+```c++
+constexpr void swap(stack_vector<value_type, C>&)
+  noexcept(noexcept(swap(declval<value_type&>(), declval<value_type&>()))));
+```
 
 TODO: the paragraph below is wrong, we should support swapping vectors of different capacity
 TODO: swap is, as for `std::array`, O(N), which might be controversial.
@@ -1023,6 +1102,23 @@ b.swap(c); // always fails
 ```
 
 ## Comparision operators
+
+TODO: noexcept specification is missing
+
+```c++
+template<typename T, std::size_t C0, std::size_t C1>
+constexpr bool operator==(const stack_vector<value_type, C0>& a, const stack_vector<value_type, C1>& b);
+template<typename T, std::size_t C0, std::size_t C1>
+constexpr bool operator!=(const stack_vector<value_type, C0>& a, const stack_vector<value_type, C1>& b);
+template<typename T, std::size_t C0, std::size_t C1>
+constexpr bool operator<(const stack_vector<value_type, C0>& a, const stack_vector<value_type, C1>& b);
+template<typename T, std::size_t C0, std::size_t C1>
+constexpr bool operator<=(const stack_vector<value_type, C0>& a, const stack_vector<value_type, C1>& b);
+template<typename T, std::size_t C0, std::size_t C1>
+constexpr bool operator>(const stack_vector<value_type, C0>& a, const stack_vector<value_type, C1>& b);
+template<typename T, std::size_t C0, std::size_t C1>
+constexpr bool operator>=(const stack_vector<value_type, C0>& a, const stack_vector<value_type, C1>& b);
+```
 
 ## List of functions that can potentionally invalidate iterators
 
