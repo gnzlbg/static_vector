@@ -1,4 +1,4 @@
-# stack_vector [![Travis build status][travis-shield]][travis] [![Coveralls.io code coverage][coveralls-shield]][coveralls] [![Docs][docs-shield]][docs]
+# inline_vector [![Travis build status][travis-shield]][travis] [![Coveralls.io code coverage][coveralls-shield]][coveralls] [![Docs][docs-shield]][docs]
 
 > A dynamically-resizable vector with fixed capacity (revision -1)
 
@@ -43,16 +43,12 @@ API with standard-like wording and provides an implementation thereof.
 
 ##### Bikeshedding
 
-In this paper, the proposed container is named `stack_vector`. This name is a
-bit of a lie since in the following the `stack_vector` elements will be on the
-heap:
+In this paper, the proposed container is named `inline_vector` to denote that 
+the elements are stored inline within the object itself. 
 
-```c++
-std::vector<stack_vector<float, 10>> where_is_my_mind;
-```
+Just mentally replace the name `inline_vector` with any of the following names:
 
-Just mentally replace the name `stack_vector` with any of the following names:
-
+- `stack_vector` (is a lie since the elements won't always be on the stack)
 - `static_vector` (Boost.Container's name for it)
 - `fixed_capacity_vector`
 - `fixed_vector`
@@ -60,7 +56,7 @@ Just mentally replace the name `stack_vector` with any of the following names:
 - `internal_vector`
 - `small_vector`
 
-or a name of your preference.
+or a different name of your preference.
 
 # Motivation
 
@@ -68,12 +64,12 @@ or a name of your preference.
 
 Lets consider splitting a two-dimensional square with a line into two polygons.
 It is known a priori that the result of this operation are two polygons, which
-might have either 3, 4, or 5 points. Using `stack_vector`:
+might have either 3, 4, or 5 points. Using `inline_vector`:
 
 ```c++
 // We can easily define a polygon with N points:
 template<size_t N>
-using polygon2d = stack_vector<point<2>, N>;
+using polygon2d = inline_vector<point<2>, N>;
 
 // And the signature of our split function:
 pair<polygon2d<5>, polygon2d<5>> split(polygon<4> square, polygon<2> line);
@@ -101,7 +97,7 @@ leaf node within an octree. The maximum number of neighbors that a node can have
 is known for a 2:1 balanced octree, such that:
 
 ```c++
-stack_vector<node_iterator, max_number_of_leaf_neighbors>
+inline_vector<node_iterator, max_number_of_leaf_neighbors>
 leaf_neighbors(octree const&, node_iterator);
 ```
 
@@ -110,11 +106,11 @@ leaf_neighbors(octree const&, node_iterator);
 This proposal is strongly inspired by
 [`boost::container::static_vector` (1.59)][boost_static_vector]. A new
 implementation is provided for standardization purposes here:
-[http://github.com/gnzlbg/stack_vector][stack_vector]
+[http://github.com/gnzlbg/stack_vector][inline_vector]
 
 # Design space
 
-The requirements of `stack_vector` are:
+The requirements of `inline_vector` are:
 
   1. dynamically-resizable contiguous random-access sequence container with O(1)
      insert/erase at the end, and O(N) insert/erase otherwise, whose elements
@@ -142,7 +138,7 @@ Howard Hinnant's [`stack_alloc`][stack_alloc]) doesn't work because:
 ### Failed approach 2: stack allocator with heap-fallback for `std::vector`
 
 Reusing Howard Hinnant's [`stack_alloc`][stack_alloc] one can implement a
-`stack_vector` that works but has the following problems:
+`inline_vector` that works but has the following problems:
 
   1. Library-dependent performance due to the implementation-defined growth
      factor of `std::vector`.
@@ -150,7 +146,7 @@ Reusing Howard Hinnant's [`stack_alloc`][stack_alloc] one can implement a
   2. The resulting type is one word of memory too large.
 
 On the other hand, `std::vector` with `stack_alloc` is perfect when a fallback
-to the heap is desired, so `stack_vector` should not try to accommodate such an
+to the heap is desired, so `inline_vector` should not try to accommodate such an
 use case.
 
 
@@ -182,10 +178,10 @@ the case this approach cannot possibly ever work).
 ## A new sequence container
 
 The problems with the three failed approaches above are intrinsic with
-`std::vector` implementation. For this reason, a new container, `stack_vector<T,
+`std::vector` implementation. For this reason, a new container, `inline_vector<T,
 Capacity>` is proposed in this section.
 
-The main draw-backs of introducing a `stack_vector<T, Capacity>` type is:
+The main draw-backs of introducing a `inline_vector<T, Capacity>` type is:
 
   1. Code bloat: for each type `T`, and for each `Capacity`, a significant
      amount of code will be generated.
@@ -219,10 +215,10 @@ discussed later are marked as such):
      - whole API is constexpr for types with a trivial destructor.
 
   4. Explicit instantiation support (discussed in subsection Explicit instantiation):
-     - it is possible to explicitly instantiate `stack_vector` for types that
+     - it is possible to explicitly instantiate `inline_vector` for types that
        are both `CopyConstructible` and `MoveConstructible`.
 
-  5. Interoperability between `stack_vector`s of different capacities (discussed
+  5. Interoperability between `inline_vector`s of different capacities (discussed
      in subsection Interoperability between capacities):
      - comparison operators support, 
      - throwing constructors/assignment support,
@@ -230,7 +226,7 @@ discussed later are marked as such):
 
 ### Exception Safety
 
-Since `stack_vector<T, Capacity>` does not allocate memory, the only operations
+Since `inline_vector<T, Capacity>` does not allocate memory, the only operations
 that can actually fail are:
 
   1. `T` constructors, assignment, destructor, and swap,
@@ -276,21 +272,21 @@ dispatching with, e.g., `std::unchecked_t`.
 
 ### Constexpr
 
-The whole API of `stack_vector<T, Capacity>` is `constexpr` if `T` models
+The whole API of `inline_vector<T, Capacity>` is `constexpr` if `T` models
 `TrivialType`.
 
 TODO: shouldn't `T` model `LiteralType` ?
 
 ### Explicit instantiation
 
-It is technically possible to allow explicit instantiations of `stack_vector`
+It is technically possible to allow explicit instantiations of `inline_vector`
 for types that are not both `MoveConstructible` and `CopyConstructible` but
 doing so is so painful that it is left at first as a Quality of Implementation
 issue. Implementations are encouraged to do so.
 
 ### Interoperability between capacities
 
-Even though `stack_vector`s of different capacity have different types, it is
+Even though `inline_vector`s of different capacity have different types, it is
 useful to be able to compare them and convert them. Since the capacities are
 different, and the number of elements is not known till run-time, the
 conversions and swap must be allowed to throw.
@@ -300,7 +296,7 @@ conversions and swap must be allowed to throw.
 Default initialization of elements is provided by:
 
 ```c++
-static constexpr stack_vector default_initialized(size_t n);
+static constexpr inline_vector default_initialized(size_t n);
 constexpr void resize_default_initialized(size_type sz);
 constexpr void resize_unchecked_default_initialized(size_type sz);
 ```
@@ -311,8 +307,8 @@ the same.
 
 ### Iterator invalidation
 
-Since the elements are allocated on the stack, the iterator invalidation rules
-are different to that of `std::vector`. For example:
+Since the elements are allocated within the vector object itself, the iterator 
+invalidation rules are different to that of `std::vector`. For example:
 
 - moving a vector into another vector, invalidates all iterators,
 - swapping two vectors invalidates all iterators,
@@ -322,7 +318,7 @@ are different to that of `std::vector`. For example:
 
 ```c++
 template<typename T, std::size_t C>
-struct stack_vector<T, Size> {
+struct inline_vector<T, Size> {
 
 // types:
 typedef value_type& reference;
@@ -338,36 +334,36 @@ typedef reverse_iterator<iterator> reverse_iterator;
 typedef reverse_iterator<const_iterator> const_reverse_iterator;
 
 // construct/copy/move/destroy:
-constexpr stack_vector() noexcept;
-constexpr explicit stack_vector(size_type n);
-constexpr stack_vector(size_type n, const value_type& value);
+constexpr inline_vector() noexcept;
+constexpr explicit inline_vector(size_type n);
+constexpr inline_vector(size_type n, const value_type& value);
 template<class InputIterator>
-constexpr stack_vector(InputIterator first, InputIterator last);
+constexpr inline_vector(InputIterator first, InputIterator last);
 template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr stack_vector(stack_vector<value_type, M> const& other);
+  constexpr inline_vector(inline_vector<value_type, M> const& other);
     noexcept(is_nothrow_copy_constructible<value_type>{} and C >= M);
 template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr stack_vector(stack_vector<value_type, M> && other)
+  constexpr inline_vector(inline_vector<value_type, M> && other)
     noexcept(is_nothrow_move_constructible<value_type>{} and C >= M);
-constexpr stack_vector(stack_vector const& other);
+constexpr inline_vector(inline_vector const& other);
   noexcept(is_nothrow_copy_constructible<value_type>{});
-  constexpr stack_vector(stack_vector&& other)
+  constexpr inline_vector(inline_vector&& other)
   noexcept(is_nothrow_move_constructible<value_type>{});
-constexpr stack_vector(initializer_list<value_type> il);  // TODO: unimplementable!
+constexpr inline_vector(initializer_list<value_type> il);  // TODO: unimplementable!
 
-static constexpr stack_vector default_initialized(size_t n);
+static constexpr inline_vector default_initialized(size_t n);
 
-/* constexpr ~stack_vector(); */  // implicitly generated
+/* constexpr ~inline_vector(); */  // implicitly generated
 
-constexpr stack_vector<value_type, C>& operator=(stack_vector const& other)
+constexpr inline_vector<value_type, C>& operator=(inline_vector const& other)
   noexcept(is_nothrow_copy_assignable<value_type>{});
-constexpr stack_vector<value_type, C>& operator=(stack_vector && other);
+constexpr inline_vector<value_type, C>& operator=(inline_vector && other);
   noexcept(is_nothrow_move_assignable<value_type>{});
 template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr stack_vector<value_type, C>& operator=(stack_vector<value_type, M>const& other)
+  constexpr inline_vector<value_type, C>& operator=(inline_vector<value_type, M>const& other)
     noexcept(is_nothrow_copy_assignable<value_type>{} and C >= M);
 template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr stack_vector<value_type, C>& operator=(stack_vector<value_type, M>&& other);
+  constexpr inline_vector<value_type, C>& operator=(inline_vector<value_type, M>&& other);
     noexcept(is_nothrow_move_assignable<value_type>{} and C >= M);
 
 template<class InputIterator>
@@ -478,23 +474,23 @@ constexpr iterator erase(const_iterator first, const_iterator last)
 
 constexpr void clear() noexcept(is_nothrow_destructible<value_type>{});
 
-constexpr void swap(stack_vector<value_type, C>&)
+constexpr void swap(inline_vector<value_type, C>&)
   noexcept(noexcept(swap(declval<value_type&>(), declval<value_type&>()))));
 };
 
 // TODO: noexcept specification missing
 template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator==(const stack_vector<value_type, C0>& a, const stack_vector<value_type, C1>& b);
+constexpr bool operator==(const inline_vector<value_type, C0>& a, const inline_vector<value_type, C1>& b);
 template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator!=(const stack_vector<value_type, C0>& a, const stack_vector<value_type, C1>& b);
+constexpr bool operator!=(const inline_vector<value_type, C0>& a, const inline_vector<value_type, C1>& b);
 template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator<(const stack_vector<value_type, C0>& a, const stack_vector<value_type, C1>& b);
+constexpr bool operator<(const inline_vector<value_type, C0>& a, const inline_vector<value_type, C1>& b);
 template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator<=(const stack_vector<value_type, C0>& a, const stack_vector<value_type, C1>& b);
+constexpr bool operator<=(const inline_vector<value_type, C0>& a, const inline_vector<value_type, C1>& b);
 template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator>(const stack_vector<value_type, C0>& a, const stack_vector<value_type, C1>& b);
+constexpr bool operator>(const inline_vector<value_type, C0>& a, const inline_vector<value_type, C1>& b);
 template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator>=(const stack_vector<value_type, C0>& a, const stack_vector<value_type, C1>& b);
+constexpr bool operator>=(const inline_vector<value_type, C0>& a, const inline_vector<value_type, C1>& b);
 
 ```
 
@@ -506,7 +502,7 @@ constexpr bool operator>=(const stack_vector<value_type, C0>& a, const stack_vec
 
 ##### Struct
 
-- struct is chosen as for `std::array`, since `stack_vector` cannot support
+- struct is chosen as for `std::array`, since `inline_vector` cannot support
   aggregate initialization maybe it would be better to make it a `class` instead
   to differentiate it from `std::array`
 
@@ -518,7 +514,7 @@ The list of types is the same as `std::vector`, with the exception of
 
 ## Storage / Layout guarantees
 
-The memory layout of `stack_vector` offers the following guarantees:
+The memory layout of `inline_vector` offers the following guarantees:
 
 - the elements are properly aligned ... wording
 - the size parameter is as small as possible (e.g. for Capacity < 256 an
@@ -530,7 +526,7 @@ The memory layout of `stack_vector` offers the following guarantees:
 ### Construction
 
 ```c++
-/// Constructs an empty stack_vector.
+/// Constructs an empty inline_vector.
 ///
 /// Requirements: none.
 ///
@@ -550,11 +546,11 @@ The memory layout of `stack_vector` offers the following guarantees:
 /// - it is guaranteed that no elements will be constructed unless `value_type`
 /// models `TrivialType`, in which case this guarantee is implementation defined.
 ///
-constexpr stack_vector() noexcept;
+constexpr inline_vector() noexcept;
 ```
 
 ```c++
-/// Constructs a stack_vector containing \p n default-inserted elements.
+/// Constructs a inline_vector containing \p n default-inserted elements.
 ///
 /// Requirements: `value_type` shall be `DefaultInsertable` into `*this`.
 ///
@@ -575,11 +571,11 @@ constexpr stack_vector() noexcept;
 ///
 /// Effects: exactly \p n calls to `value_type`s default constructor.
 ///
-constexpr explicit stack_vector(size_type n);
+constexpr explicit inline_vector(size_type n);
 ```
 
 ```c++
-/// Constructs a stack_vector containing \p n copies of \p value.
+/// Constructs a inline_vector containing \p n copies of \p value.
 ///
 /// Requirements: `value_type` shall be `CopyInsertable` into `*this`.
 ///
@@ -600,11 +596,11 @@ constexpr explicit stack_vector(size_type n);
 ///
 /// Effects: exactly \p n calls to `value_type`s copy constructor.
 ///
-constexpr stack_vector(size_type n, const value_type& value);
+constexpr inline_vector(size_type n, const value_type& value);
 ```
 
 ```c++ 
-/// Constructs a stack_vector equal to the range [\p first, \p last).
+/// Constructs a inline_vector equal to the range [\p first, \p last).
 ///
 /// Requirements: `value_type` shall be either:
 /// - `CopyInsertable` into `*this` _if_ the reference type of `InputIterator`
@@ -630,11 +626,11 @@ constexpr stack_vector(size_type n, const value_type& value);
 /// Effects: exactly \p `last - first` calls to `value_type`s copy or move constructor.
 ///
 template<class InputIterator>
-constexpr stack_vector(InputIterator first, InputIterator last);
+constexpr inline_vector(InputIterator first, InputIterator last);
 ```
 
 ```c++
-/// Constructs a stack_vector whose elements are copied from \p other.
+/// Constructs a inline_vector whose elements are copied from \p other.
 ///
 /// Requirements: `value_type` shall be `CopyInsertable` into `*this`.
 ///
@@ -654,12 +650,12 @@ constexpr stack_vector(InputIterator first, InputIterator last);
 ///
 /// Effects: exactly \p `other.size()` calls to `value_type`s copy constructor.
 ///
-constexpr stack_vector(stack_vector const&);
+constexpr inline_vector(inline_vector const&);
   noexcept(is_nothrow_copy_constructible<value_type>{});
 ```
 
 ```c++
-/// Constructs a stack_vector whose elements are copied from \p other.
+/// Constructs a inline_vector whose elements are copied from \p other.
 ///
 /// Requirements: `value_type` shall be `CopyInsertable` into `*this`.
 ///
@@ -681,12 +677,12 @@ constexpr stack_vector(stack_vector const&);
 /// Effects: exactly \p `other.size()` calls to `value_type`s copy constructor.
 ///
 template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr stack_vector(stack_vector<value_type, M> const& other);
+  constexpr inline_vector(inline_vector<value_type, M> const& other);
     noexcept(is_nothrow_copy_constructible<value_type>{} and C >= M);
 ```
 
 ```c++
-/// Constructs a stack_vector whose elements are moved from \p other.
+/// Constructs a inline_vector whose elements are moved from \p other.
 ///
 /// Requirements: `value_type` shall be `MoveInsertable` into `*this`.
 ///
@@ -706,12 +702,12 @@ template<std::size_t M, enable_if_t<(C != M)>>
 ///
 /// Effects: exactly \p `other.size()` calls to `value_type`s move constructor.
 ///
-constexpr stack_vector(stack_vector&&)
+constexpr inline_vector(inline_vector&&)
   noexcept(is_nothrow_move_constructible<value_type>{});
 ```
 
 ```c++
-/// Constructs a stack_vector whose elements are moved from \p other.
+/// Constructs a inline_vector whose elements are moved from \p other.
 ///
 /// Requirements: `value_type` shall be `MoveInsertable` into `*this`.
 ///
@@ -733,13 +729,13 @@ constexpr stack_vector(stack_vector&&)
 /// Effects: exactly \p `other.size()` calls to `value_type`s move constructor.
 ///
 template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr stack_vector(stack_vector<value_type, M> &&)
+  constexpr inline_vector(inline_vector<value_type, M> &&)
     noexcept(is_nothrow_move_constructible<value_type>{} and C >= M);
 ```
 
 **TODO: the following initializer list constructor is unimplementable!!**
 ```c++
-/// Constructs a stack_vector with elements copied from [il.begin(), il.end()).
+/// Constructs a inline_vector with elements copied from [il.begin(), il.end()).
 ///
 /// Requirements: `value_type` shall be `CopyInsertable` into `*this`
 ///
@@ -760,11 +756,11 @@ template<std::size_t M, enable_if_t<(C != M)>>
 ///
 /// Effects: exactly \p `il.size()` calls to `value_type`s copy constructor.
 ///
-constexpr stack_vector(initializer_list<value_type> il);
+constexpr inline_vector(initializer_list<value_type> il);
 ```
 
 ```c++
-/// Returns a stack_vector containing \p n default-initialied elements.
+/// Returns a inline_vector containing \p n default-initialied elements.
 ///
 /// Requirements: none.
 ///
@@ -785,30 +781,30 @@ constexpr stack_vector(initializer_list<value_type> il);
 /// Effects: exactly \p n default initializations of `value_type`.
 /// - it is guaranteed that the element's will not be value-initialized.
 ///
-static constexpr stack_vector default_initialized(size_t n);
+static constexpr inline_vector default_initialized(size_t n);
 ```
 
 ### Assignment
 
 ```c++
-constexpr stack_vector<value_type, C>& operator=(stack_vector const& other)
+constexpr inline_vector<value_type, C>& operator=(inline_vector const& other)
   noexcept(is_nothrow_copy_assignable<value_type>{});
 ```
 
 ```c++
-constexpr stack_vector<value_type, C>& operator=(stack_vector && other);
+constexpr inline_vector<value_type, C>& operator=(inline_vector && other);
   noexcept(is_nothrow_move_assignable<value_type>{});
 ```
 
 ```c++
 template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr stack_vector<value_type, C>& operator=(stack_vector<value_type, M>const& other)
+  constexpr inline_vector<value_type, C>& operator=(inline_vector<value_type, M>const& other)
     noexcept(is_nothrow_copy_assignable<value_type>{} and C >= M);
 ```
 
 ```c++
 template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr stack_vector<value_type, C>& operator=(stack_vector<value_type, M>&& other);
+  constexpr inline_vector<value_type, C>& operator=(inline_vector<value_type, M>&& other);
     noexcept(is_nothrow_move_assignable<value_type>{} and C >= M);
 ```
 
@@ -831,7 +827,7 @@ The destructor should be implicitly generated and it should be constexpr
 if `value_type` models `TrivialType`. TODO: noexcept-ness?
 
 ```c++
-constexpr ~stack_vector(); // implicitly generated
+constexpr ~inline_vector(); // implicitly generated
 ```
 
 ## Iterators
@@ -1082,21 +1078,21 @@ constexpr void clear() noexcept(is_nothrow_destructible<value_type>{});
 ### Swap
 
 ```c++
-constexpr void swap(stack_vector<value_type, C>&)
+constexpr void swap(inline_vector<value_type, C>&)
   noexcept(noexcept(swap(declval<value_type&>(), declval<value_type&>()))));
 ```
 
 TODO: the paragraph below is wrong, we should support swapping vectors of different capacity
 TODO: swap is, as for `std::array`, O(N), which might be controversial.
 
-For simplicity only `stack_vector`s of the same type can be swapped. Allowing
-`stack_vector`s of different types to be swapped is possible but that swap
+For simplicity only `inline_vector`s of the same type can be swapped. Allowing
+`inline_vector`s of different types to be swapped is possible but that swap
 operation can then fail. For example consider:
 
 ```c++
-stack_vector<int, 5> a(3);
-stack_vector<int, 5> b(4);
-stack_vector<int, 3> c(2);
+inline_vector<int, 5> a(3);
+inline_vector<int, 5> b(4);
+inline_vector<int, 3> c(2);
 a.swap(c); // works
 b.swap(c); // always fails
 ```
@@ -1107,17 +1103,17 @@ TODO: noexcept specification is missing
 
 ```c++
 template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator==(const stack_vector<value_type, C0>& a, const stack_vector<value_type, C1>& b);
+constexpr bool operator==(const inline_vector<value_type, C0>& a, const inline_vector<value_type, C1>& b);
 template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator!=(const stack_vector<value_type, C0>& a, const stack_vector<value_type, C1>& b);
+constexpr bool operator!=(const inline_vector<value_type, C0>& a, const inline_vector<value_type, C1>& b);
 template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator<(const stack_vector<value_type, C0>& a, const stack_vector<value_type, C1>& b);
+constexpr bool operator<(const inline_vector<value_type, C0>& a, const inline_vector<value_type, C1>& b);
 template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator<=(const stack_vector<value_type, C0>& a, const stack_vector<value_type, C1>& b);
+constexpr bool operator<=(const inline_vector<value_type, C0>& a, const inline_vector<value_type, C1>& b);
 template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator>(const stack_vector<value_type, C0>& a, const stack_vector<value_type, C1>& b);
+constexpr bool operator>(const inline_vector<value_type, C0>& a, const inline_vector<value_type, C1>& b);
 template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator>=(const stack_vector<value_type, C0>& a, const stack_vector<value_type, C1>& b);
+constexpr bool operator>=(const inline_vector<value_type, C0>& a, const inline_vector<value_type, C1>& b);
 ```
 
 ## List of functions that can potentionally invalidate iterators
@@ -1162,14 +1158,14 @@ propose anything about them.
       raw-pointer (which is constexpr).
 
   2. `std::array` is not fully `constexpr` (`data`, `begin/end`, `non-const
-     operator[]`, `swap`...) and as a consequence `stack_vector`s implementation
+     operator[]`, `swap`...) and as a consequence `inline_vector`s implementation
      uses a C Array for trivially destructible types. If the types are also
      trivially constructible, then `std::array` would have been a better fit.
 
   3. the `<algorithms>` are not `constexpr` even though it is trivial to make
      all of them but 3 (the allocating algorithms) `constexpr`. The API of the
      allocating algorithms is broken. Fixing it would make it trivial to make
-     them `constexpr` as well. The implementation of `stack_vector` needs to
+     them `constexpr` as well. The implementation of `inline_vector` needs to
      reimplement some algorithms because of this.
 
   4. the generic `begin`, `end`, and `swap` as well as their overloads for
@@ -1181,7 +1177,7 @@ propose anything about them.
      - call explicit destructors.
 
      None of these three things can be used in
-     `constexpr` code, and the implementation of `stack_vector` and
+     `constexpr` code, and the implementation of `inline_vector` and
      `std::variant` suffers from this.
 
   6. `std::initializer_list`:
@@ -1193,15 +1189,15 @@ propose anything about them.
      const int ca[3] = il;  
      ```
 
-     Working around these in the implementation of `stack_vector` proved to be
-     impossible. As a consequence `stack_vector` doesn't offer an
+     Working around these in the implementation of `inline_vector` proved to be
+     impossible. As a consequence `inline_vector` doesn't offer an
      `initializer_list` constructor but uses a variadic constructor instead.
-     As a consequence `stack_vector<T, 1> v = {1};` is broken.
+     As a consequence `inline_vector<T, 1> v = {1};` is broken.
  
   7. `<type_traits>` offers the "dangerous" `decay_t` but offers no `uncvref_t`
-     (which is the type trait most used in `stack_vector`).
+     (which is the type trait most used in `inline_vector`).
 
-  8.  `stack_vector` doesn't provide a `reserve` member function. It is
+  8.  `inline_vector` doesn't provide a `reserve` member function. It is
      explicitly deleted in its API to convey that this is not an accident, but
      there is no way to actually provide more information to the users (e.g. `=
      delete("message");`).
