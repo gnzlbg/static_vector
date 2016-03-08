@@ -1,6 +1,6 @@
 # inline_vector [![Travis build status][travis-shield]][travis] [![Coveralls.io code coverage][coveralls-shield]][coveralls] [![Docs][docs-shield]][docs]
 
-> A dynamically-resizable vector with fixed capacity (revision -1)
+> A dynamically-resizable vector with fixed capacity and inline storage (revision -1)
 
 
 # Introduction
