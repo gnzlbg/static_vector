@@ -253,15 +253,6 @@ making `reverse_iterator` constexpr should be studied in a different proposal.
   
 - Aggregate initialization of `inline_vector` is not required.
 
-Two remarks for implementors:
-
-- `std::array` is not constexpr-friendly, so the storage of `inline_vector`
-  needs to be backed up by a C-array.
-
-- `std::initializer_list` is neither constexpr-friendly nor it interacts
-  properly with C-arrays, but the constexpr constructors while painful to write
-  are still implementable.
-
 ## Proposed API
 
 ```c++
@@ -1061,7 +1052,7 @@ propose anything about them.
 
      None of these three things can be used in `constexpr` code, and the
      implementation of `inline_vector` and `std::variant` suffers from this
-     (`std::variant` needs to be implemented using a recursive union... sigh).
+     (`std::variant` needs to be implemented using a recursive union...).
 
   6. `std::initializer_list`:
      - doesn't have its size as part of its type,
@@ -1075,9 +1066,6 @@ propose anything about them.
      const int ca[3]{il};
      const int ca[3]{{il}};
      ```
-
-     Working around these in the implementation of `inline_vector` proved to be
-     ~~impossible~~ very hard. 
  
   7. `<type_traits>` offers the "dangerous" `decay_t` but offers no `uncvref_t`
      (which is the type trait most used in `inline_vector`, that is,
@@ -1110,9 +1098,7 @@ propose anything about them.
        //example<double> d(c);  // this obviously fail
 	   return 0;
      }
-     ```
-     Working around this issue is _very very painful_.
-
+         ```
 
 <!-- Links -->
 [stack_alloc]: https://howardhinnant.github.io/stack_alloc.html

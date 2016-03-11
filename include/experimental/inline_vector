@@ -58,12 +58,18 @@
 namespace std {
 namespace experimental {
 
-struct initialized_t {};
-static constexpr initialized_t initialized;
-
 #ifndef inline_vector_DOXYGEN_INVOKED
 
 namespace inline_vector_detail {
+
+// std::array.data() is not constexpr in C++<17 so YOLO:
+#if defined(_LIBCPP_VERSION)
+#define STD_ARRAY_DATA(a) a.__elems_
+#elif defined(__GLIBCXX__)
+#define STD_ARRAY_DATA(a) a._M_elems
+#else
+#error Unknown std lib version
+#endif
 
 template <typename... Conds> struct and_ : std::true_type {};
 
@@ -265,14 +271,20 @@ struct storage {
   constexpr storage()               = default;
   constexpr storage(storage const&) = default;
 
-  template <
-   typename Value, typename... Values,
-   typename
-   = enable_if_t<!is_same<inline_vector_detail::uncvref_t<Value>, storage>{}>>
-  constexpr storage(Value&& v, Values&&... vs)
-   : data_{std::forward<Value>(v), std::forward<Values>(vs)...} {
-    static_assert(sizeof...(Values) + 1 <= Capacity, "");
-    unsafe_set_size(sizeof...(Values) + 1);
+  // template <
+  //  typename Value, typename... Values,
+  //  typename
+  //  = enable_if_t<!is_same<inline_vector_detail::uncvref_t<Value>,
+  //  storage>{}>>
+  // constexpr storage(Value&& v, Values&&... vs)
+  //  : data_{std::forward<Value>(v), std::forward<Values>(vs)...} {
+  //   static_assert(sizeof...(Values) + 1 <= Capacity, "");
+  //   unsafe_set_size(sizeof...(Values) + 1);
+  // }
+
+  template <typename U, REQUIRES_(Convertible<U, T>{})>
+  constexpr storage(std::initializer_list<U> il) : data_{il} {
+    unsafe_set_size(il.size());
   }
 
   constexpr storage& operator=(storage const&) = default;
@@ -288,21 +300,24 @@ struct storage<T, Capacity, true> {
 
  private:
   smallest_size_type<Capacity> size_ = 0;
-  alignas(T) T data_[Capacity]{};
-  using data_t = decltype(data_);
+  using data_t
+   = std::conditional_t<!std::is_const<T>{}, std::array<T, Capacity>,
+                        const std::array<std::remove_const_t<T>, Capacity>>;
+  // alignas(T) T data_[Capacity]{};
+  data_t data_{};
 
  public:
   /// Direct access to the underlying storage
   ///
   /// Time complexity: O(1)
   /// Space complexity: O(1)
-  constexpr const T* data() const noexcept { return data_; }
+  constexpr const T* data() const noexcept { return STD_ARRAY_DATA(data_); }
 
   /// Direct access to the underlying storage
   ///
   /// Time complexity: O(1)
   /// Space complexity: O(1)
-  constexpr T* data() noexcept { return data_; }
+  constexpr T* data() noexcept { return STD_ARRAY_DATA(data_); }
 
   /// Number of elements in the vector
   ///
@@ -339,14 +354,19 @@ struct storage<T, Capacity, true> {
  public:
   constexpr storage()               = default;
   constexpr storage(storage const&) = default;
-  template <
-   typename Value, typename... Values,
-   typename
-   = enable_if_t<!is_same<inline_vector_detail::uncvref_t<Value>, storage>{}>>
-  constexpr storage(Value&& v, Values&&... vs)
-   : data_{std::forward<Value>(v), std::forward<Values>(vs)...} {
-    static_assert(sizeof...(Values) + 1 <= Capacity, "");
-    unsafe_set_size(sizeof...(Values) + 1);
+
+  template <typename U, REQUIRES_(Convertible<U, T>{})>
+  static constexpr std::array<std::remove_const_t<T>, Capacity> create_data(
+   std::initializer_list<U> il) {
+    std::array<std::remove_const_t<T>, Capacity> value{};
+    for (size_t i = 0; i < il.size(); ++i) {
+      STD_ARRAY_DATA(value)[i] = il.begin()[i];
+    }
+    return value;
+  }
+  template <typename U, REQUIRES_(Convertible<U, T>{})>
+  constexpr storage(std::initializer_list<U> il) : data_(create_data(il)) {
+    unsafe_set_size(il.size());
   }
 
   constexpr storage& operator=(storage const&) = default;
@@ -402,7 +422,7 @@ template <typename T> struct empty_storage {
   empty_storage& operator=(empty_storage const&) = default;
   empty_storage& operator=(empty_storage&&) = default;
 
-  empty_storage(initializer_list<T> il) { assert(il.size() == 0); }
+  // empty_storage(initializer_list<T> il) { assert(il.size() == 0); }
 };
 
 template <typename T>  //
@@ -497,13 +517,11 @@ struct inline_vector
   constexpr inline_vector() noexcept : base_t() {}
 
   /// Can always throw if n > capacity
-  constexpr explicit inline_vector(initialized_t, size_type n) {
-    insert(begin(), n);
-  }
+  constexpr explicit inline_vector(size_type n) { insert(begin(), n); }
 
   /// can always throw if n > Capacity
   REQUIRES(CopyConstructible<T>{})
-  constexpr inline_vector(initialized_t, size_type n, const T& value) {
+  constexpr inline_vector(size_type n, const T& value) {
     insert(begin(), n, value);
   }
 
@@ -554,16 +572,16 @@ struct inline_vector
     move_insert(this->begin(), begin(other), end(other));
   }
   // can always throw if il.size() > capacity()
-  template <typename Value, typename... Values,
-            REQUIRES_(  // Convertible<Value, value_type>{}
-             std::is_same<uncvref_t<Value>, uncvref_t<T>>{}
-             // and !std::is_same<uncvref_t<Value>, inline_vector<T>>{}
-             and inline_vector_detail::are_all_equal<Value, Values...>{})>
-  constexpr inline_vector(Value&& v, Values&&... vs)
-   : base_t(std::forward<Value>(v), std::forward<Values>(vs)...) {}
+  // template <typename Value, typename... Values,
+  //           REQUIRES_(  // Convertible<Value, value_type>{}
+  //            std::is_same<uncvref_t<Value>, uncvref_t<T>>{}
+  //            // and !std::is_same<uncvref_t<Value>, inline_vector<T>>{}
+  //            and inline_vector_detail::are_all_equal<Value, Values...>{})>
+  // constexpr inline_vector(Value&& v, Values&&... vs)
+  //  : base_t(std::forward<Value>(v), std::forward<Values>(vs)...) {}
 
-  // template <typename U, REQUIRES_(Convertible<U, value_type>{})>
-  // constexpr inline_vector(initializer_list<U> il) : base_t(std::move(il)) {}
+  template <typename U, REQUIRES_(Convertible<U, value_type>{})>
+  constexpr inline_vector(initializer_list<U> il) : base_t(std::move(il)) {}
 
   // using base_t::~base_t;  // inheriting the destructor allows this type to
   // be

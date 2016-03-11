@@ -125,7 +125,6 @@ template <typename T, int N> struct vec {
 };
 
 int main() {
-  static constexpr auto init = std::experimental::initialized;
   {  // const
     vector<const int, 0> v0 = {};
     test_bounds(v0, 0);
@@ -166,7 +165,7 @@ int main() {
   {  // default construct element
     typedef int T;
     typedef vector<T, 3> C;
-    C c(init, 1);
+    C c(1);
     assert(c.back() == 0);
     assert(c.front() == 0);
     assert(c[0] == 0);
@@ -252,7 +251,7 @@ int main() {
 
   {  // resize copyable
     using Copyable = int;
-    vector<Copyable, 10> a(init, std::size_t(10), 5);
+    vector<Copyable, 10> a(std::size_t(10), 5);
     assert(a.size() == std::size_t(10));
     assert(a.capacity() == std::size_t(10));
     test_contiguous(a);
@@ -280,7 +279,7 @@ int main() {
   }
   {  // resize move-only
     using MoveOnly = std::unique_ptr<int>;
-    vector<MoveOnly, 10> a(init, 10);
+    vector<MoveOnly, 10> a(10);
     assert(a.size() == std::size_t(10));
     assert(a.capacity() == std::size_t(10));
     a.resize(5);
@@ -294,7 +293,7 @@ int main() {
 
   {  // resize value:
     using Copyable = int;
-    vector<Copyable, 10> a(init, std::size_t(10));
+    vector<Copyable, 10> a(std::size_t(10));
     assert(a.size() == std::size_t(10));
     assert(a.capacity() == std::size_t(10));
     test_contiguous(a);
@@ -320,7 +319,7 @@ int main() {
   }
 
   {  // assign copy
-    vector<int, 3> z(init, 3, 5);
+    vector<int, 3> z(3, 5);
     vector<int, 3> a = {0, 1, 2};
     assert(a.size() == std::size_t{3});
     vector<int, 3> b;
@@ -341,7 +340,7 @@ int main() {
 
   {  // assign move
     using MoveOnly = std::unique_ptr<int>;
-    vector<MoveOnly, 3> a(init, 3);
+    vector<MoveOnly, 3> a(3);
     assert(a.size() == std::size_t{3});
     vector<MoveOnly, 3> b;
     assert(b.size() == std::size_t{0});
@@ -352,7 +351,7 @@ int main() {
 
   {  // move construct
     using MoveOnly = std::unique_ptr<int>;
-    vector<MoveOnly, 3> a(init, 3);
+    vector<MoveOnly, 3> a(3);
     assert(a.size() == std::size_t{3});
     vector<MoveOnly, 3> b(std::move(a));
     assert(b.size() == std::size_t{3});
@@ -361,7 +360,7 @@ int main() {
 
   {  // old tests
     using vec_t = vector<int, 5>;
-    vec_t vec1(init, 5);
+    vec_t vec1(5);
     vec1[0] = 0;
     vec1[1] = 1;
     vec1[2] = 2;
@@ -398,7 +397,7 @@ int main() {
       vec2[2] = 2;
       vec2[3] = 1;
       vec2[4] = 0;
-      vec_t vec(init, vec2.size());
+      vec_t vec(vec2.size());
       copy(std::begin(vec2), std::end(vec2), std::begin(vec));
       int count_ = 4;
       for (auto i : vec) { assert(i == count_--); }
@@ -414,7 +413,7 @@ int main() {
 
   {  // back and front:
     using C = vector<int, 2>;
-    C c(init, 1);
+    C c(1);
     assert(c.back() == 0);
     assert(c.front() == 0);
     assert(c[0] == 0);
@@ -441,7 +440,7 @@ int main() {
 
   {  // const back:
     using C = vector<int, 2>;
-    const C c(init, 1);
+    const C c(1);
     assert(c.back() == 0);
     assert(c.front() == 0);
     assert(c[0] == 0);
@@ -450,9 +449,9 @@ int main() {
 
   {  // swap: same type
     using C = vector<int, 5>;
-    C c0(init, 3, 5);
-    C c1(init, 5, 1);
-    C c2(init, 0);
+    C c0(3, 5);
+    C c1(5, 1);
+    C c2(0);
     assert(c0.size() == std::size_t(3));
     assert(c1.size() == std::size_t(5));
     assert(c2.size() == std::size_t(0));
@@ -471,9 +470,9 @@ int main() {
 
   {  // std::swap: same type
     using C = vector<int, 5>;
-    C c0(init, 3, 5);
-    C c1(init, 5, 1);
-    C c2(init, 0);
+    C c0(3, 5);
+    C c1(5, 1);
+    C c2(0);
     assert(c0.size() == std::size_t(3));
     assert(c1.size() == std::size_t(5));
     assert(c2.size() == std::size_t(0));
@@ -656,7 +655,7 @@ assert(std::distance(l1.begin(), l1.end()) == 0);
     assert(i == l1.begin());
   }
   {
-    vector<vec_t, 3> outer(init, 2, vec_t(1));
+    vector<vec_t, 3> outer(2, vec_t(1));
     outer.erase(outer.begin(), outer.begin());
     assert(outer.size() == 2);
     assert(outer[0].size() == 1);
@@ -665,7 +664,7 @@ assert(std::distance(l1.begin(), l1.end()) == 0);
 }
 
 {// insert init list
- {vector<int, 15> d(init, 10, 1);
+ {vector<int, 15> d(10, 1);
 vector<int, 15>::iterator i = d.insert(d.cbegin() + 2, {3, 4, 5, 6});
 assert(d.size() == 14);
 assert(i == d.begin() + 2);
@@ -687,7 +686,7 @@ assert(d[13] == 1);
 }
 
 {// insert iter iter
- {vector<int, 120> v(init, 100);
+ {vector<int, 120> v(100);
 int a[]             = {1, 2, 3, 4, 5};
 const std::size_t N = sizeof(a) / sizeof(a[0]);
 vector<int, 120>::iterator i = v.insert(v.cbegin() + 10, (a + 0), (a + N));
@@ -699,7 +698,7 @@ for (std::size_t k = 0; k < N; ++j, ++k) assert(v[j] == a[k]);
 for (; j < 105; ++j) assert(v[j] == 0);
 }
 {
-  vector<int, 120> v(init, 100);
+  vector<int, 120> v(100);
   size_t sz        = v.size();
   int a[]          = {1, 2, 3, 4, 5};
   const unsigned N = sizeof(a) / sizeof(a[0]);
@@ -714,7 +713,7 @@ for (; j < 105; ++j) assert(v[j] == 0);
 }
 
 {// insert iter rvalue
- {vector<moint, 103> v(init, 100);
+ {vector<moint, 103> v(100);
 vector<moint, 103>::iterator i = v.insert(v.cbegin() + 10, moint(3));
 assert(v.size() == 101);
 assert(i == v.begin() + 10);
@@ -726,7 +725,7 @@ for (++j; j < 101; ++j) assert(v[j] == moint());
 }
 
 {// insert iter size
- {vector<int, 130> v(init, 100);
+ {vector<int, 130> v(100);
 vector<int, 130>::iterator i = v.insert(v.cbegin() + 10, 5, 1);
 assert(v.size() == 105);
 assert(i == v.begin() + 10);
@@ -736,7 +735,7 @@ for (; j < 15; ++j) assert(v[j] == 1);
 for (++j; j < 105; ++j) assert(v[j] == 0);
 }
 {
-  vector<int, 130> v(init, 100);
+  vector<int, 130> v(100);
   size_t sz = v.size();
   vector<int, 130>::iterator i = v.insert(v.cbegin() + 10, 5, 1);
   assert(v.size() == sz + 5);
@@ -747,7 +746,7 @@ for (++j; j < 105; ++j) assert(v[j] == 0);
   for (++j; j < v.size(); ++j) assert(v[j] == 0);
 }
 {
-  vector<int, 130> v(init, 100);
+  vector<int, 130> v(100);
   size_t sz = v.size();
   vector<int, 130>::iterator i = v.insert(v.cbegin() + 10, 5, 1);
   assert(v.size() == sz + 5);
@@ -760,7 +759,7 @@ for (++j; j < 105; ++j) assert(v[j] == 0);
 }
 
 {// iter value:
- {vector<int, 130> v(init, 100);
+ {vector<int, 130> v(100);
 vector<int, 130>::iterator i = v.insert(v.cbegin() + 10, 1);
 assert(v.size() == 101);
 assert(i == v.begin() + 10);
@@ -770,7 +769,7 @@ assert(v[j] == 1);
 for (++j; j < 101; ++j) assert(v[j] == 0);
 }
 {
-  vector<int, 130> v(init, 100);
+  vector<int, 130> v(100);
   size_t sz = v.size();
   vector<int, 130>::iterator i = v.insert(v.cbegin() + 10, 1);
   assert(v.size() == sz + 1);
@@ -781,7 +780,7 @@ for (++j; j < 101; ++j) assert(v[j] == 0);
   for (++j; j < v.size(); ++j) assert(v[j] == 0);
 }
 {
-  vector<int, 130> v(init, 100);
+  vector<int, 130> v(100);
   v.pop_back();
   v.pop_back();  // force no reallocation
   size_t sz = v.size();
