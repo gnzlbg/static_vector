@@ -1,10 +1,12 @@
 # inline_vector [![Travis build status][travis-shield]][travis] [![Coveralls.io code coverage][coveralls-shield]][coveralls] [![Docs][docs-shield]][docs]
 
-**Document number**: none.
-**Date**: none.
-**Author**: Gonzalo Brito Gadeschi.
-
 > A dynamically-resizable vector with fixed capacity and inline storage (revision -1)
+
+**Document number**: none.
+
+**Date**: none.
+
+**Author**: Gonzalo Brito Gadeschi.
 
 # Introduction
 
