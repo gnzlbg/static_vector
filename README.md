@@ -169,11 +169,11 @@ left as a quality of implementation issue.
 The elements of the vector are aligned to an `alignof(T)` memory address
 (properly aligned).
 
-The `inline_vector<T,Capacity>::size_type` is the smallest unsigned integer type
+The `inline_vector<T, Capacity>::size_type` is the smallest unsigned integer type
 that can store the representation of `Capacity` without loosing information.
   
-**Note**: `inline_vector` cannot be an aggregate since it provides user-defined
-constructors.
+**Note**: `inline_vector<T, Capacity>` cannot be an aggregate since it provides
+user-defined constructors.
 
 ### Zero-sized
 
@@ -194,7 +194,7 @@ is true.
 Since `std::reverse_iterator` is not constexpr friendly in C++14, the only
 exception for this is the member functions returning a reverse iterator.
 
-### Interoperability of inline vectors with different capacities
+### Interoperability of inline vectors with different capacities (future extension)
 
 This is not pursued in this proposal since other containers do not provide it
 (e.g. like `std::array`), and it would complicate the exception-safety
@@ -209,7 +209,7 @@ all combinations of `T` and `Capacity`.
 
 ### Exception Safety
 
-The only operations that can actually fail within `inline_vector<T,C>` are:
+The only operations that can actually fail within `inline_vector<T, Capacity>` are:
 
   1. `T` constructors, assignment, destructor, and swap. These can fail only due
      to throwing constructors/assignment/destructors/swap of `T`. If these
@@ -250,10 +250,14 @@ could be:
   `emplace_back_unchecked`, `emplace_unchecked`, `insert_unchecked`,
   `resize_unchecked`
 
-    Note: an alternative to `_unchecked`-named functions would be to use tag
+Note: an alternative to `_unchecked`-named functions would be to use tag
 dispatching with, e.g., `std::unchecked_t`.
 
-### Default initialization
+**Future extension**: if it is better to keep the throwing semantics of e.g.
+  push_back/resize/... for compatibility/similarity with `std::vector`,
+  unchecked operations will be proposed as a future extension.
+
+### Default initialization (Future Extension)
 
 The size-modifying operations of the `inline_vector` that do not require a value
 also have the following analogous member functions that perform default
@@ -298,13 +302,24 @@ Some alternative names are:
 - `stack_vector`: which is a lie since the elements won't always be on the stack.
 - `static_vector`: Boost.Container's name for it due to its ability to allocate its elements in static memory.
 - `fixed_capacity_vector/fixed_vector`: because its capacity is fixed.
+- `embedded_vector`: since the elements are "embedded" within the vector object itself.
 
+### Summary of future extensions
+
+1. Support default initialization of elements.
+2. Support comparison/construction/assignment/swap between `inline_vector`s of
+   different capacities.
+3. Support uncheked mutating operations: `resize_unchecked`,
+   `push_back_unchecked`, `assign_unchecked`, `emplace`, `insert`, ...
+4. constexpr support for reverse iteration.
 
 ## Proposed API
 
+This enhancement is a pure addition to the C++ standard.
+
 ```c++
-template<typename T, std::size_t C>
-struct inline_vector<T, Size> {
+template<typename T, std::size_t C /* Capacity */>
+struct inline_vector {
 
 // types:
 typedef value_type& reference;
@@ -320,91 +335,81 @@ typedef reverse_iterator<iterator> reverse_iterator;
 typedef reverse_iterator<const_iterator> const_reverse_iterator;
 
 // construct/copy/move/destroy:
-constexpr inline_vector() noexcept;
-constexpr explicit inline_vector(size_type n);
-constexpr inline_vector(size_type n, const value_type& value);
-template<class InputIterator>
-constexpr inline_vector(InputIterator first, InputIterator last);
-template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr inline_vector(inline_vector<value_type, M> const& other);
-    noexcept(is_nothrow_copy_constructible<value_type>{} and C >= M);
-template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr inline_vector(inline_vector<value_type, M> && other)
-    noexcept(is_nothrow_move_constructible<value_type>{} and C >= M);
-constexpr inline_vector(inline_vector const& other);
+constexpr inline_vector() noexcept(true);
+constexpr explicit inline_vector(size_type n)
+  noexcept(is_nothrow_default_constructible<value_type>{});
+constexpr inline_vector(size_type n, const value_type& value)
   noexcept(is_nothrow_copy_constructible<value_type>{});
-constexpr inline_vector(inline_vector&& other)
+template<class InputIterator>
+constexpr inline_vector(InputIterator first, InputIterator last)
+  noexcept(is_nothrow_copy_constructible<value_type>{});
+constexpr inline_vector(inline_vector const& other)
+  noexcept(is_nothrow_copy_constructible<value_type>{});
+constexpr inline_vector(inline_vector && other)
   noexcept(is_nothrow_move_constructible<value_type>{});
-constexpr inline_vector(initializer_list<value_type> il);
+constexpr inline_vector(initializer_list<value_type> il)
+  noexcept(is_nothrow_copy_constructible<value_type>{});
 
 /* constexpr ~inline_vector(); */  // implicitly generated
 
-constexpr inline_vector<value_type, C>& operator=(inline_vector const& other)
+constexpr inline_vector& operator=(inline_vector const& other)
   noexcept(is_nothrow_copy_assignable<value_type>{});
-constexpr inline_vector<value_type, C>& operator=(inline_vector && other);
+constexpr inline_vector& operator=(inline_vector && other);
   noexcept(is_nothrow_move_assignable<value_type>{});
-template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr inline_vector<value_type, C>& operator=(inline_vector<value_type, M>const& other)
-    noexcept(is_nothrow_copy_assignable<value_type>{} and C >= M);
-template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr inline_vector<value_type, C>& operator=(inline_vector<value_type, M>&& other);
-    noexcept(is_nothrow_move_assignable<value_type>{} and C >= M);
 
 template<class InputIterator>
-constexpr void assign(InputIterator first, InputIterator last);
-constexpr void assign(size_type n, const value_type& u);
-constexpr void assign(initializer_list<value_type> il);
+constexpr void assign(InputIterator first, InputIterator last)
+  noexcept(is_nothrow_copy_assignable<value_type>{} and
+           is_nothrow_copy_constructible<value_type>{});
+constexpr void assign(size_type n, const value_type& u)
+  noexcept(is_nothrow_copy_assignable<value_type>{} and
+           is_nothrow_copy_constructible<value_type>{});
+constexpr void assign(initializer_list<value_type> il)
+  noexcept(is_nothrow_copy_assignable<value_type>{} and
+           is_nothrow_copy_constructible<value_type>{});
+
 
 // iterators:
-constexpr iterator               begin()         noexcept;
-constexpr const_iterator         begin()   const noexcept;
-constexpr iterator               end()           noexcept;
-constexpr const_iterator         end()     const noexcept;
+constexpr iterator               begin()         noexcept(true);
+constexpr const_iterator         begin()   const noexcept(true);
+constexpr iterator               end()           noexcept(true);
+constexpr const_iterator         end()     const noexcept(true);
 
-          reverse_iterator       rbegin()        noexcept;
-          const_reverse_iterator rbegin()  const noexcept;
-          reverse_iterator       rend()          noexcept;
-          const_reverse_iterator rend()    const noexcept;
+          reverse_iterator       rbegin()        noexcept(true);
+          const_reverse_iterator rbegin()  const noexcept(true);
+          reverse_iterator       rend()          noexcept(true);
+          const_reverse_iterator rend()    const noexcept(true);
 
-constexpr const_iterator         cbegin()        noexcept;
-constexpr const_iterator         cend()    const noexcept;
-          const_reverse_iterator crbegin()       noexcept;
-          const_reverse_iterator crend()   const noexcept;
+constexpr const_iterator         cbegin()        noexcept(true);
+constexpr const_iterator         cend()    const noexcept(true);
+          const_reverse_iterator crbegin()       noexcept(true);
+          const_reverse_iterator crend()   const noexcept(true);
 
 
 // size/capacity:
-constexpr size_type size()     const noexcept;
-static constexpr size_type capacity() noexcept;
-static constexpr size_type max_size() noexcept;
+constexpr size_type size()     const noexcept(true);
+static constexpr size_type capacity() noexcept(true);
+static constexpr size_type max_size() noexcept(true);
 constexpr void resize(size_type sz);
-constexpr void resize(size_type sz, const value_type& c);
-constexpr bool empty() const noexcept;
-void reserve(size_type n) /* QoI */ = deleted;
-void shrink_to_fit() /* QoI */ = deleted; 
+constexpr void resize(size_type sz, const value_type& c)
+constexpr bool empty() const noexcept(true);
 
-constexpr void resize_default_initialized(size_type sz);
-
-constexpr void resize_unchecked(size_type sz)
-  noexcept(is_nothrow_default_constructible<T>{} and is_nothrow_destructible<T>{});
-constexpr void resize_unchecked(size_type sz, const value_type& c)
-  noexcept(is_nothrow_copy_constructible<T>{} and is_nothrow_destructible<T>{});
-constexpr void resize_unchecked_default_initialized(size_type sz)
-  noexcept(is_nothrow_default_constructible<T>{} and is_nothrow_destructible<T>{});
-
+void reserve(size_type n) = deleted;
+void shrink_to_fit() = deleted; 
 
 // element access:
-constexpr reference       operator[](size_type n) noexcept; 
-constexpr const_reference operator[](size_type n) const noexcept;
+constexpr reference       operator[](size_type n) noexcept(true); 
+constexpr const_reference operator[](size_type n) const noexcept(true);
 constexpr const_reference at(size_type n) const;
 constexpr reference       at(size_type n);
-constexpr reference       front() noexcept;
-constexpr const_reference front() const noexcept;
-constexpr reference       back() noexcept;
-constexpr const_reference back() const noexcept;
+constexpr reference       front() noexcept(true);
+constexpr const_reference front() const noexcept(true);
+constexpr reference       back() noexcept(true);
+constexpr const_reference back() const noexcept(true);
 
 // data access:
-constexpr       T* data()       noexcept;
-constexpr const T* data() const noexcept;
+constexpr       T* data()       noexcept(true);
+constexpr const T* data() const noexcept(true);
 
 // modifiers:
 template<class... Args>
@@ -414,42 +419,14 @@ constexpr void push_back(value_type&& x);
 constexpr void pop_back();
 
 template<class... Args>
-  constexpr iterator emplace(const_iterator position, Args&&...args);
+  constexpr iterator emplace(const_iterator position, Args&&...args)
 constexpr iterator insert(const_iterator position, const value_type& x);
-
 constexpr iterator insert(const_iterator position, value_type&& x);
 constexpr iterator insert(const_iterator position, size_type n, const value_type& x);
 template<class InputIterator>
   constexpr iterator insert(const_iterator position, InputIterator first, InputIterator last);
 
 constexpr iterator insert(const_iterator position, initializer_list<value_type> il);
-
-
-template<class... Args>
-  constexpr void emplace_back_unchecked(Args&&... args)
-    noexcept(NothrowConstructible<value_type, Args...>{});  // TODO
-constexpr void push_back_unchecked(const value_type& x)
-  noexcept(is_nothrow_copy_constructible<value_type>{});
-constexpr void push_back_unchecked(value_type&& x)
-  noexcept(is_nothrow_move_constructible<value_type>{});
-
-template<class... Args>
-  constexpr iterator emplace_unchecked(const_iterator position, Args&&...args)
-    noexcept(NothrowConstructible<value_type, Args...>{} and is_nothrow_swappable<value_type>{});  // TODO
-
-constexpr iterator insert_unchecked(const_iterator position, const value_type& x)
-  noexcept(is_nothrow_copy_constructible<value_type>{} and is_nothrow_swappable<value_type>{});
-
-constexpr iterator insert_unchecked(const_iterator position, value_type&& x)
-  noexcept(is_nothrow_move_constructible<value_type>{} and is_nothrow_swappable<value_type>{});
-constexpr iterator insert_unchecked(const_iterator position, size_type n, const value_type& x)
-    noexcept(is_nothrow_copy_constructible<value_type>{} and is_nothrow_swappable<value_type>{});
-template<class InputIterator>
-  constexpr iterator insert_unchecked(const_iterator position, InputIterator first, InputIterator last)
-    noexcept(is_nothrow_copy_constructible<value_type>{} and is_nothrow_swappable<value_type>{});
-
-constexpr iterator insert_unchecked(const_iterator position, initializer_list<value_type> il)
-  noexcept(is_nothrow_copy_constructible<value_type>{} and is_nothrow_swappable<value_type>{});
 
 constexpr iterator erase(const_iterator position)
   noexcept(is_nothrow_destructible<value_type>{} and is_nothrow_swappable<value_type>{});
@@ -458,24 +435,16 @@ constexpr iterator erase(const_iterator first, const_iterator last)
 
 constexpr void clear() noexcept(is_nothrow_destructible<value_type>{});
 
-constexpr void swap(inline_vector<value_type, C>&)
+constexpr void swap(inline_vector&)
   noexcept(noexcept(swap(declval<value_type&>(), declval<value_type&>()))));
+
+friend constexpr bool operator==(const inline_vector& a, const inline_vector& b);
+friend constexpr bool operator!=(const inline_vector& a, const inline_vector& b);
+friend constexpr bool operator<(const inline_vector& a, const inline_vector& b);
+friend constexpr bool operator<=(const inline_vector& a, const inline_vector& b);
+friend constexpr bool operator>(const inline_vector& a, const inline_vector& b);
+friend constexpr bool operator>=(const inline_vector& a, const inline_vector& b);
 };
-
-// TODO: noexcept specification missing
-template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator==(const inline_vector<value_type, C0>& a, const inline_vector<value_type, C1>& b);
-template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator!=(const inline_vector<value_type, C0>& a, const inline_vector<value_type, C1>& b);
-template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator<(const inline_vector<value_type, C0>& a, const inline_vector<value_type, C1>& b);
-template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator<=(const inline_vector<value_type, C0>& a, const inline_vector<value_type, C1>& b);
-template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator>(const inline_vector<value_type, C0>& a, const inline_vector<value_type, C1>& b);
-template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator>=(const inline_vector<value_type, C0>& a, const inline_vector<value_type, C1>& b);
-
 ```
 
 ### Construction
@@ -505,7 +474,7 @@ constexpr inline_vector() noexcept;
 ```
 
 ```c++
-/// Constructs a inline_vector containing \p n default-inserted elements.
+/// Constructs a inline_vector containing \p n default-constructed elements.
 ///
 /// Requirements: `value_type` shall be `DefaultInsertable` into `*this`.
 ///
@@ -610,33 +579,6 @@ constexpr inline_vector(inline_vector const&);
 ```
 
 ```c++
-/// Constructs a inline_vector whose elements are copied from \p other.
-///
-/// Requirements: `value_type` shall be `CopyInsertable` into `*this`.
-///
-/// Enabled: if requirements are met.
-///
-/// Complexity:
-/// - time: O(N) calls to `value_type`'s copy constructor,
-/// - space: O(1).
-///
-/// Exception safety: 
-/// - basic guarantee: all constructed elements shall be destroyed on failure,
-/// - rethrows if `value_type`'s copy constructor throws,
-/// - if `C<M`: throws `bad_alloc` if \p `other.size() > capacity()`.
-///
-/// Constexpr: if `value_type` models `TrivialType`.
-///
-/// Iterator invalidation: none.
-///
-/// Effects: exactly \p `other.size()` calls to `value_type`s copy constructor.
-///
-template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr inline_vector(inline_vector<value_type, M> const& other);
-    noexcept(is_nothrow_copy_constructible<value_type>{} and C >= M);
-```
-
-```c++
 /// Constructs a inline_vector whose elements are moved from \p other.
 ///
 /// Requirements: `value_type` shall be `MoveInsertable` into `*this`.
@@ -660,34 +602,6 @@ template<std::size_t M, enable_if_t<(C != M)>>
 constexpr inline_vector(inline_vector&&)
   noexcept(is_nothrow_move_constructible<value_type>{});
 ```
-
-```c++
-/// Constructs a inline_vector whose elements are moved from \p other.
-///
-/// Requirements: `value_type` shall be `MoveInsertable` into `*this`.
-///
-/// Enabled: if requirements are met.
-///
-/// Complexity:
-/// - time: O(N) calls to `value_type`'s move constructor,
-/// - space: O(1).
-///
-/// Exception safety: 
-/// - basic guarantee: all constructed elements shall be destroyed on failure,
-/// - rethrows if `value_type`'s move constructor throws,
-/// - if `C<M`: throws `bad_alloc` if \p `other.size() > capacity()`.
-///
-/// Constexpr: if `value_type` models `TrivialType`.
-///
-/// Iterator invalidation: none.
-///
-/// Effects: exactly \p `other.size()` calls to `value_type`s move constructor.
-///
-template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr inline_vector(inline_vector<value_type, M> &&)
-    noexcept(is_nothrow_move_constructible<value_type>{} and C >= M);
-```
-
 
 ```c++
 /// Constructs a inline_vector with elements copied from [il.begin(), il.end()).
@@ -714,52 +628,27 @@ template<std::size_t M, enable_if_t<(C != M)>>
 constexpr inline_vector(initializer_list<value_type> il);
 ```
 
-```c++
-/// Returns a inline_vector containing \p n default-initialized elements.
-///
-/// Requirements: none.
-///
-/// Enabled: always.
-///
-/// Complexity:
-/// - time: O(N).
-/// - space: O(1).
-///
-/// Exception safety:
-/// - basic guarantee: all constructed elements shall be destroyed on failure,
-/// - throws `bad_alloc` if `\p n > capacity()`.
-///
-/// Constexpr: if `value_type` models `TrivialType`.
-///
-/// Iterator invalidation: none.
-///
-/// Effects: exactly \p n default initializations of `value_type`.
-/// - it is guaranteed that the element's will not be value-initialized.
-///
-static constexpr inline_vector default_initialized(size_t n);
-```
-
 ### Assignment
 
 ```c++
-constexpr inline_vector<value_type, C>& operator=(inline_vector const& other)
+constexpr inline_vector& operator=(inline_vector const& other)
   noexcept(is_nothrow_copy_assignable<value_type>{});
 ```
 
 ```c++
-constexpr inline_vector<value_type, C>& operator=(inline_vector && other);
+constexpr inline_vector& operator=(inline_vector && other);
   noexcept(is_nothrow_move_assignable<value_type>{});
 ```
 
 ```c++
 template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr inline_vector<value_type, C>& operator=(inline_vector<value_type, M>const& other)
+  constexpr inline_vector& operator=(inline_vector<value_type, M>const& other)
     noexcept(is_nothrow_copy_assignable<value_type>{} and C >= M);
 ```
 
 ```c++
 template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr inline_vector<value_type, C>& operator=(inline_vector<value_type, M>&& other);
+  constexpr inline_vector& operator=(inline_vector<value_type, M>&& other);
     noexcept(is_nothrow_move_assignable<value_type>{} and C >= M);
 ```
 
@@ -845,7 +734,6 @@ For the checked resize functions:
 ```c++
 constexpr void resize(size_type sz);
 constexpr void resize(size_type sz, const value_type& c);
-constexpr void resize_default_initialized(size_type sz);
 ```
 the following holds:
 
@@ -856,32 +744,6 @@ the following holds:
    - basic guarantee: all constructed elements shall be destroyed on failure,
    - rethrows if `value_type`'s default or copy constructors throws,
    - throws `bad_alloc` if `new_size > capacity()`.
-- Constexpr: if type models TrivialType.
-- Effects:
-  - if `new_size > size` exactly `new_size - size` elements default/copy constructed.
-  - if `new_size < size`:
-      - exactly `size - new_size` elements destroyed.
-      - all iterators pointing to elements at position > `new_size` are invalidated.
-
-For the unchecked resize functions:
-
-```c++
-constexpr void resize_unchecked(size_type sz)
-  noexcept(is_nothrow_default_constructible<T>{} and is_nothrow_destructible<T>{});
-constexpr void resize_unchecked(size_type sz, const value_type& c)
-  noexcept(is_nothrow_copy_constructible<T>{} and is_nothrow_destructible<T>{});
-constexpr void resize_unchecked_default_initialized(size_type sz)
-  noexcept(is_nothrow_default_constructible<T>{} and is_nothrow_destructible<T>{});
-```
-
-the following holds:
-
-- Requirements: DefaultInsertable/CopyInsertable.
-- Enabled: if requirements satisfied.
-- Complexity: O(N) time, O(1) space.
-- Exception safety:
-  - basic guarantee if default/copy construction throws
-  - undefined behavior if `new_size > capacity()`
 - Constexpr: if type models TrivialType.
 - Effects:
   - if `new_size > size` exactly `new_size - size` elements default/copy constructed.
@@ -950,21 +812,11 @@ template<class... Args>
 constexpr void emplace_back(Args&&... args);
 ```
 
-``` c++
-template<class... Args>
-  constexpr void emplace_back_unchecked(Args&&... args)
-    noexcept(NothrowConstructible<value_type, Args...>{});
 ```
 
 ```c++
 constexpr void push_back(const value_type& x);
 constexpr void push_back(value_type&& x);
-```
-```c++
-constexpr void push_back_unchecked(const value_type& x)
-  noexcept(is_nothrow_copy_constructible<value_type>{});
-constexpr void push_back_unchecked(value_type&& x)
-  noexcept(is_nothrow_move_constructible<value_type>{});
 ```
 
 ```c++
@@ -977,34 +829,12 @@ template<class... Args>
 ```
 
 ```c++
-template<class... Args>
-  constexpr iterator emplace_unchecked(const_iterator position, Args&&...args)
-    noexcept(NothrowConstructible<value_type, Args...>{} and is_nothrow_swappable<value_type>{});  // TODO
-```
-
-```c++
 constexpr iterator insert(const_iterator position, const value_type& x);
 constexpr iterator insert(const_iterator position, value_type&& x);
 constexpr iterator insert(const_iterator position, size_type n, const value_type& x);
 template<class InputIterator>
   constexpr iterator insert(const_iterator position, InputIterator first, InputIterator last);
 constexpr iterator insert(const_iterator position, initializer_list<value_type> il);
-```
-
-```c++
-constexpr iterator insert_unchecked(const_iterator position, const value_type& x)
-  noexcept(is_nothrow_copy_constructible<value_type>{} and is_nothrow_swappable<value_type>{});
-
-constexpr iterator insert_unchecked(const_iterator position, value_type&& x)
-  noexcept(is_nothrow_move_constructible<value_type>{} and is_nothrow_swappable<value_type>{});
-constexpr iterator insert_unchecked(const_iterator position, size_type n, const value_type& x)
-    noexcept(is_nothrow_copy_constructible<value_type>{} and is_nothrow_swappable<value_type>{});
-template<class InputIterator>
-  constexpr iterator insert_unchecked(const_iterator position, InputIterator first, InputIterator last)
-    noexcept(is_nothrow_copy_constructible<value_type>{} and is_nothrow_swappable<value_type>{});
-
-constexpr iterator insert_unchecked(const_iterator position, initializer_list<value_type> il)
-  noexcept(is_nothrow_copy_constructible<value_type>{} and is_nothrow_swappable<value_type>{});
 ```
 
 ```c++
@@ -1021,31 +851,22 @@ constexpr void clear() noexcept(is_nothrow_destructible<value_type>{});
 
 
 ```c++
-constexpr void swap(inline_vector<value_type, C>&)
+constexpr void swap(inline_vector&)
   noexcept(noexcept(swap(declval<value_type&>(), declval<value_type&>()))));
 ```
 
 ### Comparison operators
 
-Here `noexcept(auto)` is used to denote `noexcept(true)` if the operations
-required by the function are all `noexcept(true)` (I can't type these noexcept
-specifications anymore).
+The following operators are `noexcept(true)` if the operations required to compute them are all `noexcept(true)`:
 
 ```c++
-template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator==(const inline_vector<value_type, C0>& a, const inline_vector<value_type, C1>& b) noexcept(auto);
-template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator!=(const inline_vector<value_type, C0>& a, const inline_vector<value_type, C1>& b) noexcept(auto);
-template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator<(const inline_vector<value_type, C0>& a, const inline_vector<value_type, C1>& b) noexcept(auto);
-template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator<=(const inline_vector<value_type, C0>& a, const inline_vector<value_type, C1>& b) noexcept(auto);
-template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator>(const inline_vector<value_type, C0>& a, const inline_vector<value_type, C1>& b) noexcept(auto);
-template<typename T, std::size_t C0, std::size_t C1>
-constexpr bool operator>=(const inline_vector<value_type, C0>& a, const inline_vector<value_type, C1>& b) noexcept(auto);
+constexpr bool operator==(const inline_vector& a, const inline_vector& b);
+constexpr bool operator!=(const inline_vector& a, const inline_vector& b);
+constexpr bool operator<(const inline_vector& a, const inline_vector& b);
+constexpr bool operator<=(const inline_vector& a, const inline_vector& b);
+constexpr bool operator>(const inline_vector& a, const inline_vector& b);
+constexpr bool operator>=(const inline_vector& a, const inline_vector& b);
 ```
-
 
 # Acknowledgments
 
@@ -1066,89 +887,6 @@ suite.
 - [EASTL fixed_vector][eastl] and [design][eastldesign].
 - [Folly small_vector][folly].
 - [LLVM small_vector][llvm].
-
-# Appendix A: Standard wording
-
-Not part of this revision.
-
-# Appendix B: Rough edges in C++14
-
-There are some rough edges in C++14 that complicate the implementation of this
-proposal. These are listed here "for completeness". This proposal does not
-propose anything about them.
-
-  1. `std::reverse_iterator<It>` is never constexpr, even when `It` is a
-      raw-pointer (which is constexpr).
-
-  2. `std::array` is not fully `constexpr` (`data`, `begin/end`, `non-const
-     operator[]`, `swap`...) and as a consequence `inline_vector`s implementation
-     uses a C Array for trivially destructible types. If the types are also
-     trivially constructible, then `std::array` would have been a better fit.
-
-  3. the `<algorithms>` are not `constexpr` even though it is trivial to make
-     all of them but 3 (the allocating algorithms) `constexpr`. The API of
-     the allocating algorithms is broken. Fixing it would make it trivial to
-     make them `constexpr` as well. The implementation of `inline_vector` needs
-     to reimplement some algorithms because of this.
-
-  4. the generic `begin`, `end`, and `swap` as well as their overloads for
-     C-arrays are not `constexpr`.
-
-  5. `std::aligned_storage` is impossible to use in `constexpr` code because one
-     needs to:
-     - `reinterpret_cast` to the elements pointer type,
-     - use placement new, and
-     - call explicit destructors.
-
-     None of these three things can be used in `constexpr` code, and the
-     implementation of `inline_vector` and `std::variant` suffers from this
-     (`std::variant` needs to be implemented using a recursive union...).
-
-  6. `std::initializer_list`:
-     - doesn't have its size as part of its type,
-     - its elements cannot be moved,
-     - cannot be converted to a C-array or a `std::array` easily:
-     ```c++
-     std::initializer_list<int> il{1, 2, 3};
-     // These all fail:
-     const int ca[3] = il;
-     const int ca[3](il);
-     const int ca[3]{il};
-     const int ca[3]{{il}};
-     ```
- 
-  7. `<type_traits>` offers the "dangerous" `decay_t` but offers no `uncvref_t`
-     (which is the type trait most used in `inline_vector`, that is,
-     `ucvref_t<T> = std::remove_reference_t<std::remove_cv_t<T>>`).
-
-  8.  `inline_vector` doesn't provide a `reserve` member function. It is
-     explicitly deleted in its API to convey that this is not an accident, but
-     there is no way to actually provide more information to the users (e.g. `=
-     delete("message");`). Something like "Hey, you are trying to reserve memory
-     with an inline vector but it has fixed capacity so the memory is already
-     there." could be probably very helpful.
-
-  9. special member functions cannot be disabled, the following doesn't work:
-     ```c++
-     #include <type_traits>
-     using namespace std;
-    
-     template <typename T> 
-     struct example {
-       template <int d = 0, typename = enable_if_t<d == 1 || is_same<T, int>{}>>
-       example(example const&) {}
-       example(example&&) {}
-       example() {}
-     };
-    
-     int main() {
-       example<int> a;
-       example<int> b(a);  // since T is int, this should work but doesn't
-       //example<double> c;
-       //example<double> d(c);  // this obviously fail
-	   return 0;
-     }
-         ```
 
 <!-- Links -->
 [stack_alloc]: https://howardhinnant.github.io/stack_alloc.html
