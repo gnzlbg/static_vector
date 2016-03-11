@@ -47,6 +47,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
+#include <array>
 #include <cassert>
 #include <cstddef>     // for size_t
 #include <functional>  // for less and equal_to
