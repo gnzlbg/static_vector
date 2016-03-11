@@ -46,7 +46,8 @@ is unneccesary since a pointer to the first element can be obtained for free.
 
 Yes, we can, but no, it does not result in a zero-cost abstraction.
 
-The paper (PR0274: Clump – A Vector-like Contiguous Sequence Container with Embedded Storage)[http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0274r0.pdf]
+The paper
+[PR0274: Clump – A Vector-like Contiguous Sequence Container with Embedded Storage][clump]
 proposes a new type, `small_vector<T, N, Allocator>`, which is essentially a
 `std::vector<T, Allocator>` that performs a Small Vector Optimization for up to
 `N` elements. This small vector type is implemented in Boost, LLVM, EASTL, and
@@ -1144,3 +1145,4 @@ propose anything about them.
 [folly]: https://github.com/facebook/folly/blob/master/folly/docs/small_vector.md
 [eastl]: https://github.com/questor/eastl/blob/master/fixed_vector.h#L71
 [eastldesign]: https://github.com/questor/eastl/blob/master/doc%2FEASTL%20Design.html#L284
+[clump]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0274r0.pdf
