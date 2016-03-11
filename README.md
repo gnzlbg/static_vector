@@ -337,19 +337,15 @@ typedef reverse_iterator<const_iterator> const_reverse_iterator;
 
 // construct/copy/move/destroy:
 constexpr inline_vector() noexcept(true);
-constexpr explicit inline_vector(size_type n)
-  noexcept(is_nothrow_default_constructible<value_type>{});
-constexpr inline_vector(size_type n, const value_type& value)
-  noexcept(is_nothrow_copy_constructible<value_type>{});
+constexpr explicit inline_vector(size_type n);
+constexpr inline_vector(size_type n, const value_type& value);
 template<class InputIterator>
-constexpr inline_vector(InputIterator first, InputIterator last)
-  noexcept(is_nothrow_copy_constructible<value_type>{});
+constexpr inline_vector(InputIterator first, InputIterator last);
 constexpr inline_vector(inline_vector const& other)
   noexcept(is_nothrow_copy_constructible<value_type>{});
 constexpr inline_vector(inline_vector && other)
   noexcept(is_nothrow_move_constructible<value_type>{});
-constexpr inline_vector(initializer_list<value_type> il)
-  noexcept(is_nothrow_copy_constructible<value_type>{});
+constexpr inline_vector(initializer_list<value_type> il);
 
 /* constexpr ~inline_vector(); */  // implicitly generated
 
@@ -359,15 +355,9 @@ constexpr inline_vector& operator=(inline_vector && other);
   noexcept(is_nothrow_move_assignable<value_type>{});
 
 template<class InputIterator>
-constexpr void assign(InputIterator first, InputIterator last)
-  noexcept(is_nothrow_copy_assignable<value_type>{} and
-           is_nothrow_copy_constructible<value_type>{});
-constexpr void assign(size_type n, const value_type& u)
-  noexcept(is_nothrow_copy_assignable<value_type>{} and
-           is_nothrow_copy_constructible<value_type>{});
-constexpr void assign(initializer_list<value_type> il)
-  noexcept(is_nothrow_copy_assignable<value_type>{} and
-           is_nothrow_copy_constructible<value_type>{});
+constexpr void assign(InputIterator first, InputIterator last);
+constexpr void assign(size_type n, const value_type& u);
+constexpr void assign(initializer_list<value_type> il);
 
 
 // iterators:
@@ -490,7 +480,7 @@ constexpr inline_vector() noexcept;
 /// - rethrows if `value_type`'s default constructor throws,
 /// - throws `bad_alloc` if `\p n > capacity()`.
 ///
-/// Constexpr: if `value_type` models `TrivialType`.
+/// Constexpr: if `value_type` models `LiteralType`.
 ///
 /// Iterator invalidation: none.
 ///
@@ -627,6 +617,7 @@ constexpr inline_vector(inline_vector&&)
 /// Effects: exactly \p `il.size()` calls to `value_type`s copy constructor.
 ///
 constexpr inline_vector(initializer_list<value_type> il);
+  noexcept(is_nothrow_copy_constructible<value_type>{});
 ```
 
 ### Assignment
