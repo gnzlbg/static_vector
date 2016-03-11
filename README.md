@@ -1,7 +1,10 @@
 # inline_vector [![Travis build status][travis-shield]][travis] [![Coveralls.io code coverage][coveralls-shield]][coveralls] [![Docs][docs-shield]][docs]
 
-> A dynamically-resizable vector with fixed capacity and inline storage (revision -1)
+**Document number**: none.
+**Date**: none.
+**Author**: Gonzalo Brito Gadeschi.
 
+> A dynamically-resizable vector with fixed capacity and inline storage (revision -1)
 
 # Introduction
 
@@ -19,7 +22,7 @@ removal.
 
 This container is useful when:
 
-- memory allocation is not possible, e.g., most embedded enviroments only
+- memory allocation is not possible, e.g., most embedded environments only
   provide stack and static memory but no heap,
 - memory allocation imposes an unacceptable performance penalty, e.g., the
   latency introduced by a memory allocation,
@@ -40,7 +43,7 @@ to allocate the optimal amount of storage for a given capacity.
 2. The resulting vector would be two words too big. The capacity of
 `inline_vector` is part of its type and does not need to be stored. The custom
 allocator stores the elements internally, storing a `data` pointer inside vector
-is unneccesary since a pointer to the first element can be obtained for free.
+is unnecessary since a pointer to the first element can be obtained for free.
 
 ## Can we reuse `small_vector`?
 
@@ -50,8 +53,8 @@ The paper
 [PR0274: Clump – A Vector-like Contiguous Sequence Container with Embedded Storage][clump]
 proposes a new type, `small_vector<T, N, Allocator>`, which is essentially a
 `std::vector<T, Allocator>` that performs a Small Vector Optimization for up to
-`N` elements. This small vector type is implemented in Boost, LLVM, EASTL, and
-Folly.
+`N` elements. This small vector type is part of [Boost][boostsmallvector],
+[LLVM][llvmsmallvector], [EASTL][eastl], and [Folly][folly].
 
 However, most of these libraries special case small vector in the spirit of
 `vector<bool>` for the case in which only inline storage is desired. The only
@@ -71,27 +74,37 @@ As a consequence, for the use cases of `inline_vector`:
 - `small_vector` cannot provide the same reliability than `inline_vector`,
   because the algorithmic complexity of `small_vector` operations like move
   construction/assignment depends on whether the elements are allocated on the
-  heap (swap a point) or on the stack (must always copy).
+  heap (swap pointer and size) or inline (must always copy the elements).
 
-- `small_vector` cannot be as efficient as `inline_vector`. It must store at
-  least a bit to discriminate between inline and allocator storage, and most of
-  its API must, at run-time, choose a different code-path depending on the active
-  storage scheme.
+- `small_vector` cannot be as efficient as `inline_vector`. It must store or
+  encode a bit to discriminate between where the elements are allocated (inline
+  or with the allocator). A part of its API must, at run-time, branch to a
+  different code-path depending on the active storage scheme.
+
 
 The only way to fix `small_vector` would be to special case it for
-`Allocator::max_size() == 0` (which isn't constexpr yet), and to provide an API
-that has different complexity and exception-safety guarantees than
-`small_vector`s with `Allocator::max_size() > 0`.
+`Allocator::max_size() == 0` (which isn't constexpr), and to provide an API that
+has different complexity and exception-safety guarantees than `small_vector`s
+with `Allocator::max_size() > 0`.
+
+In summary, the only way for `small_vector` to be competitive in a situation in
+which `inline_vector` is useful (e.g. if a system does not have a heap) is for
+it to become an `inline_vector` in that case.
 
 
-The author of this proposal considers that special casing should not be done.
-`inline_vector` is a different type, with different algorithmic and
-exception-safety guarantees. Let's not repeat `vector<bool>` all over again.
+## Should we special case `small_vector` for inline-storage-only like EASTL and
+   Folly do?
 
-However, even if the standardization process decideds to special case
-`small_vector` for inline-storage-only, having a full-fleshed proposal for that
-special case will still be immensely useful at that point.
-    
+The types `inline_vector` and `small_vector` have different algorithmic
+complexity and exception-safety guarantees.
+
+For this reason the author of this proposal is strongly against special casing
+`small_vector` to be something that its not. It is sad that reality is here
+against the generic programmer in all of us, but let's not make things worse by
+repeating the `vector<bool>` mistake all over again.
+
+They are different types that solve different problems.
+
 ## Existing practice
 
 There are at least 3 widely used implementations of `inline_vector`.
@@ -136,7 +149,7 @@ It introduces a new type `std::experimental::inline_vector<T, Capacity>` in the
 
 > `inline_vector` is a dynamically-resizable contiguous random-access sequence
 > container with O(1) insert/erase at the end, and O(N) insert/erase otherwise.
-> Its elements are stored within the container ojbect itself.
+> Its elements are stored within the container object itself.
 
 A prototype implementation of this proposal is provided here for standardization
 purposes: [`http://github.com/gnzlbg/inline_vector`][inline_vector].
@@ -273,12 +286,12 @@ The following functions can potentially invalidate the iterators of the vector:
 - `erase`
 - `swap`
 
-### Naming (bikeshedding)
+### Naming
 
 The name `inline_vector<T, Capacity>` denotes that the elements are stored
 "inline" with the object itself.
 
-Alternative names are, among others:
+Some alternative names are:
 
 - `stack_vector`: which is a lie since the elements won't always be on the stack.
 - `static_vector`: Boost.Container's name for it due to its ability to allocate its elements in static memory.
@@ -700,7 +713,7 @@ constexpr inline_vector(initializer_list<value_type> il);
 ```
 
 ```c++
-/// Returns a inline_vector containing \p n default-initialied elements.
+/// Returns a inline_vector containing \p n default-initialized elements.
 ///
 /// Requirements: none.
 ///
@@ -1010,7 +1023,7 @@ constexpr void swap(inline_vector<value_type, C>&)
   noexcept(noexcept(swap(declval<value_type&>(), declval<value_type&>()))));
 ```
 
-### Comparision operators
+### Comparison operators
 
 Here `noexcept(auto)` is used to denote `noexcept(true)` if the operations
 required by the function are all `noexcept(true)` (I can't type these noexcept
@@ -1046,10 +1059,13 @@ suite.
     - [Interest in StaticVector - fixed capacity vector](https://groups.google.com/d/topic/boost-developers-archive/4n1QuJyKTTk/discussion).
     - [Stack-based vector container](https://groups.google.com/d/topic/boost-developers-archive/9BEXjV8ZMeQ/discussion).
     - [static_vector: fixed capacity vector update](https://groups.google.com/d/topic/boost-developers-archive/d5_Kp-nmW6c/discussion).
+- [Boost.Container::small_vector][boostsmallvector].
 - [Howard Hinnant's stack_alloc][stack_alloc].
+- [EASTL fixed_vector][eastl] and [design][eastldesign].
+- [Folly small_vector][folly].
+- [LLVM small_vector][llvm].
 
-
-# Appendix A: Standad wording
+# Appendix A: Standard wording
 
 Not part of this revision.
 
@@ -1146,3 +1162,5 @@ propose anything about them.
 [eastl]: https://github.com/questor/eastl/blob/master/fixed_vector.h#L71
 [eastldesign]: https://github.com/questor/eastl/blob/master/doc%2FEASTL%20Design.html#L284
 [clump]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0274r0.pdf
+[boostsmallvector]: http://www.boost.org/doc/libs/master/doc/html/boost/container/small_vector.html
+[llvmsmallvector]: http://llvm.org/docs/doxygen/html/classllvm_1_1SmallVector.html
