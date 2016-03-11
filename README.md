@@ -19,184 +19,215 @@ removal.
 
 This container is useful when:
 
-- memory allocation is not possible (e.g. in the absence of a memory
-  heap/free-store) or when it imposes an unacceptable performance penalty (e.g.
-  when the latency introduced by the initial heap allocation of a vector is too
-  big, or when the performance is dominated by a lot of memory allocations)
-- static allocation of objects with complex lifetimes is required,
-- storing a number of non-default constructible objects (`std::array` requires
-  default constructible by design),
-- the user needs full control over where the memory of the vector and its
-  elements is stored.
-
-Consider a dynamically-resizable vector of polygons (with a varying number of
-points) implemented using `std::vector`:
-
-```c++
-using point_t = std::array<float, 3>;
-using polygon_t = std::vector<point_t>;
-using polygons_t = std::vector<polygon_t>;
-polygons_t polygon;
-```
-
-This data-structure is a vector of vectors. It has, among others, the following
-problems (i'll keep this short):
-
-- two access a point of a polygon we need to dereference two pointers,
-- to append a new polygon to it at least one memory allocation is requred,
-- the memory layout of the points will be, without extra effort, non-contiguous.
-
-If we had a bound on the maximum number of points a polygon can have, we could
-significantly improve our data-structure by using a `std::array`:
-
-```c++
-using improved_polygon_t = std::pair<std::size_t, std::array<point_t, max_no_points>>;
-```
-
-However to handle a varying number of points, we need to keep track of the size
-of these arays (among other things). At this point we have reimplemented a poor
-`inline_vector<T, Capacity>`. That is, a dynamically-resizable vector of
-compile-time bounded capacity with inline storage.
-
-Using this proposal we can just transform our original polygon implementation to:
-
-```c++
-using polygon_t = inline_vector<point_t, max_no_points>;
-```
-
-and keep using the original interface. We can then construct polygons on the
-stack of a function, and push them back into our vector of polygons without any
-memory allocations. Whether the polygon and its points are stored on the stack,
-the heap, or in static memory, is left up to the user of the `inline_vector<T, C>`
-template.
-
+- memory allocation is not possible, e.g., most embedded enviroments only
+  provide stack and static memory but no heap,
+- memory allocation imposes an unacceptable performance penalty, e.g., the
+  latency introduced by a memory allocation,
+- allocation of objects with complex lifetimes in the _static_-memory segment is required,
+- non-default constructible objects must be stored such that `std::array` is not an option,
+- full control over the storage location of the vector elements is required.
 
 # Design considerations
 
-## Previous work
+## Can we reuse `std::vector` with a custom allocator? 
 
-This proposal is strongly inspired by
-[`boost::container::static_vector` (1.59)][boost_static_vector], which was
-introduced in 2013 into the Boost.Container library .
+Yes, we can, but no, it does not result in a zero-cost abstraction. Two main
+reasons:
 
+The growth mechanism of `std::vector` makes it impossible for a custom allocator
+to allocate the optimal amount of storage for a given capacity.
 
-A prototype implementation of this proposal is provided here:
-[`http://github.com/gnzlbg/inline_vector`][inline_vector]
+Furthermore, the resulting vector would be at least one word too big, since
+storing the `capacity` as a data member is not necessary for `inline_vector`
+because it is known at compile-time.
 
-## Naming (bikeshedding)
+## Can we reuse `small_vector`?
 
-The name `inline_vector<T, Capacity>` denotes that the elements are stored
-"inline" with the object itself.
+Yes, we can, but no, it does not result in a zero-cost abstraction.
 
-Alternative names are, among others:
+The paper "(PR0274: Clump – A Vector-like Contiguous Sequence Container with
+Embedded
+Storage)[http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0274r0.pdf]"
+proposes a new type, `small_vector<T, N, Allocator>`, which is essentially a
+`std::vector<T, Allocator>` that performs a Small Vector Optimization for up to
+`N` elements. This small vector type is implemented in Boost, LLVM, EASTL, and
+Folly.
 
-- `stack_vector`: which is a lie since the elements won't always be on the stack.
-- `static_vector`: Boost.Container's name for it due to its ability to allocate its elements in static memory.
-- `fixed_capacity_vector/fixed_vector`: because its capacity is fixed.
-- `internal_vector`: because the elements are stored in the object.
-- `small_vector`: becuase its capacity _should_ be small.
+However, most of these libraries special case small vector in the spirit of
+`vector<bool>` for the case in which only inline storage is desired. The only
+library that offers it as a completely different type is Boost.Container.
 
-## General requirements
+The main difference between `small_vector` and `inline_vector` is:
 
-The general requirements of `inline_vector<T,C>` are:
+- `small_vector` uses inline storage up-to `N` elements, and then falls back to
+  `Allocator`, while `inline_vector` _only_ provides inline storage.
 
-  1. dynamically-resizable contiguous random-access sequence container with O(1)
-  insert/erase at the end, and O(N) insert/erase otherwise,
-  2. its elements are stored internally within the object,
-  3. it's API should be as similar to `vector<T,A>` API as possible,
-  4. differences with `vector<T, A>`s API should be as explicit as possible,
-  5. it should be a zero-cost abstraction.
+As a consequence, for the use cases of `inline_vector`:
 
-## Failed approach: Reusing std::vector
+- `small_vector` cannot provide the same exception safety guarantees than
+  `inline_vector` because it sometimes allocates memory, which `inline_vector`
+  never does.
 
-Reusing a `std::vector` with a new allocator does not fullfill most of the
-requirements.
+- `small_vector` cannot provide the same reliability than `inline_vector`,
+  because the algorithmic complexity of `small_vector` operations like move
+  construction/assignment depends on whether the elements are allocated on the
+  heap (swap a point) or on the stack (must always copy).
 
-  1. The growth factor and mechanism of `std::vector` is implementation
-     dependent. Hence the size of the allocator cannot be fixed in a portable,
-     reliable, and performant way. There is no way to fix the capacity of a
-     vector. If an implementation decides to use a dynamic growth factor for a
-     vector, this would be impossible.
+- `small_vector` cannot be as efficient as `inline_vector`. It must store at
+  least a bit to discriminate between inline and allocator storage, and most of
+  its API must, at run-time, choose a different code-path depending on the active
+  storage scheme.
 
-  2. To make point 1 at least safe, some kind of fall-back to the heap would be
-     required. Since unavailable heap usage / unacceptable heap usage performance
-     is one of the main reasons to use an `inline_vector<T,C>`, this is not acceptable.
-
-  3. One would need a wrapper type, that stores the vector and its elements.
-     This wrapper type would be at least two words of memory too big (the unused
-     capacity of `std::vector`, and an extra data pointer). 
-
-Note: proposal proposes only an `inline_vector<T,C>` without heap-fallback, but
-another proposal should pursue a `small_vector` with heap-fallback. These types
-cannot be efficiently build on top of `std::vector` with custom allocators. They
-_can_ to some extent be built, but the result is not a zero-cost abstraction.
-
-## Introducing a new container
-
-The main draw-back of introducing a `inline_vector<T, Capacity>` type is code
-bloat. For each for each type `T`, and for each `Capacity`, a signficiant amount
-of code will be generated.
-
-Since type-erasing the capacity would hinder performance, the only solution to
-this problems is that users that don't need this type don't use it. Placing this
-container in a new header file `<experimental/inline_vector>` is the best that
-can be done.
-
-### Concrete requirements
-
-Zero-cost abstraction:
-
-  1. zero-size if `Capacity == 0`, in which case `data() == begin() == end() ==
-     unspecified unique value` (`nullptr` is intended), and `swap` is
-     `noexcept(true)`.
-
-  2. fully usable within constexpr functions for literal types.
+The only way to fix `small_vector` would be to special case it for
+`Allocator::max_size() == 0` (which isn't constexpr yet), and to provide an API
+that has different complexity and exception-safety guarantees than
+`small_vector`s with `Allocator::max_size() > 0`.
 
 
-Safety:
+The author of this proposal considers that special casing should not be done.
+`inline_vector` is a different type, with different algorithmic and
+exception-safety guarantees. Let's not repeat `vector<bool>` all over again.
 
-  3. Same exception safety as `std::vector` (with minor differences for throwing
-     copy/move constructors). Discussed in sub-section Exception Safety
- 
-Usability:
+However, even if the standardization process decideds to special case
+`small_vector` for inline-storage-only, having a full-fleshed proposal for that
+special case will still be immensely useful at that point.
+    
+## Existing practice
 
-  4. API as close to `std::vector` as possible
+There are at least 3 widely used implementations of `inline_vector`.
 
-  5. Explicit instatiation support (for Copy and MoveConstructible types).
+This proposal is strongly inspired by Boost.Container, which offers
+ [`boost::container::static_vector<T, Capacity>` (1.59)][boost_static_vector].
+ Boost.Container also offers `boost::container::small_vector<T, N, Allocator>`
+ as a different type.
 
-  6. Open question: interoperability of `inline_vector<T,C>`s of different capacities.
-     (probably not, different capacities require `swap` to be allowed to throw).
+The other two libraries that implement `inline_vector` are [Folly][folly] and
+[EASTL][eastl]. Both of these libraries implement it as a special case of
+`small_vector` (which in both of these libraries has 4 template parameters).
 
+EASTL `small_vector` is called `fixed_vector<T, N,
+hasAllocator,OverflowAllocator>` and uses a boolean template parameter to
+indicate if the only storage mode available is inline storage. The
+[design documents of EASTL][eastldesign] seem to predate this special casing
+since they actually argue against it. The two main arguments are:
+
+- special casing complicates the implementation of `small_vector`,
+- (without proof) the resulting code size increase would be larger than the "4
+  bytes" that can be saved in storage per vector for the special case.
+
+The current implementation does, however, special case `small_vector` for inline
+storage. No rationale for this decision is given in the design documentation.
+
+Folly implements `small_vector<T, N, NoHeap, size_type>`, where if the tag
+`NoHeap` is present a non-customizable allocator is used. Interestingly, folly
+allows customizing the `size_type` of the `small_vector`. The rationale for this
+decision is not described, but a reason could be that since the maximum number
+of elements for the `NoHeap` case is known at compile-time, a `size_type` can be
+chosen to reduce `inline_vector`s memory requirements.
+
+
+## Current design
+
+The current design follows that of `boost::container::static_vector<T,
+Capacity>` closely.
+
+It introduces a new type `std::experimental::inline_vector<T, Capacity>` in the
+`<experimental/inline_vector>` header.
+
+> `inline_vector` is a dynamically-resizable contiguous random-access sequence
+> container with O(1) insert/erase at the end, and O(N) insert/erase otherwise.
+> Its elements are stored within the container ojbect itself.
+
+A prototype implementation of this proposal is provided here for standardization
+purposes: [`http://github.com/gnzlbg/inline_vector`][inline_vector].
+
+The main drawback of introducing a new type is, as the
+[design document of the EASTL][eastldesign] points out, increased code size.
+This is opt-in, those who don't want to pay for it are free not to include the
+header file and not to use the container. For those who want to use it,
+type-erasing the capacity is not an option, but reducing code-size by defining
+an `inline_vector_base<T>` to implement `Capacity`-agnostic functionality is
+left as a quality of implementation issue.
+
+## Storage/Memory Layout
+
+The elements of the vector are aligned to an `alignof(T)` memory address
+(properly aligned).
+
+The `inline_vector<T,Capacity>::size_type` is the smallest unsigned integer type
+that can store the representation of `Capacity` without loosing information.
+  
+**Note**: `inline_vector` cannot be an aggregate since it provides user-defined
+constructors.
+
+### Zero-sized
+
+The `sizeof(inline_vector<T, Capacity>)` is required to be zero if:
+
+- `sizeof(T) == 0`, or
+
+- `Capacity == 0`.
+
+In both cases `data() == begin() == end() == unspecified unique value`
+(`nullptr` is intended), and `swap` is `noexcept(true)`.
+
+### Constexpr-support
+
+The whole API of `inline_vector<T, Capacity>` is `constexpr` if `LiteralType<T>`
+is true.
+
+Since `std::reverse_iterator` is not constexpr friendly in C++14, the only
+exception for this is the member functions returning a reverse iterator.
+
+### Interoperability of inline vectors with different capacities
+
+This is not pursued in this proposal since other containers do not provide it
+(e.g. like `std::array`), and it would complicate the exception-safety
+specification of, e.g., `swap`, significantly. This can be pursued as a
+backwards-compatible extension in the future is there is desire to do so.
+
+
+### Explicit instantiatiability
+
+`inline_vector<T, Capacity>` should be able to be explicitly instantiated for
+all combinations of `T` and `Capacity`.
 
 ### Exception Safety
 
-he only operations that can actually fail within `inline_vector<T,C>` are:
+The only operations that can actually fail within `inline_vector<T,C>` are:
 
-  1. `T` constructors, assignment, destructor, and swap,
-  2. insertion exceeding the capacity (`push_back`, `insert`, `emplace`, ..),
-  3. out-of-bounds access (`front/back/pop_back` when empty, unchecked
-     random-access).
+  1. `T` constructors, assignment, destructor, and swap. These can fail only due
+     to throwing constructors/assignment/destructors/swap of `T`. If these
+     operations are `noexcept(true)` for `T`, they are `noexcept(true)` for
+     `inline_vector`. Since the storage is inline only the basic guarantee can
+     be provided by these if `noexcept(false)`.
 
-Like for `std::vector`, if (1) fails, the basic guarantee is provided and the
-exception is rethrown.
+  2. Out-of-bounds unchecked access (`front/back/pop_back` when empty, unchecked
+     random-access). Defined as undefined behavior.
 
-Point (2) is an open question. The capacity of the vector is fixed at
-compile-time. Exceeding the capacity can be considered:
+  3. Out-of-bounds checked access, `at`, which throws `out_of_range` exception,
+     and provides the strong-guarantee.
 
-  - a) undefined behavior and be asserted?
-  - b) a logic error, and should throw a `logic_error` exception?
-  - c) an out-of-memory error, since the vector cannot grow, and should be throw a
-    `bad_alloc` exception?
+  4. Insertion exceeding the capacity (`push_back`, `insert`, `emplace`, ..).
+     **Open question**: what to do here.
 
-I lean towards a) undefined behavior and asserted (run-time diagnostic
-required). Throwing an exception would require checking the capacity on every
-call to `push_back`, but the user might have done that before using `push_back`
-in a loop. Making this undefined behavior allows an implementation to emit a
-diagnostic in debug builds.
+The capacity of the vector is fixed at compile-time. Is exceeding the capacity,
+on, e.g., `push_back`: a `bad_alloc`, `out_of_range`, or even a `logic_error`?
 
-An alternative would be to preserve the exception semantics of `std::vector`
-(i.e. throw on out-of-memory/logic-error in `push_back`), but offer `_unchecked`
-methods that might provide a run-time diagnostic:
+For API-similarity with `std::vector` throwing an exception is desired, but
+should it be considered to define these as undefined behavior and encourage
+implementations to provide an `assertion` as a quality of implementation issue?
+
+Since `push_back` for `inline_vector` can be much cheaper than for `std::vector`
+(since memory will never be reallocated), should we provide `_unchecked`
+variants of these operations in which exceeding the capacity is defined as
+undefined behavior?
+
+Should we make all of these operations unchecked?
+
+The current implementation actually makes all of these operations unchecked, and
+provides an assertion. But a good balance that significantly increases the API
+could be:
 
   - checked (throws `bad_alloc` like `std::vector`): `push_back`,
     `emplace_back`, `emplace`, `insert`, ...
@@ -204,13 +235,14 @@ methods that might provide a run-time diagnostic:
   `emplace_back_unchecked`, `emplace_unchecked`, `insert_unchecked`,
   `resize_unchecked`
 
-Note: an alternative to `_unchecked`-named functions would be to use tag
+    Note: an alternative to `_unchecked`-named functions would be to use tag
 dispatching with, e.g., `std::unchecked_t`.
 
-### (Optional) Default initialization
+### Default initialization
 
-Default initialization of elements could be provided using tag dispatching or
-static member functions:
+The size-modifying operations of the `inline_vector` that do not require a value
+also have the following analogous member functions that perform default
+initialization instead of value initialization:
 
 ```c++
 static constexpr inline_vector default_initialized(size_t n);
@@ -218,18 +250,20 @@ constexpr void resize_default_initialized(size_type sz);
 constexpr void resize_unchecked_default_initialized(size_type sz);
 ```
 
-In this proposal the elements of the vector are always value initialized, since
-default-initialization extensions should be considered for all containers (e.g.
-`std::vector`)
+Note 0: an alternative would be to use tag dispatching for selecting default
+initialization of the vector elements.
+
+Note 1: default initialization should be probably considered as a feature for
+all the standard library containers that can support it.
 
 ### Iterators
 
-The iterator invalidation rules are very different than those for `std::vector`,
+The iterator invalidation rules are different than those for `std::vector`,
 since:
 
 - moving a vector into another vector invalidates all iterators,
-- swapping two vectors invalidates all iterators, but 
-- inserting elements does not invalidate iterators.
+- swapping two vectors invalidates all iterators, and 
+- inserting elements never invalidates iterators.
 
 The following functions can potentially invalidate the iterators of the vector:
 
@@ -239,19 +273,17 @@ The following functions can potentially invalidate the iterators of the vector:
 - `erase`
 - `swap`
 
-Since `std::reverse_iterator` is not constexpr friendly, reverse iterators
-cannot be constexpr. Since making a function constexpr is a breaking change,
-making `reverse_iterator` constexpr should be studied in a different proposal.
+### Naming (bikeshedding)
 
-## Storage/Memory Layout
+The name `inline_vector<T, Capacity>` denotes that the elements are stored
+"inline" with the object itself.
 
-- The elements of the vector are aligned to an `alignof(T)` memory address
-  (properly aligned).
+Alternative names are, among others:
 
-- The size parameter is to be picked as the smalles integer type in which
-  `Capacity` fits.
-  
-- Aggregate initialization of `inline_vector` is not required.
+- `stack_vector`: which is a lie since the elements won't always be on the stack.
+- `static_vector`: Boost.Container's name for it due to its ability to allocate its elements in static memory.
+- `fixed_capacity_vector/fixed_vector`: because its capacity is fixed.
+
 
 ## Proposed API
 
@@ -1110,3 +1142,6 @@ propose anything about them.
 [coveralls]: https://coveralls.io/github/gnzlbg/stack_vector
 [docs-shield]: https://img.shields.io/badge/docs-online-blue.svg?style=flat-square
 [docs]: https://gnzlbg.github.io/stack_vector
+[folly]: https://github.com/facebook/folly/blob/master/folly/docs/small_vector.md
+[eastl]: https://github.com/questor/eastl/blob/master/fixed_vector.h#L71
+[eastldesign]: https://github.com/questor/eastl/blob/master/doc%2FEASTL%20Design.html#L284
