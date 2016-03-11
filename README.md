@@ -1152,14 +1152,14 @@ propose anything about them.
 
 <!-- Links -->
 [stack_alloc]: https://howardhinnant.github.io/stack_alloc.html
-[stack_vector]: http://github.com/gnzlbg/stack_vector
+[inline_vector]: http://github.com/gnzlbg/inline_vector
 [boost_static_vector]: http://www.boost.org/doc/libs/1_59_0/doc/html/boost/container/static_vector.html
-[travis-shield]: https://img.shields.io/travis/gnzlbg/stack_vector.svg?style=flat-square
-[travis]: https://travis-ci.org/gnzlbg/stack_vector
-[coveralls-shield]: https://img.shields.io/coveralls/gnzlbg/stack_vector.svg?style=flat-square
-[coveralls]: https://coveralls.io/github/gnzlbg/stack_vector
+[travis-shield]: https://img.shields.io/travis/gnzlbg/inline_vector.svg?style=flat-square
+[travis]: https://travis-ci.org/gnzlbg/inline_vector
+[coveralls-shield]: https://img.shields.io/coveralls/gnzlbg/inline_vector.svg?style=flat-square
+[coveralls]: https://coveralls.io/github/gnzlbg/inline_vector
 [docs-shield]: https://img.shields.io/badge/docs-online-blue.svg?style=flat-square
-[docs]: https://gnzlbg.github.io/stack_vector
+[docs]: https://gnzlbg.github.io/inline_vector
 [folly]: https://github.com/facebook/folly/blob/master/folly/docs/small_vector.md
 [eastl]: https://github.com/questor/eastl/blob/master/fixed_vector.h#L71
 [eastldesign]: https://github.com/questor/eastl/blob/master/doc%2FEASTL%20Design.html#L284
