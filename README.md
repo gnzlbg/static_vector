@@ -884,7 +884,7 @@ suite.
 - [Howard Hinnant's stack_alloc][stack_alloc].
 - [EASTL fixed_vector][eastl] and [design][eastldesign].
 - [Folly small_vector][folly].
-- [LLVM small_vector][llvm].
+- [LLVM small_vector][llvmsmallvector].
 
 <!-- Links -->
 [stack_alloc]: https://howardhinnant.github.io/stack_alloc.html
