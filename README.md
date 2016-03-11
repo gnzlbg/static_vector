@@ -34,12 +34,13 @@ This container is useful when:
 Yes, we can, but no, it does not result in a zero-cost abstraction. Two main
 reasons:
 
-The growth mechanism of `std::vector` makes it impossible for a custom allocator
+1. The growth mechanism of `std::vector` makes it impossible for a custom allocator
 to allocate the optimal amount of storage for a given capacity.
 
-Furthermore, the resulting vector would be at least one word too big, since
-storing the `capacity` as a data member is not necessary for `inline_vector`
-because it is known at compile-time.
+2. The resulting vector would be two words too big. The capacity of
+`inline_vector` is part of its type and does not need to be stored. The custom
+allocator stores the elements internally, storing a `data` pointer inside vector
+is unneccesary since a pointer to the first element can be obtained for free.
 
 ## Can we reuse `small_vector`?
 
