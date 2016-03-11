@@ -1,5 +1,6 @@
 # inline_vector [![Travis build status][travis-shield]][travis] [![Coveralls.io code coverage][coveralls-shield]][coveralls] [![Docs][docs-shield]][docs]
 
+
 > A dynamically-resizable vector with fixed capacity and inline storage (revision -1)
 
 **Document number**: none.
@@ -774,7 +775,6 @@ the following holds:
 - Effects: none.
 
 
-
 For the checked element access functions:
 
 ```c++
@@ -810,8 +810,6 @@ the same as for the unchecked element access holds. But furthermore:
 ```c++
 template<class... Args>
 constexpr void emplace_back(Args&&... args);
-```
-
 ```
 
 ```c++
