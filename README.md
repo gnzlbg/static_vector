@@ -189,7 +189,7 @@ In both cases `data() == begin() == end() == unspecified unique value`
 
 ### Constexpr-support
 
-The whole API of `inline_vector<T, Capacity>` is `constexpr` if `LiteralType<T>`
+The whole API of `inline_vector<T, Capacity>` is `constexpr` if `TrivialType<T>`
 is true.
 
 Since `std::reverse_iterator` is not constexpr friendly in C++14, the only
@@ -480,7 +480,7 @@ constexpr inline_vector() noexcept;
 /// - rethrows if `value_type`'s default constructor throws,
 /// - throws `bad_alloc` if `\p n > capacity()`.
 ///
-/// Constexpr: if `value_type` models `LiteralType`.
+/// Constexpr: if `value_type` models `TrivialType`.
 ///
 /// Iterator invalidation: none.
 ///
