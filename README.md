@@ -304,7 +304,7 @@ denotes that the elements are stored
   Might be confusing because the term `inline` is overloaded in C++. In C++17 the term `inline` is also
   used to refer to data (in the context of `inline` variables), but there it means something else. 
 - `stack_vector`: to denote that the elements can be stored on the stack, which is confusing since the
-  elements can be on the stack, the heap, or the static memory segment.
+  elements can be on the stack, the heap, or the static memory segment. It also has a resemblance with `std::stack`.
 - `embedded_vector`: since the elements are "embedded" within the vector object itself.
 
 ### Summary of possible future extensions
