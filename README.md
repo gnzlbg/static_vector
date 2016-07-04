@@ -598,27 +598,7 @@ constexpr inline_vector(inline_vector&&)
 ```
 
 ```c++
-/// Constructs a inline_vector with elements copied from [il.begin(), il.end()).
-///
-/// Requirements: `value_type` shall be `CopyInsertable` into `*this`
-///
-/// Enabled: if requirements are met.
-///
-/// Complexity:
-/// - time: O(N) calls to `value_type`'s copy constructor,
-/// - space: O(1).
-///
-/// Exception safety: 
-/// - basic guarantee: all constructed elements shall be destroyed on failure,
-/// - rethrows if `value_type`'s copy or move constructors throws,
-/// - throws `bad_alloc` if `\p il.size() > capacity()`.
-///
-/// Constexpr: if `is_trivial<value_type>`.
-///
-/// Iterator invalidation: none.
-///
-/// Effects: exactly \p `il.size()` calls to `value_type`s copy constructor.
-///
+/// Effects: Equivalent to `inline_vector(il.begin(), il.end())`.
 constexpr inline_vector(initializer_list<value_type> il);
   noexcept(is_nothrow_copy_constructible<value_type>{});
 ```
