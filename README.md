@@ -469,7 +469,7 @@ constexpr inline_vector() noexcept;
 ```
 
 ```c++
-/// Constructs a inline_vector containing \p n default-constructed elements.
+/// Constructs a inline_vector containing \p n default-initialized elements.
 ///
 /// Requirements: `value_type` shall be `DefaultInsertable` into `*this`.
 ///
@@ -481,8 +481,7 @@ constexpr inline_vector() noexcept;
 ///
 /// Exception safety:
 /// - basic guarantee: all constructed elements shall be destroyed on failure,
-/// - rethrows if `value_type`'s default constructor throws,
-/// - throws `bad_alloc` if `\p n > capacity()`.
+/// - rethrows if `value_type`'s default constructor throws.
 ///
 /// Constexpr: if `is_trivial<value_type>`.
 ///
