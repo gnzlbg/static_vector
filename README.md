@@ -469,7 +469,7 @@ constexpr inline_vector() noexcept;
 ```
 
 ```c++
-/// Constructs a inline_vector containing \p n default-initialized elements.
+/// Constructs a inline_vector containing \p n value-initialized elements.
 ///
 /// Requirements: `value_type` shall be `DefaultInsertable` into `*this`.
 ///
