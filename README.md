@@ -184,8 +184,7 @@ in which case  `data() == begin() == end() == unspecified unique value`
 ### Constexpr-support
 
 The whole API of `inline_vector<T, Capacity>` is `constexpr` if `is_trivial<T>`
-is true, except for the member functions returning reverse iterators, which 
-cannot be `constexpr` since `std::reverse_iterator` is not constexpr.
+is true.
 
 ### Interoperability of inline vectors with different capacities (possible future extension)
 
@@ -317,7 +316,6 @@ None of these are proposed in this revision (revision -1) of this proposal.
    different capacities.
 3. Support uncheked mutating operations: `resize_unchecked`,
    `push_back_unchecked`, `assign_unchecked`, `emplace`, `insert`, ...
-4. constexpr support for reverse iteration.
 
 ## Proposed API
 
@@ -371,15 +369,15 @@ constexpr const_iterator         begin()   const noexcept(true);
 constexpr iterator               end()           noexcept(true);
 constexpr const_iterator         end()     const noexcept(true);
 
-          reverse_iterator       rbegin()        noexcept(true);
-          const_reverse_iterator rbegin()  const noexcept(true);
-          reverse_iterator       rend()          noexcept(true);
-          const_reverse_iterator rend()    const noexcept(true);
+constexpr reverse_iterator       rbegin()        noexcept(true);
+constexpr const_reverse_iterator rbegin()  const noexcept(true);
+constexpr reverse_iterator       rend()          noexcept(true);
+constexpr const_reverse_iterator rend()    const noexcept(true);
 
 constexpr const_iterator         cbegin()        noexcept(true);
 constexpr const_iterator         cend()    const noexcept(true);
-          const_reverse_iterator crbegin()       noexcept(true);
-          const_reverse_iterator crend()   const noexcept(true);
+constexpr const_reverse_iterator crbegin()       noexcept(true);
+constexpr const_reverse_iterator crend()   const noexcept(true);
 
 
 // size/capacity:
@@ -684,15 +682,15 @@ constexpr const_iterator         begin()   const noexcept;
 constexpr iterator               end()           noexcept;
 constexpr const_iterator         end()     const noexcept;
 
-          reverse_iterator       rbegin()        noexcept;
-          const_reverse_iterator rbegin()  const noexcept;
-          reverse_iterator       rend()          noexcept;
-          const_reverse_iterator rend()    const noexcept;
+constexpr reverse_iterator       rbegin()        noexcept;
+constexpr const_reverse_iterator rbegin()  const noexcept;
+constexpr reverse_iterator       rend()          noexcept;
+constexpr const_reverse_iterator rend()    const noexcept;
 
 constexpr const_iterator         cbegin()        noexcept;
 constexpr const_iterator         cend()    const noexcept;
-          const_reverse_iterator crbegin()       noexcept;
-          const_reverse_iterator crend()   const noexcept;
+constexpr const_reverse_iterator crbegin()       noexcept;
+constexpr const_reverse_iterator crend()   const noexcept;
 ```
 
 the following holds:
@@ -701,9 +699,7 @@ the following holds:
 - Enabled: always.
 - Complexity: constant time and space.
 - Exception safety: never throw.
-- Constexpr: always, except:
-  - for the `reverse_iterator` functions, since `std::reverse_iterator<Iterator>`
-  will not be `constexpr` even for types like `T*`.
+- Constexpr: always.
 - Effects: none.
 
 There are also some guarantees between the results of `data` and the iterator
