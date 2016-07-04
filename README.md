@@ -183,7 +183,7 @@ in which case  `data() == begin() == end() == unspecified unique value`
 
 ### Constexpr-support
 
-The whole API of `inline_vector<T, Capacity>` is `constexpr` if `TrivialType<T>`
+The whole API of `inline_vector<T, Capacity>` is `constexpr` if `is_trivial<T>`
 is true, except for the member functions returning reverse iterators, which 
 cannot be `constexpr` since `std::reverse_iterator` is not constexpr.
 
@@ -463,8 +463,9 @@ friend constexpr bool operator>=(const inline_vector& a, const inline_vector& b)
 /// Iterator invalidation: none.
 ///
 /// Effects: none.
-/// - it is guaranteed that no elements will be constructed unless `value_type`
-/// models `TrivialType`, in which case this guarantee is implementation defined.
+/// - it is guaranteed that no elements will be constructed unless 
+/// `is_trivial<value_type>`, in which case this guarantee is 
+/// implementation defined.
 ///
 constexpr inline_vector() noexcept;
 ```
@@ -485,7 +486,7 @@ constexpr inline_vector() noexcept;
 /// - rethrows if `value_type`'s default constructor throws,
 /// - throws `bad_alloc` if `\p n > capacity()`.
 ///
-/// Constexpr: if `value_type` models `TrivialType`.
+/// Constexpr: if `is_trivial<value_type>`.
 ///
 /// Iterator invalidation: none.
 ///
@@ -510,7 +511,7 @@ constexpr explicit inline_vector(size_type n);
 /// - rethrows if `value_type`'s copy constructor throws,
 /// - throws `bad_alloc` if `\p n > capacity()`.
 ///
-/// Constexpr: if `value_type` models `TrivialType`.
+/// Constexpr: if `is_trivial<value_type>`.
 ///
 /// Iterator invalidation: none.
 ///
@@ -539,7 +540,7 @@ constexpr inline_vector(size_type n, const value_type& value);
 /// - rethrows if `value_type`'s copy or move constructors throws,
 /// - throws `bad_alloc` if `\p n > capacity()`.
 ///
-/// Constexpr: if `value_type` models `TrivialType`.
+/// Constexpr: if `is_trivial<value_type>`.
 ///
 /// Iterator invalidation: none.
 ///
@@ -564,7 +565,7 @@ constexpr inline_vector(InputIterator first, InputIterator last);
 /// - basic guarantee: all constructed elements shall be destroyed on failure,
 /// - rethrows if `value_type`'s copy constructor throws.
 ///
-/// Constexpr: if `value_type` models `TrivialType`.
+/// Constexpr: if `is_trivial<value_type>`.
 ///
 /// Iterator invalidation: none.
 ///
@@ -589,7 +590,7 @@ constexpr inline_vector(inline_vector const&);
 /// - basic guarantee: all constructed elements shall be destroyed on failure,
 /// - rethrows if `value_type`'s move constructor throws.
 ///
-/// Constexpr: if `value_type` models `TrivialType`.
+/// Constexpr: if `is_trivial<value_type>`.
 ///
 /// Iterator invalidation: none.
 ///
@@ -615,7 +616,7 @@ constexpr inline_vector(inline_vector&&)
 /// - rethrows if `value_type`'s copy or move constructors throws,
 /// - throws `bad_alloc` if `\p il.size() > capacity()`.
 ///
-/// Constexpr: if `value_type` models `TrivialType`.
+/// Constexpr: if `is_trivial<value_type>`.
 ///
 /// Iterator invalidation: none.
 ///
@@ -667,7 +668,7 @@ constexpr void assign(initializer_list<value_type> il);
 ### Destruction
 
 The destructor should be implicitly generated and it should be constexpr
-if `value_type` models `TrivialType`.
+if `is_trivial<value_type>`.
 
 ```c++
 constexpr ~inline_vector(); // implicitly generated
@@ -746,7 +747,7 @@ the following holds:
    - basic guarantee: all constructed elements shall be destroyed on failure,
    - rethrows if `value_type`'s default or copy constructors throws,
    - throws `bad_alloc` if `new_size > capacity()`.
-- Constexpr: if type models TrivialType.
+- Constexpr: if `is_trivial<value_type>`.
 - Effects:
   - if `new_size > size` exactly `new_size - size` elements default/copy constructed.
   - if `new_size < size`:
@@ -772,7 +773,7 @@ the following holds:
 - Enabled: always.
 - Complexity: O(1) in time and space.
 - Exception safety: never throws.
-- Constexpr: if type models TrivialType.
+- Constexpr: if `is_trivial<value_type>`.
 - Effects: none.
 
 
@@ -790,7 +791,7 @@ the following holds:
 - Complexity: O(1) in time and space.
 - Exception safety:
   - throws `out_of_range` if `n >= size()`.
-- Constexpr: if type models TrivialType.
+- Constexpr: if `is_trivial<value_type>`.
 - Effects: none.
 
 For the data access:
@@ -860,7 +861,7 @@ the following holds:
 - Enabled: always.
 - Complexity: O(N) where N is the number of elements being constructed, inserted, or destroyed.
 - Exception safety: Throw only if default/copy/move construction/assignment or destruction of T can throw.
-- Constexpr: if `TrivialType<value_type>`.
+- Constexpr: if `is_trivial<value_type>`.
 - Effects: the size of the container increases/decreases by the number of elements being inserted/destroyed.
 
 ### Comparison operators
