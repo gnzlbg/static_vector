@@ -177,13 +177,8 @@ user-defined constructors.
 
 ### Zero-sized
 
-`inline_vector<T, Capacity>` is required to satisfy the following: 
-
-- `sizeof(unsigned char)` if `sizeof(T) == 0`, or
-
-- `is_empty<inline_vector<T, 0>>::value == true`.
-
-In both cases `data() == begin() == end() == unspecified unique value`
+It is required that `is_empty<inline_vector<T, 0>>::value == true`, 
+in which case  `data() == begin() == end() == unspecified unique value`
 (`nullptr` is intended), and `swap` is `noexcept(true)`.
 
 ### Constexpr-support
