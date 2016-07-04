@@ -179,7 +179,7 @@ user-defined constructors.
 
 It is required that `is_empty<inline_vector<T, 0>>::value == true`, 
 in which case  `data() == begin() == end() == unspecified unique value`
-(`nullptr` is intended), and `swap` is `noexcept(true)`.
+(`nullptr` is intended), and `swap` is `noexcept`.
 
 ### Constexpr-support
 
@@ -205,7 +205,7 @@ The only operations that can actually fail within `inline_vector<T, Capacity>` a
 
   1. `T` constructors, assignment, destructor, and swap. These can fail only due
      to throwing constructors/assignment/destructors/swap of `T`. If these
-     operations are `noexcept(true)` for `T`, they are `noexcept(true)` for
+     operations are `noexcept` for `T`, they are `noexcept` for
      `inline_vector`. Since the storage is inline only the basic guarantee can
      be provided by these if `noexcept(false)`.
 
@@ -339,7 +339,7 @@ typedef reverse_iterator<iterator> reverse_iterator;
 typedef reverse_iterator<const_iterator> const_reverse_iterator;
 
 // construct/copy/move/destroy:
-constexpr inline_vector() noexcept(true);
+constexpr inline_vector() noexcept;
 constexpr explicit inline_vector(size_type n);
 constexpr inline_vector(size_type n, const value_type& value);
 template<class InputIterator>
@@ -364,46 +364,46 @@ constexpr void assign(initializer_list<value_type> il);
 
 
 // iterators:
-constexpr iterator               begin()         noexcept(true);
-constexpr const_iterator         begin()   const noexcept(true);
-constexpr iterator               end()           noexcept(true);
-constexpr const_iterator         end()     const noexcept(true);
+constexpr iterator               begin()         noexcept;
+constexpr const_iterator         begin()   const noexcept;
+constexpr iterator               end()           noexcept;
+constexpr const_iterator         end()     const noexcept;
 
-constexpr reverse_iterator       rbegin()        noexcept(true);
-constexpr const_reverse_iterator rbegin()  const noexcept(true);
-constexpr reverse_iterator       rend()          noexcept(true);
-constexpr const_reverse_iterator rend()    const noexcept(true);
+constexpr reverse_iterator       rbegin()        noexcept;
+constexpr const_reverse_iterator rbegin()  const noexcept;
+constexpr reverse_iterator       rend()          noexcept;
+constexpr const_reverse_iterator rend()    const noexcept;
 
-constexpr const_iterator         cbegin()        noexcept(true);
-constexpr const_iterator         cend()    const noexcept(true);
-constexpr const_reverse_iterator crbegin()       noexcept(true);
-constexpr const_reverse_iterator crend()   const noexcept(true);
+constexpr const_iterator         cbegin()        noexcept;
+constexpr const_iterator         cend()    const noexcept;
+constexpr const_reverse_iterator crbegin()       noexcept;
+constexpr const_reverse_iterator crend()   const noexcept;
 
 
 // size/capacity:
-constexpr size_type size()     const noexcept(true);
-static constexpr size_type capacity() noexcept(true);
-static constexpr size_type max_size() noexcept(true);
+constexpr size_type size()     const noexcept;
+static constexpr size_type capacity() noexcept;
+static constexpr size_type max_size() noexcept;
 constexpr void resize(size_type sz);
 constexpr void resize(size_type sz, const value_type& c)
-constexpr bool empty() const noexcept(true);
+constexpr bool empty() const noexcept;
 
 void reserve(size_type n) = delete;
 void shrink_to_fit() = delete; 
 
 // element access:
-constexpr reference       operator[](size_type n) noexcept(true); 
-constexpr const_reference operator[](size_type n) const noexcept(true);
+constexpr reference       operator[](size_type n) noexcept; 
+constexpr const_reference operator[](size_type n) const noexcept;
 constexpr const_reference at(size_type n) const;
 constexpr reference       at(size_type n);
-constexpr reference       front() noexcept(true);
-constexpr const_reference front() const noexcept(true);
-constexpr reference       back() noexcept(true);
-constexpr const_reference back() const noexcept(true);
+constexpr reference       front() noexcept;
+constexpr const_reference front() const noexcept;
+constexpr reference       back() noexcept;
+constexpr const_reference back() const noexcept;
 
 // data access:
-constexpr       T* data()       noexcept(true);
-constexpr const T* data() const noexcept(true);
+constexpr       T* data()       noexcept;
+constexpr const T* data() const noexcept;
 
 // modifiers:
 template<class... Args>
@@ -862,7 +862,7 @@ the following holds:
 
 ### Comparison operators
 
-The following operators are `noexcept(true)` if the operations required to compute them are all `noexcept(true)`:
+The following operators are `noexcept` if the operations required to compute them are all `noexcept`:
 
 ```c++
 constexpr bool operator==(const inline_vector& a, const inline_vector& b);
@@ -877,7 +877,7 @@ The following holds for the comparison operators:
 - Enabled/Requirements: only enabled if `value_type` supports the corresponding operations.
 - Complexity: for two vectors of sizes N and M, the complexity is O(1) if N != M, otherwise, the comparison operator
   of `value_type` is invoked at most N times.
-- Exception safety: `noexcept(true)` if the comparison operator of `value_type` is `noexcept`, otherwise can only throw if the comparison operator can throw.
+- Exception safety: `noexcept` if the comparison operator of `value_type` is `noexcept`, otherwise can only throw if the comparison operator can throw.
 
 # Acknowledgments
 
