@@ -330,7 +330,7 @@ typedef value_type& reference;
 typedef value_type const& const_reference;
 typedef implementation-defined iterator;
 typedef implementation-defined const_iterator;
-typedef size_t size_type;
+typedef /*smallest unsigned integer type that is able to represent Capacity */ size_type;
 typedef ptrdiff_t difference_type;
 typedef T value_type;
 typedef T* pointer;
@@ -388,8 +388,8 @@ constexpr void resize(size_type sz);
 constexpr void resize(size_type sz, const value_type& c)
 constexpr bool empty() const noexcept(true);
 
-void reserve(size_type n) = deleted;
-void shrink_to_fit() = deleted; 
+void reserve(size_type n) = delete;
+void shrink_to_fit() = delete; 
 
 // element access:
 constexpr reference       operator[](size_type n) noexcept(true); 
