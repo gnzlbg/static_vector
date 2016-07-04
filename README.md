@@ -177,11 +177,11 @@ user-defined constructors.
 
 ### Zero-sized
 
-The `sizeof(inline_vector<T, Capacity>)` is required to be:
+`inline_vector<T, Capacity>` is required to satisfy the following: 
 
 - `sizeof(unsigned char)` if `sizeof(T) == 0`, or
 
-- zero if `Capacity == 0`.
+- `is_empty<inline_vector<T, 0>>::value == true`.
 
 In both cases `data() == begin() == end() == unspecified unique value`
 (`nullptr` is intended), and `swap` is `noexcept(true)`.
