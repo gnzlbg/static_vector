@@ -257,20 +257,21 @@ with, e.g., a `std::unchecked_t` tag type.
 ### Default initialization (possible future Extension)
 
 The size-modifying operations of the `inline_vector` that do not require a value
-also have the following analogous member functions that perform default
+also have the following analogous counterparts that perform default
 initialization instead of value initialization:
 
 ```c++
+struct default_initialized_t {};
+inline constexpr default_initialized_t default_initialized{};
+
 template <typename Value, std::size_t Capacity>
 struct inline_vector {
 // ...
-    static constexpr inline_vector default_initialized(size_t n);
-    constexpr void resize_default_initialized(size_type sz);
-    constexpr void resize_unchecked_default_initialized(size_type sz);
+    constexpr inline_vector(default_initialized_t, size_type n);
+    constexpr void resize(default_initialized_t, size_type sz);
+    constexpr void resize_unchecked(default_initialized_t, size_type sz);
 };
 ```
-
-Alternatively, tag dispatching could be used.
 
 ### Iterators
 
@@ -863,7 +864,10 @@ The following holds for the comparison operators:
 The authors of Boost.Container's `boost::container::static_vector` (Adam
 Wulkiewicz, Andrew Hundt, and Ion Gaztanaga). Howard Hinnant for libc++
 `<algorithm>` and `<vector>` headers, and in particular, for the `<vector>` test
-suite.
+suite which was extremely useful while prototyping an implementation. Andrzej 
+Krzemieński for providing an example that shows that using tags is better than
+using static member functions for "special constructors" (like the default initialized 
+constructor).
 
 # References
 
