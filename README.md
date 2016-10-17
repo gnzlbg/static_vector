@@ -38,9 +38,13 @@ This container is useful when:
 - non-default constructible objects must be stored such that `std::array` is not an option,
 - full control over the storage location of the vector elements is required.
 
-# Design considerations
+# Design
 
-## Can we reuse `std::vector` with a custom allocator? 
+In this section Frequently Asked Questions are answered, an overview of existing implementations is given, and the proposed design is provided.
+
+## FAQ
+
+### Can we reuse `std::vector` with a custom allocator? 
 
 Yes, we can, but no, it does not result in a zero-cost abstraction. Two main
 reasons:
@@ -56,7 +60,7 @@ if the growth mechanism of `std::vector` was known by the allocator implementati
 the allocator would need to assume the worst possible allocation pattern and reserve
 up to 2x the required memory to remain safe to use.
 
-## Can we reuse `small_vector`?
+### Can we reuse `small_vector`?
 
 Yes, we can, but no, it does not result in a zero-cost abstraction.
 
@@ -104,7 +108,7 @@ That is, to make `small_vector` competitive in those situations in which
 allocator type and in that case provide an `inline_vector` implementation (with
 slightly different semantics). 
 
-## Should we special case `small_vector` for inline-storage-only like EASTL and Folly do?
+### Should we special case `small_vector` for inline-storage-only like EASTL and Folly do?
 
 The types `inline_vector` and `small_vector` have different algorithmic
 complexity and exception-safety guarantees. They solve different problems and
@@ -142,7 +146,7 @@ Folly implements `small_vector<T, N, NoHeap, size_type>`, where the tag type
 in the documentation. A different `size_type` can potentially be used to reduce 
 `inline_vector`s memory requirements.
 
-## Current design
+## Proposed design
 
 The current design follows that of `boost::container::static_vector<T,
 Capacity>` closely.
@@ -165,7 +169,7 @@ prototype implementation (e.g. implementing `Capacity`/`value_type` agnostic
 functionality in a base class) without success, but implementations are 
 encouraged to consider code-size as a quality of implementation issue.
 
-## Storage/Memory Layout
+### Storage/Memory Layout
 
 The elements of the vector are properly aligned to an `alignof(T)` memory address.
 
@@ -175,7 +179,7 @@ that can represent `Capacity`.
 **Note**: `inline_vector<T, Capacity>` cannot be an aggregate since it provides
 user-defined constructors.
 
-### Zero-sized
+#### Zero-sized
 
 It is required that `is_empty<inline_vector<T, 0>>::value == true`, 
 in which case  `data() == begin() == end() == unspecified unique value`
@@ -185,14 +189,6 @@ in which case  `data() == begin() == end() == unspecified unique value`
 
 The whole API of `inline_vector<T, Capacity>` is `constexpr` if `is_trivial<T>`
 is true.
-
-### Interoperability of inline vectors with different capacities (possible future extension)
-
-A possible backwards-compatible future extension that is not pursued further
-in this paper is providing interoperability of `inline_vector`s of different
-capacities (e.g. copy construction/assignment/comparison/swap). Currently,
-other standard containers like `std::array` do not pursue this, and it would
-complicate the exception-safety specification of, e.g., `swap`, significantly. 
 
 ### Explicit instantiatiability
 
@@ -239,7 +235,7 @@ Open questions (feedback required):
 
 The current revision (-1) of this proposal considers these logic errors, makes all 
 of these operations unchecked, violating the preconditions is undefined behavior, 
-and recommends an assertion
+and recommends an assertion.
 
 Note: providing `_unchecked` versions of these operations significantly increases
 the API of `inline_vector`, but doing so, and preserving `std::vector` semantics
@@ -254,7 +250,56 @@ for the checked operations, might be a good tradeoff:
 An alternative to `_unchecked`-named functions would be to use tag dispatching 
 with, e.g., a `std::unchecked_t` tag type.
 
-### Default initialization (possible future Extension)
+### Iterator invalidation
+
+The iterator invalidation rules are different than those for `std::vector`,
+since:
+
+- moving an `inline_vector` invalidates all iterators,
+- swapping two `inline_vector`s invalidates all iterators, and 
+- inserting elements into an `inline_vector` never invalidates iterators.
+
+The following functions can potentially invalidate the iterators of `inline_vector`s: 
+`resize(n)`, `resize(n, v)`, `pop_back`, `erase`, and `swap`.
+
+The following functions from the "possible future extensions" can potentially
+invalidate the iterators of `inline_vector`s: `resize_default_initialized(n)`,
+`resize_unchecked(n)`, `resize_unchecked(n, v)`, and
+`resize_default_initialized_unchecked(n)`.
+
+### Naming
+
+Following names have been considered: The name `inline_vector<T, Capacity>` 
+
+Some names that have been considered:
+denotes that the elements are stored
+"inline" with the object itself.
+
+- `fixed_capacity_vector`: a vector with fixed capacity, long name, but clearly indicates what this is.
+- `static_vector` (Boost.Container): due to "static" allocation of the elements. Might be confusing
+  because the vector (and the elements) will sometimes be allocated in static memory (but not always). 
+- `inline_vector`: denotes that the elements are stored "inline" with the object itself.
+  Might be confusing because the term `inline` is overloaded in C++. In C++17 the term `inline` is also
+  used to refer to data (in the context of `inline` variables), but there it means something else. 
+- `stack_vector`: to denote that the elements can be stored on the stack, which is confusing since the
+  elements can be on the stack, the heap, or the static memory segment. It also has a resemblance with `std::stack`.
+- `embedded_vector`: since the elements are "embedded" within the vector object itself.
+
+### Impact on the standard
+
+`inline_vector<T, Capacity>` is a pure library extension to the C++ standard library and can be implemented by any C++11 compiler in a separate header `<inline_vector>`. 
+
+### Future extensions 
+
+#### Interoperability of inline vectors with different capacities
+
+A possible backwards-compatible future extension that is not pursued further
+in this paper is providing interoperability of `inline_vector`s of different
+capacities (e.g. copy construction/assignment/comparison/swap). Currently,
+other standard containers like `std::array` do not pursue this, and it would
+complicate the exception-safety specification of, e.g., `swap`, significantly. 
+
+#### Default initialization
 
 The size-modifying operations of the `inline_vector` that do not require a value
 also have the following analogous counterparts that perform default
@@ -273,54 +318,13 @@ struct inline_vector {
 };
 ```
 
-### Iterators
+#### Unchecked mutating operations
 
-The iterator invalidation rules are different than those for `std::vector`,
-since:
+In the current proposal exceeding the capacity on the mutating operations is considered a logic-error and results in undefined behavior, which allows implementations to cheaply provide an assertion in debug builds without introducing checks in release builds. If a future revision of this paper changes this to an alternative solution that has an associated cost for checking the invariant, it might be worth it to consider adding support to unchecked mutating operations like `resize_unchecked`,`push_back_unchecked`, `assign_unchecked`, `emplace`, and `insert`.
 
-- moving an `inline_vector` invalidates all iterators,
-- swapping two `inline_vector`s invalidates all iterators, and 
-- inserting elements into an `inline_vector` never invalidates iterators.
+# Technical specification
 
-The following functions can potentially invalidate the iterators of `inline_vector`s: 
-`resize(n)`, `resize(n, v)`, `pop_back`, `erase`, and `swap`.
-
-The following functions from the "possible future extensions" can potentially
-invalidate the iterators of `inline_vector`s: `resize_default_initialized(n)`,
-`resize_unchecked(n)`, `resize_unchecked(n, v)`, and
-`resize_default_initialized_unchecked(n)`.
-
-### Naming (feedback required)
-
-Following names have been considered: The name `inline_vector<T, Capacity>` 
-
-Some names that have been considered:
-denotes that the elements are stored
-"inline" with the object itself.
-
-- `fixed_capacity_vector`: a vector with fixed capacity, long name, but clearly indicates what this is.
-- `static_vector` (Boost.Container): due to "static" allocation of the elements. Might be confusing
-  because the vector (and the elements) will sometimes be allocated in static memory (but not always). 
-- `inline_vector`: denotes that the elements are stored "inline" with the object itself.
-  Might be confusing because the term `inline` is overloaded in C++. In C++17 the term `inline` is also
-  used to refer to data (in the context of `inline` variables), but there it means something else. 
-- `stack_vector`: to denote that the elements can be stored on the stack, which is confusing since the
-  elements can be on the stack, the heap, or the static memory segment. It also has a resemblance with `std::stack`.
-- `embedded_vector`: since the elements are "embedded" within the vector object itself.
-
-### Summary of possible future extensions
-
-None of these are proposed in this revision (revision -1) of this proposal.
-
-1. Support default initialization of elements.
-2. Support comparison/construction/assignment/swap between `inline_vector`s of
-   different capacities.
-3. Support uncheked mutating operations: `resize_unchecked`,
-   `push_back_unchecked`, `assign_unchecked`, `emplace`, `insert`, ...
-
-## Proposed API
-
-This enhancement is a pure addition to the C++ standard.
+This enhancement is a pure header-only addition to the C++ standard library as the `<inline_vector>` header. 
 
 ```c++
 template<typename T, std::size_t C /* Capacity */>
@@ -442,7 +446,7 @@ friend constexpr bool operator>=(const inline_vector& a, const inline_vector& b)
 };
 ```
 
-### Construction
+## Construction
 
 ```c++
 /// Constructs an empty inline_vector.
@@ -604,7 +608,7 @@ constexpr inline_vector(initializer_list<value_type> il);
   noexcept(is_nothrow_copy_constructible<value_type>{});
 ```
 
-### Assignment
+## Assignment
 
 Move assignment operations invalidate iterators.
 
@@ -643,7 +647,7 @@ constexpr void assign(size_type n, const value_type& u);
 constexpr void assign(initializer_list<value_type> il);
 ```
 
-### Destruction
+## Destruction
 
 The destructor should be implicitly generated and it should be constexpr
 if `is_trivial<value_type>`.
@@ -652,7 +656,7 @@ if `is_trivial<value_type>`.
 constexpr ~inline_vector(); // implicitly generated
 ```
 
-### Iterators
+## Iterators
 
 For all iterator functions:
 
@@ -685,7 +689,7 @@ the following holds:
 There are also some guarantees between the results of `data` and the iterator
 functions that are explained in the section "Element / data access" below.
 
-### Size / capacity
+## Size / capacity
 
 For the following size / capacity functions: 
 
@@ -730,7 +734,7 @@ the following holds:
       - exactly `size - new_size` elements destroyed.
       - all iterators pointing to elements at position > `new_size` are invalidated.
 
-### Element /data access
+## Element /data access
 
 For the unchecked element access functions:
 
@@ -782,7 +786,7 @@ the same as for the unchecked element access holds. But furthermore:
 - if the container is empty, `data() == begin() == end()`
 - if the container has zero-capacity, `data() == begin() == end() == implementation-defined`
 
-### Modifiers
+## Modifiers
 
 For the modifiers:
 
@@ -840,7 +844,7 @@ the following holds:
 - Constexpr: if `is_trivial<value_type>`.
 - Effects: the size of the container increases/decreases by the number of elements being inserted/destroyed.
 
-### Comparison operators
+## Comparison operators
 
 The following operators are `noexcept` if the operations required to compute them are all `noexcept`:
 
