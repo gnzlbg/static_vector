@@ -17,8 +17,8 @@ the vector object itself. It is based on
 [`boost::container::static_vector<T, Capacity>`][boost_static_vector].
 
 Its API is almost a 1:1 map of `std::vector<T, A>`s API. It is a sequence
-random-access container with contiguous storage, O(1) insertion and removal of
-elements at the end, and O(N) insertion and removal otherwise. Like
+random-access container with contiguous storage, `O(1)` insertion and removal of
+elements at the end, and `O(size())` insertion and removal otherwise. Like
 `std::vector`, the elements are initialized on insertion and destroyed on
 removal.
 
@@ -151,7 +151,7 @@ It introduces a new type `std::experimental::inline_vector<T, Capacity>` in the
 `<experimental/inline_vector>` header.
 
 > `inline_vector` is a dynamically-resizable contiguous random-access sequence
-> container with O(1) insert/erase at the end, and O(N) insert/erase otherwise.
+> container with `O(1)` insert/erase at the end, and `O(size())` insert/erase otherwise.
 > Its elements are stored within the vector object itself.
 
 A prototype implementation of this proposal is provided for standardization
@@ -477,7 +477,7 @@ constexpr inline_vector() noexcept;
 /// Enabled: if requirements are met.
 ///
 /// Complexity:
-/// - time: O(N) calls to `value_type`'s default constructor,
+/// - time: exactly `n` calls to `value_type`'s default constructor,
 /// - space: O(1).
 ///
 /// Exception safety:
@@ -501,7 +501,7 @@ constexpr explicit inline_vector(size_type n);
 /// Enabled: if requirements are met.
 ///
 /// Complexity:
-/// - time: O(N) calls to `value_type`'s copy constructor,
+/// - time: exactly `n` calls to `value_type`'s copy constructor,
 /// - space: O(1).
 ///
 /// Exception safety: 
@@ -530,7 +530,7 @@ constexpr inline_vector(size_type n, const value_type& value);
 /// Enabled: if requirements are met.
 ///
 /// Complexity:
-/// - time: O(N) calls to `value_type`'s copy or move constructor,
+/// - time: exactly `last - first` calls to `value_type`'s copy or move constructor,
 /// - space: O(1).
 ///
 /// Exception safety: 
@@ -556,7 +556,7 @@ constexpr inline_vector(InputIterator first, InputIterator last);
 /// Enabled: if requirements are met.
 ///
 /// Complexity:
-/// - time: O(N) calls to `value_type`'s copy constructor,
+/// - time: exactly `other.size()` calls to `value_type`'s copy constructor,
 /// - space: O(1).
 ///
 /// Exception safety: 
@@ -581,7 +581,7 @@ constexpr inline_vector(inline_vector const&);
 /// Enabled: if requirements are met.
 ///
 /// Complexity:
-/// - time: O(N) calls to `value_type`'s move constructor,
+/// - time: exactly `other.size()` calls to `value_type`'s move constructor,
 /// - space: O(1).
 ///
 /// Exception safety: 
@@ -716,9 +716,9 @@ constexpr void resize(size_type sz, const value_type& c);
 ```
 the following holds:
 
-- Requirements: DefaultInsertable/CopyInsertable.
+- Requirements: T models DefaultInsertable/CopyInsertable.
 - Enabled: if requirements satisfied.
-- Complexity: O(N) time, O(1) space.
+- Complexity: O(size()) time, O(1) space.
 - Exception safety:
    - basic guarantee: all constructed elements shall be destroyed on failure,
    - rethrows if `value_type`'s default or copy constructors throws,
@@ -855,8 +855,8 @@ constexpr bool operator>=(const inline_vector& a, const inline_vector& b);
 The following holds for the comparison operators:
 
 - Enabled/Requirements: only enabled if `value_type` supports the corresponding operations.
-- Complexity: for two vectors of sizes N and M, the complexity is O(1) if N != M, otherwise, the comparison operator
-  of `value_type` is invoked at most N times.
+- Complexity: for two vectors of sizes `N` and `M`, the complexity is `O(1)` if `N != M`, and the comparison operator
+  of `value_type` is invoked at most `N` times otherwise.
 - Exception safety: `noexcept` if the comparison operator of `value_type` is `noexcept`, otherwise can only throw if the comparison operator can throw.
 
 # Acknowledgments
@@ -867,7 +867,7 @@ Wulkiewicz, Andrew Hundt, and Ion Gaztanaga). Howard Hinnant for libc++
 suite which was extremely useful while prototyping an implementation. Andrzej 
 Krzemieński for providing an example that shows that using tags is better than
 using static member functions for "special constructors" (like the default initialized 
-constructor).
+constructor). Casey Carter for his invaluable feedback on this proposal.
 
 # References
 
