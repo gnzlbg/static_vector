@@ -146,7 +146,7 @@ Folly implements `small_vector<T, N, NoHeap, size_type>`, where the tag type
 in the documentation. A different `size_type` can potentially be used to reduce 
 `inline_vector`s memory requirements.
 
-## Proposed design
+## Proposed design and rationale
 
 The current design follows that of `boost::container::static_vector<T,
 Capacity>` closely.
@@ -197,58 +197,99 @@ all combinations of `T` and `Capacity`.
 
 ### Exception Safety
 
+#### What could possibly go wrong?
+
 The only operations that can actually fail within `inline_vector<T, Capacity>` are:
 
-  1. `T` constructors, assignment, destructor, and swap. These can fail only due
-     to throwing constructors/assignment/destructors/swap of `T`. If these
-     operations are `noexcept` for `T`, they are `noexcept` for
-     `inline_vector`. Since the storage is inline only the basic guarantee can
-     be provided by these if `noexcept(false)`.
+  1. `T` special member functions and swap can only fail due
+     to throwing constructors/assignment/destructors/swap of `T`. 
 
-  2. Out-of-bounds unchecked access (`front/back/pop_back` when empty, unchecked
-     random-access). These are undefined behavior (an `assertion` is encouraged
-     as a quality of implementation issue).
+  2. Mutating operations exceeding the capacity (`push_back`, `insert`, `emplace`, 
+     `pop_back` when `empty()`, `inline_vector(T, size)`, `inline_vector(begin, end)`...).
 
-  3. Out-of-bounds checked access, `at`, which throws `out_of_range` exception.
+  2. Out-of-bounds unchecked access:
+     2.1 `front/back/pop_back` when empty, operator[] (unchecked random-access). 
+     2.2  `at` (checked random-access) which can throw `out_of_range` exception.
 
-  4. Insertion exceeding the capacity (`push_back`, `insert`, `emplace`, ..).
-     These are undefined behavior (an `assertion` is encouraged as a quality of
-     implementation issue). This is still an open question:
+#### Rationale
 
-This last point is controversial. First, the capacity of the vector is fixed at 
-compile-time. Is exceeding the capacity, on, e.g., `push_back`: a `bad_alloc`, 
-`out_of_range`, or even a `logic_error`? The author considers that exceeding
-the capacity of a fixed-capacity vector is actually a `logic_error`.
+Three points influence the design of `inline_vector` with respect to its exception-safety guarantees:
 
-Second, for API-similarity with `std::vector`, throwing an exception is desired.
-On the other hand, the capacity is fixed, no memory allocations can occur, and
-as a consequence `_unchecked` versions of these operations are desired in some
-use cases (see below).
+1. Making it a zero-cost abstraction.
+2. Making it safe to use.
+3. Making it easy to learn and use. 
 
-Open questions (feedback required):
+The best way to make `inline_vector` easy to learn is to make it as similar to `std::vector` 
+as possible. However,`std::vector` allocates memory using an `Allocator`, whose allocation 
+functions can throw, e.g., a `std::bad_alloc` exception, e.g., on Out Of Memory. 
 
-- What kind of error is exceeding the capacity of a fixed-capacity vector?
-- Should we:
-  - provide the same API as `std::vector` and just throw `bad_alloc`?
-  - provide `_unchecked` versions of these operations?
-  - make all of these operations unchecked?
+However, `inline_vector` never allocates memory since its `Capacity` is fixed at compile-time.
 
-The current revision (-1) of this proposal considers these logic errors, makes all 
-of these operations unchecked, violating the preconditions is undefined behavior, 
-and recommends an assertion.
+The main question then becomes, what should `inline_vector` do when its `Capacity` is exceeded?
 
-Note: providing `_unchecked` versions of these operations significantly increases
-the API of `inline_vector`, but doing so, and preserving `std::vector` semantics
-for the checked operations, might be a good tradeoff:
+Two main choices were identified:
 
-  - checked (throws `bad_alloc` like `std::vector`): `push_back`,
-    `emplace_back`, `emplace`, `insert`, ...
-  - unchecked (undefined behavior, assertion encouraged): `push_back_unchecked`,
-  `emplace_back_unchecked`, `emplace_unchecked`, `insert_unchecked`,
-  `resize_unchecked`
+1. Make it throw an exception. 
+2. Make not exceeding the `Capacity` of an `inline_vector` a precondition on its mutating method (and thus exceeding it undefined-behavior).
 
-An alternative to `_unchecked`-named functions would be to use tag dispatching 
-with, e.g., a `std::unchecked_t` tag type.
+While throwing an exception makes the interface more similar to that of `std::vector` and safer to use, it does introduces a performance cost since it means that all the mutating methods must check for this condition. It also raises the question: which exception? It cannot be `std::bad_alloc`, because nothing is being allocated.
+It should probably be either `std::out_of_bounds` or `std::logic_error`, but if exceeding the capacity is a logic error, why don't we make it a precondition instead?
+
+Making exceeding the capacity a precondition has some advantages:
+
+- It llows implementations to trivially provide a run-time diagnostic on debug builds by, e.g., means of an assertion. 
+
+- It allows the methods to be conditionally marked `noexcept(true)` when `T` is `std::is_nothrow_default_constructible/copy_assignable/...`
+
+- It makes `inline_vector` a zero-cost abstraction by allowing the user to avoid unnecessary checks (e.g. hoisting checks out of a loop).
+
+And this advantages come at the expense of safety. It is possible to have both by making the methods checked by default, but offering `unchecked_xxx` alternatives that omit the checks, but this comes at the price of an increased API surface, and hence, a larger learning curve. 
+
+Given this design space, this proposal opts for making not exceeding the `Capacity` of an `inline_vector` a precondition. It still allows some safety by allowing implementations to make the operations checked in the debug builds of their standard libraries, while providing very strong exception safety guarantees (and conditional `noexcept(true)`), which makes `inline_vector` a true zero-cost abstraction.
+
+The final question to be answered is if we should mark the mutating methods to be conditionally `noexcept(true)` or not when it is safe to do so. The current proposal does so since it is easier to remove `noexcept(...)` than to add it, and since this should allow the compiler to generate better code, which is relevant for some fields in which `inline_vector` is very useful, like in embedded systems programming. 
+
+#### Precondition on `T` modelling `Destructible`
+
+If `T` models `Destructible` (that is, if `T` destructor never throws), 
+`inline_vector<T, Capacity>` provides at least the basic-exception guarantee.
+If `T` does not model `Destructible`, the behavior of `inline_vector` is undefined. 
+Implementations are encouraged to rely on `T` modeling `Destructible` even
+if `T`'s destructor is `noexcept(false)`. 
+
+#### Exception-safety guarantees of special member functions and swap
+
+If `T`'s special member functions and/or swap are `noexcept(true)`, so are the respective
+special member functions and/or swap operations of `inline_vector` which then provide the
+strong-exception guarantee. They provide the basic-exception guarantee otherwise. 
+
+#### Exception-safety guarantees of algorithms that perform insertions
+
+The capacity of `inline_vector` (a fixed-capacity vector) is statically known at 
+compile-time, that is, exceeding it is a logic error.
+
+As a consequence, inserting elements beyond the `Capacity` of an `inline_vector` results
+in _undefined behavior_. While providing a run-time diagnostic in debug builds (e.g. via an 
+`assertion`) is encouraged, this is a Quality of Implementation issue.
+
+The algorithms that perform insertions are the constructors `inline_vector(T, size)` and 
+`inline_vector(begin, end)`, and the member functions `push_back`, `emplace_back`, `insert`, 
+and `resize`.
+
+These algorithms provide strong-exception safety guarantee, and if `T`'s special member functions or
+`swap` can throw are `noexcept(false)`, and `noexcept(true)` otherwise.
+
+#### Exception-safety guarantees of unchecked access
+
+Out-of-bounds unchecked access (`front/back/pop_back` when empty, `operator[]`) is undefined behavior
+and a run-time diagnostic is encouraged but left as a Quality of Implementation issue.
+
+These functions provide the strong-exception safety guarantee and are `noexcept(true)`.
+
+#### Exception-safety guarantees of checked access
+
+Checked access via `at` provides the strong-exception safety guarantee and it throws the `std::out_of_range`
+exception on out-of-bounds. It is `noexcept(false)`.
 
 ### Iterator invalidation
 
