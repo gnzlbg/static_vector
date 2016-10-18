@@ -190,6 +190,24 @@ in which case  `data() == begin() == end() == unspecified unique value`
 The whole API of `inline_vector<T, Capacity>` is `constexpr` if `is_trivial<T>`
 is true.
 
+Implementations can achieve this by using a C array for `inline_vector`'s storage
+without altering the guarantees of `inline_vector`'s methods in an observable way.
+
+For example, `inline_vector(N)` constructor guarantees "exactly `N` calls to 
+`T`'s default constructor". Strictly speaking, `inline_vector`'s constructor
+for trivial types will construct a C array of `Capacity` length. However, because
+`is_trivial<T>` is true, the number of constructor or destructor calls is not
+observable.
+
+This introduces an additional implementation cost which the author believes is
+worth it because similarly to `std::array`, `inline_vector`s of trivial types 
+are incredibly common. 
+
+Note: this type of `constexpr` support does not require any core language changes.
+This design could, however, be both simplified and extended if 1) placement `new`,
+2) explicit destructor calls, and 3) `reinterpret_cast`, would be `constexpr`. This
+paper does not propose any of these changes.
+
 ### Explicit instantiatiability
 
 The class `inline_vector<T, Capacity>` can be explicitly instantiated for
@@ -507,9 +525,8 @@ friend constexpr bool operator>=(const inline_vector& a, const inline_vector& b)
 /// Iterator invalidation: none.
 ///
 /// Effects: none.
-/// - it is guaranteed that no elements will be constructed unless 
-/// `is_trivial<value_type>`, in which case this guarantee is 
-/// implementation defined.
+/// 
+/// Post-condition: `size() == 0`.
 ///
 constexpr inline_vector() noexcept;
 ```
@@ -535,6 +552,8 @@ constexpr inline_vector() noexcept;
 ///
 /// Effects: exactly \p n calls to `value_type`s default constructor.
 ///
+/// Post-condition: `size() == n`.
+///
 constexpr explicit inline_vector(size_type n);
 ```
 
@@ -559,6 +578,8 @@ constexpr explicit inline_vector(size_type n);
 /// Iterator invalidation: none.
 ///
 /// Effects: exactly \p n calls to `value_type`s copy constructor.
+///
+/// Post-condition: `size() == n`.
 ///
 constexpr inline_vector(size_type n, const value_type& value);
 ```
@@ -589,6 +610,8 @@ constexpr inline_vector(size_type n, const value_type& value);
 ///
 /// Effects: exactly \p `last - first` calls to `value_type`s copy or move constructor.
 ///
+/// Post-condition: `size() == last - first`.
+///
 template<class InputIterator>
 constexpr inline_vector(InputIterator first, InputIterator last);
 ```
@@ -614,7 +637,9 @@ constexpr inline_vector(InputIterator first, InputIterator last);
 ///
 /// Effects: exactly \p `other.size()` calls to `value_type`s copy constructor.
 ///
-constexpr inline_vector(inline_vector const&);
+/// Post-condition: `size() == other.size()`.
+///
+constexpr inline_vector(inline_vector const& other);
   noexcept(is_nothrow_copy_constructible<value_type>{});
 ```
 
@@ -639,12 +664,14 @@ constexpr inline_vector(inline_vector const&);
 ///
 /// Effects: exactly \p `other.size()` calls to `value_type`s move constructor.
 ///
+/// Post-condition: `size() == other.size()`.
+///
 constexpr inline_vector(inline_vector&&)
   noexcept(is_nothrow_move_constructible<value_type>{});
 ```
 
 ```c++
-/// Effects: Equivalent to `inline_vector(il.begin(), il.end())`.
+/// Effects: Same as `inline_vector(il.begin(), il.end())`.
 constexpr inline_vector(initializer_list<value_type> il);
   noexcept(is_nothrow_copy_constructible<value_type>{});
 ```
