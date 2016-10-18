@@ -187,6 +187,26 @@ It is required that `is_empty<inline_vector<T, 0>>::value == true`,
 in which case  `data() == begin() == end() == unspecified unique value`
 (`nullptr` is intended), and `swap` is `noexcept`.
 
+### Move semantics
+
+The move semantics of `inline_vector<T, Capacity>` are equal to those of 
+`std::array<T, Size>`. That is, after
+
+```c++
+inline_vector a(10);
+inline_vector b(std::move(a));
+```
+
+the elements of `a` have been moved element-wise into `b`, the elements of `a`
+are left in an initialized but unspecified state (have been moved from state), 
+the size of `a` is not altered, and `a.size() == b.size()`.
+
+Note that this behavior differs from `std::vector<T, Allocator>`, in particular
+for the similar case in which `std::propagate_on_container_move_assignment<Allocator>{}`
+is `false`. In this situation the state of `std::vector` is initialized but unspecified,
+which prevents users from portably relying on `size() == 0` or `size() == N`, and raises
+questions like "Should users call `clear` after moving from a `std::vector`?".
+
 ### Constexpr-support
 
 The whole API of `inline_vector<T, Capacity>` is `constexpr` if `is_trivial<T>`
@@ -675,6 +695,7 @@ constexpr inline_vector(inline_vector const& other);
 /// Effects: exactly \p `other.size()` calls to `value_type`s move constructor.
 ///
 /// Post-condition: `size() == other.size()`.
+/// Invariant: `other.size()` does not change.
 ///
 constexpr inline_vector(inline_vector&&)
   noexcept(is_nothrow_move_constructible<value_type>{});
