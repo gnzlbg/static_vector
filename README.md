@@ -573,8 +573,8 @@ constexpr inline_vector() noexcept;
 /// - space: O(1).
 ///
 /// Exception safety:
-/// - basic guarantee: all constructed elements shall be destroyed on failure,
-/// - rethrows if `value_type`'s default constructor throws.
+/// - strong guarantee: all constructed elements shall be destroyed on failure,
+/// - re-throws if `value_type`'s default constructor throws.
 ///
 /// Constexpr: if `is_trivial<value_type>`.
 ///
@@ -582,6 +582,7 @@ constexpr inline_vector() noexcept;
 ///
 /// Effects: exactly \p n calls to `value_type`s default constructor.
 ///
+/// Pre-condition: `n <= Capacity`.
 /// Post-condition: `size() == n`.
 ///
 constexpr explicit inline_vector(size_type n);
@@ -599,9 +600,8 @@ constexpr explicit inline_vector(size_type n);
 /// - space: O(1).
 ///
 /// Exception safety: 
-/// - basic guarantee: all constructed elements shall be destroyed on failure,
-/// - rethrows if `value_type`'s copy constructor throws,
-/// - throws `bad_alloc` if `\p n > capacity()`.
+/// - strong guarantee: all constructed elements shall be destroyed on failure,
+/// - re-throws if `value_type`'s copy constructor throws,
 ///
 /// Constexpr: if `is_trivial<value_type>`.
 ///
@@ -609,6 +609,7 @@ constexpr explicit inline_vector(size_type n);
 ///
 /// Effects: exactly \p n calls to `value_type`s copy constructor.
 ///
+/// Pre-condition: `n <= Capacity`.
 /// Post-condition: `size() == n`.
 ///
 constexpr inline_vector(size_type n, const value_type& value);
@@ -630,9 +631,8 @@ constexpr inline_vector(size_type n, const value_type& value);
 /// - space: O(1).
 ///
 /// Exception safety: 
-/// - basic guarantee: all constructed elements shall be destroyed on failure,
-/// - rethrows if `value_type`'s copy or move constructors throws,
-/// - throws `bad_alloc` if `\p n > capacity()`.
+/// - strong guarantee: all constructed elements shall be destroyed on failure,
+/// - re-throws if `value_type`'s copy or move constructors throws,
 ///
 /// Constexpr: if `is_trivial<value_type>`.
 ///
@@ -640,6 +640,7 @@ constexpr inline_vector(size_type n, const value_type& value);
 ///
 /// Effects: exactly \p `last - first` calls to `value_type`s copy or move constructor.
 ///
+/// Pre-condition: `last - first <= Capacity`.
 /// Post-condition: `size() == last - first`.
 ///
 template<class InputIterator>
@@ -658,8 +659,8 @@ constexpr inline_vector(InputIterator first, InputIterator last);
 /// - space: O(1).
 ///
 /// Exception safety: 
-/// - basic guarantee: all constructed elements shall be destroyed on failure,
-/// - rethrows if `value_type`'s copy constructor throws.
+/// - strong guarantee: all constructed elements shall be destroyed on failure,
+/// - re-throws if `value_type`'s copy constructor throws.
 ///
 /// Constexpr: if `is_trivial<value_type>`.
 ///
@@ -667,6 +668,7 @@ constexpr inline_vector(InputIterator first, InputIterator last);
 ///
 /// Effects: exactly \p `other.size()` calls to `value_type`s copy constructor.
 ///
+/// Pre-condition: none.
 /// Post-condition: `size() == other.size()`.
 ///
 constexpr inline_vector(inline_vector const& other);
@@ -685,8 +687,9 @@ constexpr inline_vector(inline_vector const& other);
 /// - space: O(1).
 ///
 /// Exception safety: 
-/// - basic guarantee: all constructed elements shall be destroyed on failure,
-/// - rethrows if `value_type`'s move constructor throws.
+/// - strong guarantee if std::nothrow_move_assignable<T> is true, basic
+///   guarantee otherwise: all moved elements shall be destroyed on failure.
+/// - re-throws if `value_type`'s move constructor throws.
 ///
 /// Constexpr: if `is_trivial<value_type>`.
 ///
@@ -694,6 +697,7 @@ constexpr inline_vector(inline_vector const& other);
 ///
 /// Effects: exactly \p `other.size()` calls to `value_type`s move constructor.
 ///
+/// Pre-condition: none.
 /// Post-condition: `size() == other.size()`.
 /// Invariant: `other.size()` does not change.
 ///
@@ -945,6 +949,8 @@ the following holds:
 - Exception safety: Throw only if default/copy/move construction/assignment or destruction of T can throw.
 - Constexpr: if `is_trivial<value_type>`.
 - Effects: the size of the container increases/decreases by the number of elements being inserted/destroyed.
+- Pre-condition: `size() + N <= Capacity` where `N` is the number of elements being constructed, inserted, or destroyed (and might be negative). 
+- Post-condition: `size() == size_before + N` where `size_before` is the size of the `inline_vector` before the mutating operation and `N` is the number of elements that have been constructed, inserted, or destroyed (and might be negative).
 
 ## Comparison operators
 
