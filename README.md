@@ -503,6 +503,10 @@ friend constexpr bool operator<=(const inline_vector& a, const inline_vector& b)
 friend constexpr bool operator>(const inline_vector& a, const inline_vector& b);
 friend constexpr bool operator>=(const inline_vector& a, const inline_vector& b);
 };
+
+template <typename T, std::size_t Capacity>
+constexpr void swap(inline_vector<T, Capacity>&, inline_vector<T, Capacity>&)
+  noexcept(is_nothrow_swappable<T>{});
 ```
 
 ## Construction
