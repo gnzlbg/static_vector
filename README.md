@@ -171,6 +171,8 @@ encouraged to consider code-size as a quality of implementation issue.
 
 ### Storage/Memory Layout
 
+Specializations of `inline_vector<T, Capacity>` model the `ContiguousContainer` concept.
+
 The elements of the vector are properly aligned to an `alignof(T)` memory address.
 
 The `inline_vector<T, Capacity>::size_type` is the smallest unsigned integer type
@@ -309,7 +311,11 @@ These functions provide the strong-exception safety guarantee and are `noexcept(
 Checked access via `at` provides the strong-exception safety guarantee and it throws the `std::out_of_range`
 exception on out-of-bounds. It is `noexcept(false)`.
 
-### Iterator invalidation
+### Iterators 
+
+The iterators of `inline_vector<T, Capacity>` model the `ContiguousIterator` concept.
+
+#### Iterator invalidation
 
 The iterator invalidation rules are different than those for `std::vector`,
 since:
@@ -757,6 +763,9 @@ the following holds:
 - Exception safety: never throw.
 - Constexpr: always.
 - Effects: none.
+
+The `iterator` and `const_iterator` types are implementation defined and model
+the `ContiguousIterator` concept. 
 
 There are also some guarantees between the results of `data` and the iterator
 functions that are explained in the section "Element / data access" below.
