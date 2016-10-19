@@ -177,15 +177,18 @@ The elements of the vector are properly aligned to an `alignof(T)` memory addres
 
 The `inline_vector<T, Capacity>::size_type` is the smallest unsigned integer type
 that can represent `Capacity`.
+
+If the container is not empty, the member function `data()` returns a pointer such that
+`[data(), data() + size())` is a valid range and `data() == addressof(front()) == addressof(*begin())`.
+Otherwise, the result of `data()` is unspecified. .
   
 **Note**: `inline_vector<T, Capacity>` cannot be an aggregate since it provides
 user-defined constructors.
 
 #### Zero-sized
 
-It is required that `is_empty<inline_vector<T, 0>>::value == true`, 
-in which case  `data() == begin() == end() == unspecified unique value`
-(`nullptr` is intended), and `swap` is `noexcept`.
+It is required that `is_empty<inline_vector<T, 0>>::value == true` and
+that `swap(inline_vector<T, 0>&, inline_vector<T, 0>&)` is `noexcept(true)`.
 
 ### Move semantics
 
@@ -861,6 +864,7 @@ the following holds:
 - Exception safety: never throws.
 - Constexpr: if `is_trivial<value_type>`.
 - Effects: none.
+- Pre-conditions: `size() > n` for `operator[]`, `size() > 0` for `front` and `back`.
 
 
 For the checked element access functions:
@@ -879,6 +883,7 @@ the following holds:
   - throws `out_of_range` if `n >= size()`.
 - Constexpr: if `is_trivial<value_type>`.
 - Effects: none.
+- Pre-conditions: none.
 
 For the data access:
 
@@ -887,10 +892,17 @@ constexpr       T* data()       noexcept;
 constexpr const T* data() const noexcept;
 ```
 
-the same as for the unchecked element access holds. But furthermore:
+the following holds: 
 
-- if the container is empty, `data() == begin() == end()`
-- if the container has zero-capacity, `data() == begin() == end() == implementation-defined`
+- Requirements: none.
+- Enabled: always.
+- Complexity: O(1) in time and space.
+- Exception safety: never throws.
+- Constexpr: if `is_trivial<value_type>`.
+- Effects: none.
+- Pre-conditions: none.
+- Returns: if the container is empty the return value is unspecified. If the container 
+  is not empty, `[data(), data() + size())` is a valid range, and `data() == addressof(front())`.
 
 ## Modifiers
 
