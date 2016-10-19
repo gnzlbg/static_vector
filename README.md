@@ -964,6 +964,7 @@ constexpr void emplace_back(Args&&... args);
 ///
 constexpr void push_back(const value_type& x);
 ```
+
 ```c++
 /// Move construct an element at the end of the vector from \p x.
 ///
@@ -1027,7 +1028,7 @@ constexpr void pop_back();
 /// Enabled: if requirements are met.
 ///
 /// Complexity:
-/// - time: O(size() + 1), exactly `last - position + 1` swaps, one call to `T`'s copy constructor,
+/// - time: O(size() + 1), exactly `end() - position` swaps, one call to `T`'s copy constructor,
 /// - space: O(1).
 ///
 /// Exception safety: 
@@ -1038,11 +1039,11 @@ constexpr void pop_back();
 ///
 /// Iterator invalidation: all iterators pointing to elements after \p position are invalidated.
 ///
-/// Effects: exactly `last - position` swaps, one call to `T`'s copy constructor, the `size()` 
+/// Effects: exactly `end() - position` swaps, one call to `T`'s copy constructor, the `size()` 
 /// of the vector is incremented by one.
 ///
-/// Pre-condition: `size() < Capacity`.
-/// Post-condition: `size() == size_before - 1`.
+/// Pre-condition: `size() + 1 <= Capacity`, `position` is in range `[begin(), end())`.
+/// Post-condition: `size() == size_before + 1`.
 /// Invariant: the relative order of the elements before and after \p position remains unchanged.
 ///
 constexpr iterator insert(const_iterator position, const value_type& x);
@@ -1056,7 +1057,7 @@ constexpr iterator insert(const_iterator position, const value_type& x);
 /// Enabled: if requirements are met.
 ///
 /// Complexity:
-/// - time: O(size() + 1), exactly `last - position + 1` swaps, one call to `T`'s move constructor,
+/// - time: O(size() + 1), exactly `end() - position` swaps, one call to `T`'s move constructor,
 /// - space: O(1).
 ///
 /// Exception safety: 
@@ -1067,10 +1068,10 @@ constexpr iterator insert(const_iterator position, const value_type& x);
 ///
 /// Iterator invalidation: all iterators pointing to elements after \p position are invalidated.
 ///
-/// Effects: exactly `last - position` swaps, one call to `T`'s move constructor, the `size()` 
+/// Effects: exactly `end() - position` swaps, one call to `T`'s move constructor, the `size()` 
 /// of the vector is incremented by one.
 ///
-/// Pre-condition: `size() < Capacity`.
+/// Pre-condition: `size() + 1 <= Capacity`, `position` is in range `[begin(), end())`.
 /// Post-condition: `size() == size_before - 1`.
 /// Invariant: the relative order of the elements before and after \p position remains unchanged.
 ///
@@ -1085,57 +1086,150 @@ constexpr iterator insert(const_iterator position, value_type&& x);
 /// Enabled: if requirements are met.
 ///
 /// Complexity:
-/// - time: O(size() + n), exactly `last - position + n` swaps, `n` call to `T`'s copy constructor,
+/// - time: O(size() + n), exactly `end() - position + n - 1` swaps, `n` calls to `T`'s copy constructor,
 /// - space: O(1).
 ///
 /// Exception safety: 
 /// - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects 
-/// (note: even if `T`s move constructor can throw). 
+/// (note: even if `T`s copy constructor can throw). 
 ///
 /// Constexpr: if `is_trivial<value_type>`.
 ///
 /// Iterator invalidation: all iterators pointing to elements after \p position are invalidated.
 ///
-/// Effects: exactly `last - position` swaps, one call to `T`'s move constructor, the `size()` 
-/// of the vector is incremented by one.
+/// Effects: exactly `end() - position + n - 1` swaps, `n` calls to `T`'s copy constructor, the `size()` 
+/// of the vector is incremented by `n`.
 ///
-/// Pre-condition: `size() < Capacity`.
-/// Post-condition: `size() == size_before - 1`.
+/// Pre-condition: `size() + n <= Capacity`, `position` is in range `[begin(), end())`.
+/// Post-condition: `size() == size_before + n`.
 /// Invariant: the relative order of the elements before and after \p position remains unchanged.
 ///
 constexpr iterator insert(const_iterator position, size_type n, const value_type& x);
+```
+```c++
+/// Stable inserts the elements of the range [\p first, \p last) at \p position.
+///
+/// Requirements: `Constructible<value_type, iterator_traits<InputIt>::value_type>`, `InputIterator<InputIt>`.
+///
+/// Enabled: if requirements are met.
+///
+/// Complexity:
+/// - time: O(size() + distance(first, last)), exactly `end() - position + distance(first, last) - 1` swaps, `n` calls to `T`'s copy constructor (note: independently of `InputIt`'s iterator category),
+/// - space: O(1).
+///
+/// Exception safety: 
+/// - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects 
+/// (note: even if `T`s copy constructor can throw). 
+///
+/// Constexpr: if `is_trivial<value_type>`.
+///
+/// Iterator invalidation: all iterators pointing to elements after \p position are invalidated.
+///
+/// Effects: exactly `end() - position + distance(first, last) - 1` swaps, `n` calls to `T`'s copy constructor, the `size()` 
+/// of the vector is incremented by `n`.
+///
+/// Pre-condition: `size() + distance(first, last) <= Capacity`, `position` is in range `[begin(), end())`, `[first, last)` is not a sub-range of `[position, end())`.
+/// Post-condition: `size() == size_before + distance(first, last)`.
+/// Invariant: the relative order of the elements before and after \p position remains unchanged.
+///
 template<class InputIterator>
   constexpr iterator insert(const_iterator position, InputIterator first, InputIterator last);
+```
+  
+```c++
+/// Equivalent to `insert(position, begin(il), end(il))`.
 constexpr iterator insert(const_iterator position, initializer_list<value_type> il);
 ```
 
 ```c++
+/// Stable erases the element at \p position.
+///
+/// Requirements: none.
+///
+/// Enabled: always.
+///
+/// Complexity:
+/// - time: O(size()), exactly `end() - position - 1` swaps, 1 call to `T`'s destructor. 
+/// - space: O(1).
+///
+/// Exception safety: 
+/// - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects.
+///
+/// Constexpr: if `is_trivial<value_type>`.
+///
+/// Iterator invalidation: all iterators pointing to elements after \p position are invalidated.
+///
+/// Effects: exactly `end() - position - 1` swaps, 1 call to `T`'s destructor, the `size()` 
+/// of the vector is decremented by 1.
+///
+/// Pre-condition: `size() - 1 >= 0`, `position` is in range `[begin(), end())`.
+/// Post-condition: `size() == size_before - 1`, `size() >= 0`.
+/// Invariant: the relative order of the elements before and after \p position remains unchanged.
+///
 constexpr iterator erase(const_iterator position)
   noexcept(is_nothrow_destructible<value_type>{} and is_nothrow_swappable<value_type>{});
+```
+  
+```c++
+/// Stable erases the elements in range [\p first, \p last).
+///
+/// Requirements: none.
+///
+/// Enabled: always.
+///
+/// Complexity:
+/// - time: O(size()), exactly `end() - first - distance(first, last)` swaps, `distance(first, last)` calls to `T`'s destructor. 
+/// - space: O(1).
+///
+/// Exception safety: 
+/// - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects.
+///
+/// Constexpr: if `is_trivial<value_type>`.
+///
+/// Iterator invalidation: all iterators pointing to elements after \p first are invalidated.
+///
+/// Effects: exactly `end() - first - distance(first, last)` swaps, `distance(first, last)` calls to `T`'s destructor, the `size()` 
+/// of the vector is decremented by `distance(first, last)`.
+///
+/// Pre-condition: `size() - distance(first, last) >= 0`, `[first, last)` is a sub-range of `[begin(), end())`.
+/// Post-condition: `size() == size_before - distance(first, last)`, `size() >= 0`.
+/// Invariant: the relative order of the elements before and after \p position remains unchanged.
+///
 constexpr iterator erase(const_iterator first, const_iterator last)
   noexcept(is_nothrow_destructible<value_type>{} and is_nothrow_swappable<value_type>{});
 ```
 
-
 ```c++
+/// Equivalent to `erase(begin(), end())`. 
 constexpr void clear() noexcept(is_nothrow_destructible<value_type>{});
 ```
 
 ```c++
-constexpr void swap(inline_vector&)
+/// Swaps the elements of two vectors.
+///
+/// Requirements: none.
+///
+/// Enabled: always.
+///
+/// Complexity:
+/// - time: O(max(size(), other.size())), exactly `max(size(), other.size())` swaps. 
+/// - space: O(1).
+///
+/// Exception safety: 
+/// - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects.
+///
+/// Constexpr: if `is_trivial<value_type>`.
+///
+/// Iterator invalidation: all iterators pointing to the elements of both vectors are invalidated.
+///
+/// Effects: exactly `max(size(), other.size())` swaps.
+///
+/// Pre-condition: none.
+/// Post-condition: `size() == other_size_before`, `other.size() == size_before`.
+///
+constexpr void swap(inline_vector& other)
   noexcept(noexcept(swap(declval<value_type&>(), declval<value_type&>()))));
 ```
-
-the following holds:
-
-- Requirements: `Default/Copy/MoveInsertable<value_type>` for default, copy, and move insertion operations, respectively.
-- Enabled: always.
-- Complexity: O(N) where N is the number of elements being constructed, inserted, or destroyed.
-- Exception safety: Throw only if default/copy/move construction/assignment or destruction of T can throw.
-- Constexpr: if `is_trivial<value_type>`.
-- Effects: the size of the container increases/decreases by the number of elements being inserted/destroyed.
-- Pre-condition: `size() + N <= Capacity` where `N` is the number of elements being constructed, inserted, or destroyed (and might be negative). 
-- Post-condition: `size() == size_before + N` where `size_before` is the size of the `inline_vector` before the mutating operation and `N` is the number of elements that have been constructed, inserted, or destroyed (and might be negative).
 
 ## Comparison operators
 
