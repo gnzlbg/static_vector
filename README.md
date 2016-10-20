@@ -800,26 +800,86 @@ functions that are explained in the section "Element / data access" below.
 
 ## Size / capacity
 
-For the following size / capacity functions: 
 
 ```c++
 constexpr size_type size()     const noexcept;
+```
+
+> - _Returns_: the number of elements that the vector currently holds.
+> 
+> - _Requirements_: none.
+>
+> - _Enabled_: always.
+>
+> - _Complexity_: constant time and space.
+>
+> - _Exception safety_: never throws.
+>
+> - _Constexpr_: always.
+>
+> - _Effects_: none.
+
+
+```c++
 static constexpr size_type capacity() noexcept;
+```
+
+> - _Returns_: the total number of elements that the vector can hold.
+> 
+> - _Requirements_: none.
+>
+> - _Enabled_: always.
+>
+> - _Complexity_: constant time and space.
+>
+> - _Exception safety_: never throws.
+>
+> - _Constexpr_: always.
+>
+> - _Effects_: none.
+>
+> - _Note_:  
+>   - if `capacity() == 0`, then `sizeof(inline_vector) == 0`,
+>   - if `sizeof(T) == 0 and capacity() > 0`, then `sizeof(inline_vector) == sizeof(unsigned char)`.
+
+
+```c++
 static constexpr size_type max_size() noexcept;
+```
+
+> - _Returns_: the total number of elements that the vector can hold.
+> 
+> - _Requirements_: none.
+>
+> - _Enabled_: always.
+>
+> - _Complexity_: constant time and space.
+>
+> - _Exception safety_: never throws.
+>
+> - _Constexpr_: always.
+>
+> - _Effects_: none.
+
+
+```c++
 constexpr bool empty() const noexcept;
 ```
-the following holds:
 
-- Requirements: none
-- Enabled: always.
-- Complexity: constant time and space.
-- Exception safety: never throw.
-- Constexpr: always.
-- Effects: none.
+> - _Returns_: `true` if the total number of elements is zero, `false` otherwise.
+> 
+> - _Requirements_: none.
+>
+> - _Enabled_: always.
+>
+> - _Complexity_: constant time and space.
+>
+> - _Exception safety_: never throws.
+>
+> - _Constexpr_: always.
+>
+> - _Effects_: none.
 
-Note:
-  - if `capacity() == 0`, then `sizeof(inline_vector) == 0`,
-  - if `sizeof(T) == 0 and capacity() > 0`, then `sizeof(inline_vector) == sizeof(unsigned char)`.
 
 For the checked resize functions:
 
