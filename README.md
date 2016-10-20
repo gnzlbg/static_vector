@@ -45,7 +45,7 @@ In this section Frequently Asked Questions are answered, an overview of existing
 
 Yes, in practice we can, but neither in a portable way, nor in a way that results
 in a zero-cost abstraction, mainly due to the following limitations in the `Allocator`
-interace. 
+interface. 
 
 1. The `Allocator::allocate(N)` member function either succeeds, returning a
 pointer to the storage for `N` elements, or it fails. The current interface 
