@@ -1,7 +1,7 @@
-# inline_vector [![Travis build status][travis-shield]][travis] [![Coveralls.io code coverage][coveralls-shield]][coveralls] [![Docs][docs-shield]][docs]
+# embedded_vector [![Travis build status][travis-shield]][travis] [![Coveralls.io code coverage][coveralls-shield]][coveralls] [![Docs][docs-shield]][docs]
 
 
-> A dynamically-resizable vector with fixed capacity and inline storage (revision -1)
+> A dynamically-resizable vector with fixed capacity and embedded storage (revision -1)
 
 **Document number**: none.
 
@@ -12,20 +12,16 @@
 # Introduction
 
 This paper proposes a dynamically-resizable `vector` with fixed capacity and
-contiguous inline storage. That is, the elements of the vector are stored within
+contiguous embedded storage. That is, the elements of the vector are stored within
 the vector object itself. It is based on 
 [`boost::container::static_vector<T, Capacity>`][boost_static_vector].
 
-Its API is almost a 1:1 map of `std::vector<T, A>`s API. It is a sequence
-random-access container with contiguous storage, `O(1)` insertion and removal of
+Its API is almost a 1:1 map of `std::vector<T, A>`'s API. It is a contiguous sequence
+random-access container (with contiguous storage), `O(1)` insertion and removal of
 elements at the end, and `O(size())` insertion and removal otherwise. Like
 `std::vector`, the elements are initialized on insertion and destroyed on
-removal.
-
-The name `inline_vector` is used throughout this proposal to refer to this container. 
-While I'd rather avoid bikeshedding at this point (revision -1), if that happens to
-be your favourite sport there is a section below evaluating different names. Feedback
-is always greatly appreciated.
+removal. It models `ContiguousContainer` and its iterators model
+the `ContiguousIterator` concept.
 
 # Motivation
 
@@ -36,6 +32,7 @@ This container is useful when:
 - memory allocation imposes an unacceptable performance penalty, e.g., with respect to latency, 
 - allocation of objects with complex lifetimes in the _static_-memory segment is required,
 - non-default constructible objects must be stored such that `std::array` is not an option,
+- a dynamic resizable array is required within `constexpr` functions, 
 - full control over the storage location of the vector elements is required.
 
 # Design
@@ -46,19 +43,48 @@ In this section Frequently Asked Questions are answered, an overview of existing
 
 ### Can we reuse `std::vector` with a custom allocator? 
 
-Yes, we can, but no, it does not result in a zero-cost abstraction. Two main
-reasons:
+Yes, in practice we can, but neither in a portable way, nor in a way that results
+in a zero-cost abstraction, mainly due to the following limitations in the `Allocator`
+interace. 
 
-1. The growth mechanism of `std::vector` makes it impossible for a custom allocator
-to allocate the optimal amount of storage for a given capacity.
+1. The `Allocator::allocate(N)` member function either succeeds, returning a
+pointer to the storage for `N` elements, or it fails. The current interface 
+allows returning storage for `M` elements where `M > N`, but it doesn't provide
+a way to communicate to the container that this happened, so the container cannot
+make use of it.
 
-2. The resulting vector would be at least two words too big. The capacity of
-`inline_vector` is part of its type and does not need to be stored. The custom
-allocator stores the elements internally, storing a `data` pointer inside vector
-is unnecessary since a pointer to the first element can be obtained for free. Even 
-if the growth mechanism of `std::vector` was known by the allocator implementation,
-the allocator would need to assume the worst possible allocation pattern and reserve
-up to 2x the required memory to remain safe to use.
+2. The growth mechanism of `std::vector` is implementation defined. With the current
+`Allocator` interface, a stateful allocator with embedded storage needs to allocate
+memory for `growth_factor() * (Capacity - 1) * sizeof(T)`, since the vector might try
+to growh when inserting the last element. The current `Allocator` 
+interface does not provide a way to communicate the growing behavior to the `Allocator`,
+so an `Allocator` with embedded storage needs to either be coupled to an implementation 
+(resulting in code with different behavior on different platforms), or needs to make a 
+non-portable over-estimation of its capacity. Trying to solve this problem leads to
+other problems, like adding support for `realloc`.
+
+3. An `Allocator` with embedded storage for `Capacity * sizeof(T)` elements makes
+storing data members for the `data` pointer and the `capacity` unnecessary in 
+`std::vector` implementation. In the current `Allocator` interface the is no mechanism
+to communicate `std::vector` that storing these data members is unnecessary. 
+
+4. The `Allocator` interface does not specify whether containers should propagate `noexcept`ness
+off `Allocator` member functions into their interfaces. An `Allocator` with embedded storage for
+`Capacity` elements never throws on allocating memory. Whether trying to allocate more memory
+should result in a length / out-of-bounds / bad-alloc / logic error, or precondition violation
+is discussed below, but the current `Allocator` interface has no way to communicate this.
+
+Improving the `Allocator` interface to solve issue 1. is enough to make an implementation
+based on `std::vector` with an user-defined `Allocator` be portable (this should probably be
+pursuded in a different proposal) since the `std::vector`constructors could 
+`Allocator::allocate(0)` on construction and directly get memory for`Capacity` elements. 
+However, in order to make this a zero-cost abstraction one would need
+to solve issues 3 and 4 as well. Whether solving these issues is worth pursuing or not is
+still an open problem.
+
+The author of this proposal does not think that it will be possible to solve issues 3 and 4 in
+the near future. Still, nothing prevents library implementors to reuse their `std::vector` 
+implementations when implementing `embedded_vector` if they are able to do so. 
 
 ### Can we reuse `small_vector`?
 
@@ -69,67 +95,68 @@ The paper
 proposes a new type, `small_vector<T, N, Allocator>`, which is essentially a
 `std::vector<T, Allocator>` that performs a Small Vector Optimization for up to
 `N` elements, and then, depending on the `Allocator`, might fall-back to heap allocations,
-or do something else. 
+or do something else (like `throw`, `assert`, `terminate`, introduce undefined behavior...). 
 
 This small vector type is part of [Boost][boostsmallvector], [LLVM][llvmsmallvector], 
 [EASTL][eastl], and [Folly][folly]. Most of these libraries special case `small_vector`
-for the case in which _only_ inline storage is desired. This result in a type with
+for the case in which _only_ embedded storage is desired. This result in a type with
 slightly different but noticeable semantics (in the spirit of `vector<bool>`). The
 only library that offers it as a completely different type is Boost.Container.
 
-The main difference between `small_vector` and `inline_vector` is:
+The main difference between `small_vector` and `embedded_vector` is:
 
-- `small_vector` uses inline storage up-to `N` elements, and then falls back to
-  `Allocator`, while `inline_vector` _only_ provides inline storage.
+- `small_vector` uses embedded storage up-to `N` elements, and then falls back to
+  `Allocator`, while `embedded_vector` _only_ provides embedded storage.
 
-As a consequence, for the use cases of `inline_vector`:
+As a consequence, for the use cases of `embedded_vector`:
 
 - `small_vector` cannot provide the same exception safety guarantees than
-  `inline_vector` because it sometimes allocates memory, which `inline_vector`
+  `embedded_vector` because it sometimes allocates memory, which `embedded_vector`
   never does.
 
-- `small_vector` cannot provide the same reliability than `inline_vector`,
+- `small_vector` cannot provide the same reliability than `embedded_vector`,
   because the algorithmic complexity of `small_vector` operations like move
   construction/assignment depends on whether the elements are allocated on the
-  heap (swap pointer and size) or inline (must always copy the elements).
+  heap (swap pointer and size) or embedded within the vector object itself (must 
+  always copy the elements).
 
-- `small_vector` cannot be as efficient as `inline_vector`. It must discriminate 
-  between the different storage locations of its elements (inline or with the 
-  allocator). A part of its methods must, at run-time, branch to a different 
-  code-path depending on the active storage scheme.
+- `small_vector` cannot be as efficient as `embedded_vector`. It must discriminate 
+  between the different storage location of its elements (embedded within the vector
+  object or owned by the   allocator). A part of its methods must, at run-time, branch 
+  to a different code-path depending on the active storage scheme.
 
 The only way to fix `small_vector` would be to special case it for
 `Allocator::max_size() == 0` (which isn't constexpr), and to provide an API that
-has different complexity and exception-safety guarantees than `small_vector`s
+has different complexity and exception-safety guarantees than `small_vector`'s
 with `Allocator::max_size() > 0`.
 
 That is, to make `small_vector` competitive in those situations in which 
-`inline_vector` is required is to special case `small_vector` for a particular
-allocator type and in that case provide an `inline_vector` implementation (with
+`embedded_vector` is required is to special case `small_vector` for a particular
+allocator type and in that case provide an `embedded_vector` implementation (with
 slightly different semantics). 
 
-### Should we special case `small_vector` for inline-storage-only like EASTL and Folly do?
+### Should we special case `small_vector` for embedded-storage-only like EASTL and Folly do?
 
-The types `inline_vector` and `small_vector` have different algorithmic
+The types `embedded_vector` and `small_vector` have different algorithmic
 complexity and exception-safety guarantees. They solve different problems and
 should be different types. 
 
 ## Existing practice
 
-There are at least 3 widely used implementations of `inline_vector`.
+There are at least 3 widely used implementations of `embedded_vector`.
 
 This proposal is strongly inspired by Boost.Container, which offers
 [`boost::container::static_vector<T, Capacity>` (1.59)][boost_static_vector],
 and, as a different type, also offers `boost::container::small_vector<T, N, Allocator>`
 as well.
 
-The other two libraries that implement `inline_vector` are [Folly][folly] and
+The other two libraries that implement `embedded_vector` are [Folly][folly] and
 [EASTL][eastl]. Both of these libraries implement it as a special case of
 `small_vector` (which in both of these libraries has 4 template parameters).
 
 EASTL `small_vector` is called `fixed_vector<T, N,
-hasAllocator,OverflowAllocator>` and uses a boolean template parameter to
-indicate if the only storage mode available is inline storage. The
+hasAllocator, OverflowAllocator>` and uses a boolean template parameter to
+indicate if the only storage mode available is embedded storage. The
 [design documents of EASTL][eastldesign] seem to predate this special casing
 since they actually argue against it:
 
@@ -137,29 +164,31 @@ since they actually argue against it:
 >- (without proof) the resulting code size increase would be larger than the "4
 >  bytes" that can be saved in storage per vector for the special case.
 
-The current implementation does, however, special case `small_vector` for inline
+The current implementation does, however, special case `small_vector` for embedded
 storage. No rationale for this decision is given in the design documentation.
 
 Folly implements `small_vector<T, N, NoHeap, size_type>`, where the tag type
 `NoHeap` is used to switch off heap-fall back. Folly allows customizing the 
 `size_type` of `small_vector`. No rationale for this design decision is available
 in the documentation. A different `size_type` can potentially be used to reduce 
-`inline_vector`s memory requirements.
+`embedded_vector`s memory requirements.
 
 ## Proposed design and rationale
 
 The current design follows that of `boost::container::static_vector<T,
 Capacity>` closely.
 
-It introduces a new type `std::experimental::inline_vector<T, Capacity>` in the
-`<experimental/inline_vector>` header.
+It introduces a new type `std::experimental::embedded_vector<T, Capacity>` in the
+`<experimental/embedded_vector>` header. It is a pure library extension to the C++ 
+standard library.
 
-> `inline_vector` is a dynamically-resizable contiguous random-access sequence
+> `embedded_vector` is a dynamically-resizable contiguous random-access sequence
 > container with `O(1)` insert/erase at the end, and `O(size())` insert/erase otherwise.
-> Its elements are stored within the vector object itself.
+> Its elements are stored within the vector object itself. It models `ContiguousContainer`
+> and its iterators model the `ContiguousIterator` concept.
 
 A prototype implementation of this proposal is provided for standardization
-purposes: [`http://github.com/gnzlbg/inline_vector`][inline_vector].
+purposes: [`http://github.com/gnzlbg/embedded_vector`][embedded_vector].
 
 The main drawback of introducing a new type is, as the
 [design document of the EASTL][eastldesign] points out, increased code size.
@@ -169,35 +198,40 @@ prototype implementation (e.g. implementing `Capacity`/`value_type` agnostic
 functionality in a base class) without success, but implementations are 
 encouraged to consider code-size as a quality of implementation issue.
 
+### Preconditions
+
+This container requires that `T` models `Destructible`. If `T`'s destructor
+throws the behavior is undefined.
+
 ### Storage/Memory Layout
 
-Specializations of `inline_vector<T, Capacity>` model the `ContiguousContainer` concept.
+Specializations of `embedded_vector<T, Capacity>` model the `ContiguousContainer` concept.
 
 The elements of the vector are properly aligned to an `alignof(T)` memory address.
 
-The `inline_vector<T, Capacity>::size_type` is the smallest unsigned integer type
+The `embedded_vector<T, Capacity>::size_type` is the smallest unsigned integer type
 that can represent `Capacity`.
 
 If the container is not empty, the member function `data()` returns a pointer such that
 `[data(), data() + size())` is a valid range and `data() == addressof(front()) == addressof(*begin())`.
-Otherwise, the result of `data()` is unspecified. .
+Otherwise, the result of `data()` is unspecified.
   
-**Note**: `inline_vector<T, Capacity>` cannot be an aggregate since it provides
+**Note**: `embedded_vector<T, Capacity>` cannot be an aggregate since it provides
 user-defined constructors.
 
 #### Zero-sized
 
-It is required that `is_empty<inline_vector<T, 0>>::value == true` and
-that `swap(inline_vector<T, 0>&, inline_vector<T, 0>&)` is `noexcept(true)`.
+It is required that `is_empty<embedded_vector<T, 0>>::value == true` and
+that `swap(embedded_vector<T, 0>&, embedded_vector<T, 0>&)` is `noexcept(true)`.
 
 ### Move semantics
 
-The move semantics of `inline_vector<T, Capacity>` are equal to those of 
+The move semantics of `embedded_vector<T, Capacity>` are equal to those of 
 `std::array<T, Size>`. That is, after
 
 ```c++
-inline_vector a(10);
-inline_vector b(std::move(a));
+embedded_vector a(10);
+embedded_vector b(std::move(a));
 ```
 
 the elements of `a` have been moved element-wise into `b`, the elements of `a`
@@ -208,24 +242,26 @@ Note that this behavior differs from `std::vector<T, Allocator>`, in particular
 for the similar case in which `std::propagate_on_container_move_assignment<Allocator>{}`
 is `false`. In this situation the state of `std::vector` is initialized but unspecified,
 which prevents users from portably relying on `size() == 0` or `size() == N`, and raises
-questions like "Should users call `clear` after moving from a `std::vector`?".
+questions like "Should users call `clear` after moving from a `std::vector`?" (whose 
+answer is _yes_, in particular if `propagate_on_container_move_assignment<Allocator>` 
+is `false`).
 
 ### Constexpr-support
 
-The whole API of `inline_vector<T, Capacity>` is `constexpr` if `is_trivial<T>`
+The whole API of `embedded_vector<T, Capacity>` is `constexpr` if `is_trivial<T>`
 is true.
 
-Implementations can achieve this by using a C array for `inline_vector`'s storage
-without altering the guarantees of `inline_vector`'s methods in an observable way.
+Implementations can achieve this by using a C array for `embedded_vector`'s storage
+without altering the guarantees of `embedded_vector`'s methods in an observable way.
 
-For example, `inline_vector(N)` constructor guarantees "exactly `N` calls to 
-`T`'s default constructor". Strictly speaking, `inline_vector`'s constructor
+For example, `embedded_vector(N)` constructor guarantees "exactly `N` calls to 
+`T`'s default constructor". Strictly speaking, `embedded_vector`'s constructor
 for trivial types will construct a C array of `Capacity` length. However, because
 `is_trivial<T>` is true, the number of constructor or destructor calls is not
 observable.
 
 This introduces an additional implementation cost which the author believes is
-worth it because similarly to `std::array`, `inline_vector`s of trivial types 
+worth it because similarly to `std::array`, `embedded_vector`s of trivial types 
 are incredibly common. 
 
 Note: this type of `constexpr` support does not require any core language changes.
@@ -235,20 +271,21 @@ paper does not propose any of these changes.
 
 ### Explicit instantiatiability
 
-The class `inline_vector<T, Capacity>` can be explicitly instantiated for
-all combinations of `T` and `Capacity`.
+The class `embedded_vector<T, Capacity>` can be explicitly instantiated for
+all combinations of `T` and `Capacity` if `T` satisfied the container preconditions 
+(i.e. `T` models `Destructible<T>`).
 
 ### Exception Safety
 
 #### What could possibly go wrong?
 
-The only operations that can actually fail within `inline_vector<T, Capacity>` are:
+The only operations that can actually fail within `embedded_vector<T, Capacity>` are:
 
   1. `T` special member functions and swap can only fail due
      to throwing constructors/assignment/destructors/swap of `T`. 
 
   2. Mutating operations exceeding the capacity (`push_back`, `insert`, `emplace`, 
-     `pop_back` when `empty()`, `inline_vector(T, size)`, `inline_vector(begin, end)`...).
+     `pop_back` when `empty()`, `embedded_vector(T, size)`, `embedded_vector(begin, end)`...).
 
   2. Out-of-bounds unchecked access:
      2.1 `front/back/pop_back` when empty, operator[] (unchecked random-access). 
@@ -256,24 +293,24 @@ The only operations that can actually fail within `inline_vector<T, Capacity>` a
 
 #### Rationale
 
-Three points influence the design of `inline_vector` with respect to its exception-safety guarantees:
+Three points influence the design of `embedded_vector` with respect to its exception-safety guarantees:
 
 1. Making it a zero-cost abstraction.
 2. Making it safe to use.
 3. Making it easy to learn and use. 
 
-The best way to make `inline_vector` easy to learn is to make it as similar to `std::vector` 
+The best way to make `embedded_vector` easy to learn is to make it as similar to `std::vector` 
 as possible. However,`std::vector` allocates memory using an `Allocator`, whose allocation 
 functions can throw, e.g., a `std::bad_alloc` exception, e.g., on Out Of Memory. 
 
-However, `inline_vector` never allocates memory since its `Capacity` is fixed at compile-time.
+However, `embedded_vector` never allocates memory since its `Capacity` is fixed at compile-time.
 
-The main question then becomes, what should `inline_vector` do when its `Capacity` is exceeded?
+The main question then becomes, what should `embedded_vector` do when its `Capacity` is exceeded?
 
 Two main choices were identified:
 
 1. Make it throw an exception. 
-2. Make not exceeding the `Capacity` of an `inline_vector` a precondition on its mutating method (and thus exceeding it undefined-behavior).
+2. Make not exceeding the `Capacity` of an `embedded_vector` a precondition on its mutating method (and thus exceeding it undefined-behavior).
 
 While throwing an exception makes the interface more similar to that of `std::vector` and safer to use, it does introduces a performance cost since it means that all the mutating methods must check for this condition. It also raises the question: which exception? It cannot be `std::bad_alloc`, because nothing is being allocated.
 It should probably be either `std::out_of_bounds` or `std::logic_error`, but if exceeding the capacity is a logic error, why don't we make it a precondition instead?
@@ -282,41 +319,41 @@ Making exceeding the capacity a precondition has some advantages:
 
 - It llows implementations to trivially provide a run-time diagnostic on debug builds by, e.g., means of an assertion. 
 
-- It allows the methods to be conditionally marked `noexcept(true)` when `T` is `std::is_nothrow_default_constructible/copy_assignable/...`
+- It allows the methods to be conditionally marked `noexcept(true)` when `T` is `std::is_nothrow_default_constructible/copy_assignable>...`
 
-- It makes `inline_vector` a zero-cost abstraction by allowing the user to avoid unnecessary checks (e.g. hoisting checks out of a loop).
+- It makes `embedded_vector` a zero-cost abstraction by allowing the user to avoid unnecessary checks (e.g. hoisting checks out of a loop).
 
-And this advantages come at the expense of safety. It is possible to have both by making the methods checked by default, but offering `unchecked_xxx` alternatives that omit the checks, but this comes at the price of an increased API surface, and hence, a larger learning curve. 
+And this advantages come at the expense of safety. It is possible to have both by making the methods checked by default, but offering `unchecked_xxx` alternatives that omit the checks which increases the API surface.
 
-Given this design space, this proposal opts for making not exceeding the `Capacity` of an `inline_vector` a precondition. It still allows some safety by allowing implementations to make the operations checked in the debug builds of their standard libraries, while providing very strong exception safety guarantees (and conditional `noexcept(true)`), which makes `inline_vector` a true zero-cost abstraction.
+Given this design space, this proposal opts for making not exceeding the `Capacity` of an `embedded_vector` a precondition. It still allows some safety by allowing implementations to make the operations checked in the debug builds of their standard libraries, while providing very strong exception safety guarantees (and conditional `noexcept(true)`), which makes `embedded_vector` a true zero-cost abstraction.
 
-The final question to be answered is if we should mark the mutating methods to be conditionally `noexcept(true)` or not when it is safe to do so. The current proposal does so since it is easier to remove `noexcept(...)` than to add it, and since this should allow the compiler to generate better code, which is relevant for some fields in which `inline_vector` is very useful, like in embedded systems programming. 
+The final question to be answered is if we should mark the mutating methods to be conditionally `noexcept(true)` or not when it is safe to do so. The current proposal does so since it is easier to remove `noexcept(...)` than to add it, and since this should allow the compiler to generate better code, which is relevant for some fields in which `embedded_vector` is very useful, like in embedded systems programming. 
 
 #### Precondition on `T` modelling `Destructible`
 
 If `T` models `Destructible` (that is, if `T` destructor never throws), 
-`inline_vector<T, Capacity>` provides at least the basic-exception guarantee.
-If `T` does not model `Destructible`, the behavior of `inline_vector` is undefined. 
+`embedded_vector<T, Capacity>` provides at least the basic-exception guarantee.
+If `T` does not model `Destructible`, the behavior of `embedded_vector` is undefined. 
 Implementations are encouraged to rely on `T` modeling `Destructible` even
 if `T`'s destructor is `noexcept(false)`. 
 
 #### Exception-safety guarantees of special member functions and swap
 
 If `T`'s special member functions and/or swap are `noexcept(true)`, so are the respective
-special member functions and/or swap operations of `inline_vector` which then provide the
+special member functions and/or swap operations of `embedded_vector` which then provide the
 strong-exception guarantee. They provide the basic-exception guarantee otherwise. 
 
 #### Exception-safety guarantees of algorithms that perform insertions
 
-The capacity of `inline_vector` (a fixed-capacity vector) is statically known at 
+The capacity of `embedded_vector` (a fixed-capacity vector) is statically known at 
 compile-time, that is, exceeding it is a logic error.
 
-As a consequence, inserting elements beyond the `Capacity` of an `inline_vector` results
+As a consequence, inserting elements beyond the `Capacity` of an `embedded_vector` results
 in _undefined behavior_. While providing a run-time diagnostic in debug builds (e.g. via an 
 `assertion`) is encouraged, this is a Quality of Implementation issue.
 
-The algorithms that perform insertions are the constructors `inline_vector(T, size)` and 
-`inline_vector(begin, end)`, and the member functions `push_back`, `emplace_back`, `insert`, 
+The algorithms that perform insertions are the constructors `embedded_vector(T, size)` and 
+`embedded_vector(begin, end)`, and the member functions `push_back`, `emplace_back`, `insert`, 
 and `resize`.
 
 These algorithms provide strong-exception safety guarantee, and if `T`'s special member functions or
@@ -324,7 +361,7 @@ These algorithms provide strong-exception safety guarantee, and if `T`'s special
 
 #### Exception-safety guarantees of unchecked access
 
-Out-of-bounds unchecked access (`front/back/pop_back` when empty, `operator[]`) is undefined behavior
+Out-of-bounds unchecked access (`front>back>pop_back` when empty, `operator[]`) is undefined behavior
 and a run-time diagnostic is encouraged but left as a Quality of Implementation issue.
 
 These functions provide the strong-exception safety guarantee and are `noexcept(true)`.
@@ -336,60 +373,59 @@ exception on out-of-bounds. It is `noexcept(false)`.
 
 ### Iterators 
 
-The iterators of `inline_vector<T, Capacity>` model the `ContiguousIterator` concept.
+The iterators of `embedded_vector<T, Capacity>` model the `ContiguousIterator` concept.
 
 #### Iterator invalidation
 
 The iterator invalidation rules are different than those for `std::vector`,
 since:
 
-- moving an `inline_vector` invalidates all iterators,
-- swapping two `inline_vector`s invalidates all iterators, and 
-- inserting elements into an `inline_vector` never invalidates iterators.
+- moving an `embedded_vector` invalidates all iterators,
+- swapping two `embedded_vector`s invalidates all iterators, and 
+- inserting elements into an `embedded_vector` never invalidates iterators.
 
-The following functions can potentially invalidate the iterators of `inline_vector`s: 
+The following functions can potentially invalidate the iterators of `embedded_vector`s: 
 `resize(n)`, `resize(n, v)`, `pop_back`, `erase`, and `swap`.
 
 The following functions from the "possible future extensions" can potentially
-invalidate the iterators of `inline_vector`s: `resize_default_initialized(n)`,
+invalidate the iterators of `embedded_vector`s: `resize_default_initialized(n)`,
 `resize_unchecked(n)`, `resize_unchecked(n, v)`, and
 `resize_default_initialized_unchecked(n)`.
 
 ### Naming
 
-Following names have been considered: The name `inline_vector<T, Capacity>` 
+Following names have been considered: 
 
-Some names that have been considered:
-denotes that the elements are stored
-"inline" with the object itself.
+- `embedded_vector<T, Capacity>`: since the elements are "embedded" within the vector object itself. 
+   Sadly, the name `embedded` is overloaded, e.g., embedded systems, and while in this domain this container
+   is very useful, it is not the only domain in which it is useful. 
 
 - `fixed_capacity_vector`: a vector with fixed capacity, long name, but clearly indicates what this is.
-- `static_vector` (Boost.Container): due to "static" allocation of the elements. Might be confusing
-  because the vector (and the elements) will sometimes be allocated in static memory (but not always). 
-- `inline_vector`: denotes that the elements are stored "inline" with the object itself.
-  Might be confusing because the term `inline` is overloaded in C++. In C++17 the term `inline` is also
-  used to refer to data (in the context of `inline` variables), but there it means something else. 
+- `static_vector` (Boost.Container): due to "static" / compile-time allocation of the elements. The term 
+   `static` is, however, overloaded in C++ (e.g. `static` memory?).
+- `inline_vector`: the elements are stored "inline" within the vector object itself. The term `inline` is,
+   however, already overloaded in C++ (e.g. `inline` functions => ODR, inlining, `inline` variables).
 - `stack_vector`: to denote that the elements can be stored on the stack, which is confusing since the
-  elements can be on the stack, the heap, or the static memory segment. It also has a resemblance with `std::stack`.
-- `embedded_vector`: since the elements are "embedded" within the vector object itself.
+  elements can be on the stack, the heap, or the static memory segment. It also has a resemblance with 
+  `std::stack`.
 
 ### Impact on the standard
 
-`inline_vector<T, Capacity>` is a pure library extension to the C++ standard library and can be implemented by any C++11 compiler in a separate header `<inline_vector>`. 
+`embedded_vector<T, Capacity>` is a pure library extension to the C++ standard library and can be implemented by any C++11 compiler in a separate header `<embedded_vector>`. 
 
 ### Future extensions 
 
-#### Interoperability of inline vectors with different capacities
+#### Interoperability of embedded vectors with different capacities
 
 A possible backwards-compatible future extension that is not pursued further
-in this paper is providing interoperability of `inline_vector`s of different
-capacities (e.g. copy construction/assignment/comparison/swap). Currently,
+in this paper is providing interoperability of `embedded_vector`s of different
+capacities (e.g. copy construction/assignment/comparison>/swap). Currently,
 other standard containers like `std::array` do not pursue this, and it would
 complicate the exception-safety specification of, e.g., `swap`, significantly. 
 
 #### Default initialization
 
-The size-modifying operations of the `inline_vector` that do not require a value
+The size-modifying operations of the `embedded_vector` that do not require a value
 also have the following analogous counterparts that perform default
 initialization instead of value initialization:
 
@@ -398,9 +434,9 @@ struct default_initialized_t {};
 inline constexpr default_initialized_t default_initialized{};
 
 template <typename Value, std::size_t Capacity>
-struct inline_vector {
-// ...
-    constexpr inline_vector(default_initialized_t, size_type n);
+struct embedded_vector {
+    // ...
+    constexpr embedded_vector(default_initialized_t, size_type n);
     constexpr void resize(default_initialized_t, size_type sz);
     constexpr void resize_unchecked(default_initialized_t, size_type sz);
 };
@@ -410,13 +446,31 @@ struct inline_vector {
 
 In the current proposal exceeding the capacity on the mutating operations is considered a logic-error and results in undefined behavior, which allows implementations to cheaply provide an assertion in debug builds without introducing checks in release builds. If a future revision of this paper changes this to an alternative solution that has an associated cost for checking the invariant, it might be worth it to consider adding support to unchecked mutating operations like `resize_unchecked`,`push_back_unchecked`, `assign_unchecked`, `emplace`, and `insert`.
 
+
+#### `with_size` / `with_capacity` constructors
+
+Consider:
+
+```c++
+using vec_t = embedded_vector<std::size_t, N>;
+vec_t v0(2);  // two-elements: 0, 0
+vec_t v1{2};  // one-element: 2
+vec_t v2(2, 1);  // two-elements: 1, 1
+vec_t v3{2, 1};  // two-elements: 2, 1
+```
+
+A way to avoid this problem introduced by initializer list and braced initialization, present in the interface of `embedded_vector` and `std::vector`, would be to use a tagged-constructor of the form `embedded_vector(with_size_t, std::size_t N, T const& t = T())` to indicate that constructing a vector with `N` elements is inteded. For `std::vector`,
+a similar constructor using a `with_capacity_t` and maybe combinations thereof might make sense. This proposal 
+does not propose any of these, but this is a problem that should definetely be solved in STL2, and if it solved,
+it should be solved for `embedded_vector` as well. 
+
 # Technical specification
 
-This enhancement is a pure header-only addition to the C++ standard library as the `<inline_vector>` header. 
+This enhancement is a pure header-only addition to the C++ standard library as the `<experimental/embedded_vector>` header. 
 
 ```c++
 template<typename T, std::size_t C /* Capacity */>
-struct inline_vector {
+struct embedded_vector {
 
 // types:
 typedef value_type& reference;
@@ -432,22 +486,22 @@ typedef reverse_iterator<iterator> reverse_iterator;
 typedef reverse_iterator<const_iterator> const_reverse_iterator;
 
 // construct/copy/move/destroy:
-constexpr inline_vector() noexcept;
-constexpr explicit inline_vector(size_type n);
-constexpr inline_vector(size_type n, const value_type& value);
+constexpr embedded_vector() noexcept;
+constexpr explicit embedded_vector(size_type n);
+constexpr embedded_vector(size_type n, const value_type& value);
 template<class InputIterator>
-constexpr inline_vector(InputIterator first, InputIterator last);
-constexpr inline_vector(inline_vector const& other)
+constexpr embedded_vector(InputIterator first, InputIterator last);
+constexpr embedded_vector(embedded_vector const& other)
   noexcept(is_nothrow_copy_constructible<value_type>{});
-constexpr inline_vector(inline_vector && other)
+constexpr embedded_vector(embedded_vector && other)
   noexcept(is_nothrow_move_constructible<value_type>{});
-constexpr inline_vector(initializer_list<value_type> il);
+constexpr embedded_vector(initializer_list<value_type> il);
 
-/* constexpr ~inline_vector(); */  // implicitly generated
+/* constexpr ~embedded_vector(); */ // implicitly generated
 
-constexpr inline_vector& operator=(inline_vector const& other)
+constexpr embedded_vector& operator=(embedded_vector const& other)
   noexcept(is_nothrow_copy_assignable<value_type>{});
-constexpr inline_vector& operator=(inline_vector && other);
+constexpr embedded_vector& operator=(embedded_vector && other);
   noexcept(is_nothrow_move_assignable<value_type>{});
 
 template<class InputIterator>
@@ -522,195 +576,201 @@ constexpr iterator erase(const_iterator first, const_iterator last)
 
 constexpr void clear() noexcept(is_nothrow_destructible<value_type>{});
 
-constexpr void swap(inline_vector&)
+constexpr void swap(embedded_vector&)
   noexcept(noexcept(swap(declval<value_type&>(), declval<value_type&>()))));
 
-friend constexpr bool operator==(const inline_vector& a, const inline_vector& b);
-friend constexpr bool operator!=(const inline_vector& a, const inline_vector& b);
-friend constexpr bool operator<(const inline_vector& a, const inline_vector& b);
-friend constexpr bool operator<=(const inline_vector& a, const inline_vector& b);
-friend constexpr bool operator>(const inline_vector& a, const inline_vector& b);
-friend constexpr bool operator>=(const inline_vector& a, const inline_vector& b);
+friend constexpr bool operator==(const embedded_vector& a, const embedded_vector& b);
+friend constexpr bool operator!=(const embedded_vector& a, const embedded_vector& b);
+friend constexpr bool operator<(const embedded_vector& a, const embedded_vector& b);
+friend constexpr bool operator<=(const embedded_vector& a, const embedded_vector& b);
+friend constexpr bool operator>(const embedded_vector& a, const embedded_vector& b);
+friend constexpr bool operator>=(const embedded_vector& a, const embedded_vector& b);
 };
 
 template <typename T, std::size_t Capacity>
-constexpr void swap(inline_vector<T, Capacity>&, inline_vector<T, Capacity>&)
+constexpr void swap(embedded_vector<T, Capacity>&, embedded_vector<T, Capacity>&)
   noexcept(is_nothrow_swappable<T>{});
 ```
 
 ## Construction
 
 ```c++
-/// Constructs an empty inline_vector.
-///
-/// Requirements: none.
-///
-/// Enabled: always.
-///
-/// Complexity:
-/// - time: O(1),
-/// - space: O(1).
-///
-/// Exception safety: never throws.
-///
-/// Constexpr: always.
-///
-/// Iterator invalidation: none.
-///
-/// Effects: none.
-/// 
-/// Post-condition: `size() == 0`.
-///
-constexpr inline_vector() noexcept;
+constexpr embedded_vector() noexcept;
 ```
 
-```c++
-/// Constructs a inline_vector containing \p n value-initialized elements.
-///
-/// Requirements: `value_type` shall be `DefaultInsertable` into `*this`.
-///
-/// Enabled: if requirements are met.
-///
-/// Complexity:
-/// - time: exactly `n` calls to `value_type`'s default constructor,
-/// - space: O(1).
-///
-/// Exception safety:
-/// - strong guarantee: all constructed elements shall be destroyed on failure,
-/// - re-throws if `value_type`'s default constructor throws.
-///
-/// Constexpr: if `is_trivial<value_type>`.
-///
-/// Iterator invalidation: none.
-///
-/// Effects: exactly \p n calls to `value_type`s default constructor.
-///
-/// Pre-condition: `n <= Capacity`.
-/// Post-condition: `size() == n`.
-///
-constexpr explicit inline_vector(size_type n);
-```
+> Constructs an empty `embedded_vector`.
+>
+> - _Requirements_: none.
+>
+> - _Enabled_: always.
+>
+> - _Complexity_:
+>   - time: O(1),
+>   - space: O(1).
+>
+> - _Exception safety_: never throws.
+>
+> - _Constexpr_: always.
+>
+> - _Iterator invalidation_: none.
+>
+> - _Effects_: none.
+> 
+> - _Post-condition_: `size() == 0`.
+
 
 ```c++
-/// Constructs a inline_vector containing \p n copies of \p value.
-///
-/// Requirements: `value_type` shall be `CopyInsertable` into `*this`.
-///
-/// Enabled: if requirements are met.
-///
-/// Complexity:
-/// - time: exactly `n` calls to `value_type`'s copy constructor,
-/// - space: O(1).
-///
-/// Exception safety: 
-/// - strong guarantee: all constructed elements shall be destroyed on failure,
-/// - re-throws if `value_type`'s copy constructor throws,
-///
-/// Constexpr: if `is_trivial<value_type>`.
-///
-/// Iterator invalidation: none.
-///
-/// Effects: exactly \p n calls to `value_type`s copy constructor.
-///
-/// Pre-condition: `n <= Capacity`.
-/// Post-condition: `size() == n`.
-///
-constexpr inline_vector(size_type n, const value_type& value);
+constexpr explicit embedded_vector(size_type n);
 ```
+
+> Constructs an `embedded_vector` containing `n` value-initialized elements.
+>
+> - _Requirements_: `value_type` shall be `DefaultInsertable` into `*this`.
+>
+> - _Enabled_: if requirements are met.
+>
+> - _Complexity_:
+>   - time: exactly `n` calls to `value_type`'s default constructor,
+>   - space: O(1).
+>
+> - _Exception safety_:
+>   - strong guarantee: all constructed elements shall be destroyed on failure,
+>   - re-throws if `value_type`'s default constructor throws.
+>
+> - _Constexpr_: if `is_trivial<value_type>`.
+>
+> - _Iterator invalidation_: none.
+>
+> - _Effects_: exactly `n` calls to `value_type`s default constructor.
+>
+> - _Pre-condition_: `n <= Capacity`.
+> - _Post-condition_: `size() == n`.
+
+
+```c++
+constexpr embedded_vector(size_type n, const value_type& value);
+```
+
+> Constructs an `embedded_vector` containing `n` copies of `value`.
+>
+> - _Requirements_: `value_type` shall be `CopyInsertable` into `*this`.
+>
+> - _Enabled_: if requirements are met.
+>
+> - _Complexity_:
+>   - time: exactly `n` calls to `value_type`'s copy constructor,
+>   - space: O(1).
+>
+> - _Exception safety_: 
+>   - strong guarantee: all constructed elements shall be destroyed on failure,
+>   - re-throws if `value_type`'s copy constructor throws,
+>
+> - _Constexpr_: if `is_trivial<value_type>`.
+>
+> - _Iterator invalidation_: none.
+>
+> - _Effects_: exactly `n` calls to `value_type`s copy constructor.
+>
+> - _Pre-condition_: `n <= Capacity`.
+> - _Post-condition_: `size() == n`.
+
 
 ```c++ 
-/// Constructs a inline_vector equal to the range [\p first, \p last).
-///
-/// Requirements: `value_type` shall be either:
-/// - `CopyInsertable` into `*this` _if_ the reference type of `InputIterator`
-///    is an lvalue reference, or
-/// - `MoveInsertable` into `*this` _if_ the reference type of `InputIterator`
-///    is an rvalue reference.
-///
-/// Enabled: if requirements are met.
-///
-/// Complexity:
-/// - time: exactly `last - first` calls to `value_type`'s copy or move constructor,
-/// - space: O(1).
-///
-/// Exception safety: 
-/// - strong guarantee: all constructed elements shall be destroyed on failure,
-/// - re-throws if `value_type`'s copy or move constructors throws,
-///
-/// Constexpr: if `is_trivial<value_type>`.
-///
-/// Iterator invalidation: none.
-///
-/// Effects: exactly \p `last - first` calls to `value_type`s copy or move constructor.
-///
-/// Pre-condition: `last - first <= Capacity`.
-/// Post-condition: `size() == last - first`.
-///
 template<class InputIterator>
-constexpr inline_vector(InputIterator first, InputIterator last);
+constexpr embedded_vector(InputIterator first, InputIterator last);
 ```
 
+> Constructs an `embedded_vector` containing a copy of the elements in the range `[first, last)`.
+>
+> - _Requirements_: `value_type` shall be either:
+> - `CopyInsertable` into `*this` _if_ the reference type of `InputIterator`
+>    is an lvalue reference, or
+> - `MoveInsertable` into `*this` _if_ the reference type of `InputIterator`
+>    is an rvalue reference.
+>
+> - _Enabled_: if requirements are met.
+>
+> - _Complexity_:
+>   - time: exactly `last - first` calls to `value_type`'s copy or move constructor,
+>   - space: O(1).
+>
+> - _Exception safety_: 
+>   - strong guarantee: all constructed elements shall be destroyed on failure,
+>   - re-throws if `value_type`'s copy or move constructors throws,
+>
+> - _Constexpr_: if `is_trivial<value_type>`.
+>
+> - _Iterator invalidation_: none.
+>
+> - _Effects_: exactly `last - first` calls to `value_type`s copy or move constructor.
+>
+> - _Pre-condition_: `last - first <= Capacity`.
+> - _Post-condition_: `size() == last - first`.
+
+
 ```c++
-/// Constructs a inline_vector whose elements are copied from \p other.
-///
-/// Requirements: `value_type` shall be `CopyInsertable` into `*this`.
-///
-/// Enabled: if requirements are met.
-///
-/// Complexity:
-/// - time: exactly `other.size()` calls to `value_type`'s copy constructor,
-/// - space: O(1).
-///
-/// Exception safety: 
-/// - strong guarantee: all constructed elements shall be destroyed on failure,
-/// - re-throws if `value_type`'s copy constructor throws.
-///
-/// Constexpr: if `is_trivial<value_type>`.
-///
-/// Iterator invalidation: none.
-///
-/// Effects: exactly \p `other.size()` calls to `value_type`s copy constructor.
-///
-/// Pre-condition: none.
-/// Post-condition: `size() == other.size()`.
-///
-constexpr inline_vector(inline_vector const& other);
+constexpr embedded_vector(embedded_vector const& other);
   noexcept(is_nothrow_copy_constructible<value_type>{});
 ```
 
+> Constructs a embedded_vector whose elements are copied from `other`.
+>
+> - _Requirements_: `value_type` shall be `CopyInsertable` into `*this`.
+>
+> - _Enabled_: if requirements are met.
+>
+> - _Complexity_:
+>   - time: exactly `other.size()` calls to `value_type`'s copy constructor,
+>   - space: O(1).
+>
+> - _Exception safety_: 
+>   - strong guarantee: all constructed elements shall be destroyed on failure,
+>   - re-throws if `value_type`'s copy constructor throws.
+>
+> - _Constexpr_: if `is_trivial<value_type>`.
+>
+> - _Iterator invalidation_: none.
+>
+> - _Effects_: exactly \p `other.size()` calls to `value_type`s copy constructor.
+>
+> - _Pre-condition_: none.
+> - _Post-condition_: `size() == other.size()`.
+
+
 ```c++
-/// Constructs a inline_vector whose elements are moved from \p other.
-///
-/// Requirements: `value_type` shall be `MoveInsertable` into `*this`.
-///
-/// Enabled: if requirements are met.
-///
-/// Complexity:
-/// - time: exactly `other.size()` calls to `value_type`'s move constructor,
-/// - space: O(1).
-///
-/// Exception safety: 
-/// - strong guarantee if std::nothrow_move_assignable<T> is true, basic
-///   guarantee otherwise: all moved elements shall be destroyed on failure.
-/// - re-throws if `value_type`'s move constructor throws.
-///
-/// Constexpr: if `is_trivial<value_type>`.
-///
-/// Iterator invalidation: none.
-///
-/// Effects: exactly \p `other.size()` calls to `value_type`s move constructor.
-///
-/// Pre-condition: none.
-/// Post-condition: `size() == other.size()`.
-/// Invariant: `other.size()` does not change.
-///
-constexpr inline_vector(inline_vector&&)
+constexpr embedded_vector(embedded_vector&& other)
   noexcept(is_nothrow_move_constructible<value_type>{});
 ```
 
+> Constructs an `embedded_vector` whose elements are moved from `other`.
+>
+> - _Requirements_: `value_type` shall be `MoveInsertable` into `*this`.
+>
+> - _Enabled_: if requirements are met.
+>
+> - _Complexity_:
+>   - time: exactly `other.size()` calls to `value_type`'s move constructor,
+>   - space: O(1).
+>
+> - _Exception safety_: 
+>   - strong guarantee if std::nothrow_move_assignable<T> is true, basic
+>     guarantee otherwise: all moved elements shall be destroyed on failure.
+>   - re-throws if `value_type`'s move constructor throws.
+>
+> - _Constexpr_: if `is_trivial<value_type>`.
+>
+> - _Iterator invalidation_: none.
+>
+> - _Effects_: exactly `other.size()` calls to `value_type`s move constructor.
+>
+> - _Pre-condition_: none.
+> - _Post-condition_: `size() == other.size()`.
+> - _Invariant_: `other.size()` does not change.
+
+
 ```c++
-/// Effects: Same as `inline_vector(il.begin(), il.end())`.
-constexpr inline_vector(initializer_list<value_type> il);
+/// Equivalent to `embedded_vector(il.begin(), il.end())`.
+constexpr embedded_vector(initializer_list<value_type> il);
   noexcept(is_nothrow_copy_constructible<value_type>{});
 ```
 
@@ -719,24 +779,24 @@ constexpr inline_vector(initializer_list<value_type> il);
 Move assignment operations invalidate iterators.
 
 ```c++
-constexpr inline_vector& operator=(inline_vector const& other)
+constexpr embedded_vector& operator=(embedded_vector const& other)
   noexcept(is_nothrow_copy_assignable<value_type>{});
 ```
 
 ```c++
-constexpr inline_vector& operator=(inline_vector && other);
+constexpr embedded_vector& operator=(embedded_vector && other);
   noexcept(is_nothrow_move_assignable<value_type>{});
 ```
 
 ```c++
 template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr inline_vector& operator=(inline_vector<value_type, M>const& other)
+  constexpr embedded_vector& operator=(embedded_vector<value_type, M>const& other)
     noexcept(is_nothrow_copy_assignable<value_type>{} and C >= M);
 ```
 
 ```c++
 template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr inline_vector& operator=(inline_vector<value_type, M>&& other);
+  constexpr embedded_vector& operator=(embedded_vector<value_type, M>&& other);
     noexcept(is_nothrow_move_assignable<value_type>{} and C >= M);
 ```
 
@@ -759,7 +819,7 @@ The destructor should be implicitly generated and it should be constexpr
 if `is_trivial<value_type>`.
 
 ```c++
-constexpr ~inline_vector(); // implicitly generated
+/* constexpr ~embedded_vector(); */ // implicitly generated
 ```
 
 ## Iterators
@@ -785,12 +845,12 @@ constexpr const_reverse_iterator crend()   const noexcept;
 
 the following holds:
 
-- Requirements: none.
-- Enabled: always.
-- Complexity: constant time and space.
-- Exception safety: never throw.
-- Constexpr: always.
-- Effects: none.
+- _Requirements_: none.
+- _Enabled_: always.
+- _Complexity_: constant time and space.
+- _Exception safety_: never throw.
+- _Constexpr_: always.
+- _Effects_: none.
 
 The `iterator` and `const_iterator` types are implementation defined and model
 the `ContiguousIterator` concept. 
@@ -839,8 +899,8 @@ static constexpr size_type capacity() noexcept;
 > - _Effects_: none.
 >
 > - _Note_:  
->   - if `capacity() == 0`, then `sizeof(inline_vector) == 0`,
->   - if `sizeof(T) == 0 and capacity() > 0`, then `sizeof(inline_vector) == sizeof(unsigned char)`.
+>   - if `capacity() == 0`, then `sizeof(embedded_vector) == 0`,
+>   - if `sizeof(T) == 0 and capacity() > 0`, then `sizeof(embedded_vector) == sizeof(unsigned char)`.
 
 
 ```c++
@@ -889,21 +949,21 @@ constexpr void resize(size_type sz, const value_type& c);
 ```
 the following holds:
 
-- Requirements: T models DefaultInsertable/CopyInsertable.
-- Enabled: if requirements satisfied.
-- Complexity: O(size()) time, O(1) space.
-- Exception safety:
+- _Requirements_: T models DefaultInsertable>CopyInsertable.
+- _Enabled_: if requirements satisfied.
+- _Complexity_: O(size()) time, O(1) space.
+- _Exception safety_:
    - basic guarantee: all constructed elements shall be destroyed on failure,
    - rethrows if `value_type`'s default or copy constructors throws,
    - throws `bad_alloc` if `new_size > capacity()`.
-- Constexpr: if `is_trivial<value_type>`.
-- Effects:
-  - if `new_size > size` exactly `new_size - size` elements default/copy constructed.
+- _Constexpr_: if `is_trivial<value_type>`.
+- _Effects_:
+  - if `new_size > size` exactly `new_size - size` elements default>copy constructed.
   - if `new_size < size`:
       - exactly `size - new_size` elements destroyed.
       - all iterators pointing to elements at position > `new_size` are invalidated.
 
-## Element /data access
+## Element / da access
 
 For the unchecked element access functions:
 
@@ -918,12 +978,12 @@ constexpr const_reference back() const noexcept;
 
 the following holds:
 
-- Requirements: none.
-- Enabled: always.
-- Complexity: O(1) in time and space.
-- Exception safety: never throws.
-- Constexpr: if `is_trivial<value_type>`.
-- Effects: none.
+- _Requirements_: none.
+- _Enabled_: always.
+- _Complexity_: O(1) in time and space.
+- _Exception safety_: never throws.
+- _Constexpr_: if `is_trivial<value_type>`.
+- _Effects_: none.
 - Pre-conditions: `size() > n` for `operator[]`, `size() > 0` for `front` and `back`.
 
 
@@ -936,14 +996,14 @@ constexpr reference       at(size_type n);
 
 the following holds:
 
-- Requirements: none.
-- Enabled: always.
-- Complexity: O(1) in time and space.
-- Exception safety:
+- _Requirements_: none.
+- _Enabled_: always.
+- _Complexity_: O(1) in time and space.
+- _Exception safety_:
   - throws `out_of_range` if `n >= size()`.
-- Constexpr: if `is_trivial<value_type>`.
-- Effects: none.
-- Pre-conditions: none.
+- _Constexpr_: if `is_trivial<value_type>`.
+- _Effects_: none.
+- _Pre-conditions_: none.
 
 For the data access:
 
@@ -954,14 +1014,14 @@ constexpr const T* data() const noexcept;
 
 the following holds: 
 
-- Requirements: none.
-- Enabled: always.
-- Complexity: O(1) in time and space.
-- Exception safety: never throws.
-- Constexpr: if `is_trivial<value_type>`.
-- Effects: none.
-- Pre-conditions: none.
-- Returns: if the container is empty the return value is unspecified. If the container 
+- _Requirements_: none.
+- _Enabled_: always.
+- _Complexity_: O(1) in time and space.
+- _Exception safety_: never throws.
+- _Constexpr_: if `is_trivial<value_type>`.
+- _Effects_: none.
+- _Pre-conditions_: none.
+- _Returns_: if the container is empty the return value is unspecified. If the container 
   is not empty, `[data(), data() + size())` is a valid range, and `data() == addressof(front())`.
 
 ## Modifiers
@@ -969,232 +1029,241 @@ the following holds:
 For the modifiers:
 
 ```c++
-/// Construct a new element at the end of the vector in place using \p args.
-///
-/// Requirements: `Constructible<value_type, Args...>`.
-///
-/// Enabled: if requirements are met.
-///
-/// Complexity:
-/// - time: O(1), exactly one call to `T`'s constructor,
-/// - space: O(1).
-///
-/// Exception safety: 
-/// - strong guarantee: no side-effects if `value_type`'s constructor throws. 
-/// - re-throws if `value_type`'s constructor throws.
-///
-/// Constexpr: if `is_trivial<value_type>`.
-///
-/// Iterator invalidation: none.
-///
-/// Effects: exactly one call to `T`'s constructor, the `size()` of the vector 
-/// is incremented by one.
-///
-/// Pre-condition: `size() < Capacity`.
-/// Post-condition: `size() == size_before + 1`.
-///
 template<class... Args>
 constexpr void emplace_back(Args&&... args);
 ```
 
+> Construct a new element at the end of the vector in place using \p args.
+>
+> - _Requirements_: `Constructible<value_type, Args...>`.
+>
+> - _Enabled_: if requirements are met.
+>
+> - _Complexity_:
+> - time: O(1), exactly one call to `T`'s constructor,
+> - space: O(1).
+>
+> - _Exception safety_: 
+> - strong guarantee: no side-effects if `value_type`'s constructor throws. 
+> - re-throws if `value_type`'s constructor throws.
+>
+> - _Constexpr_: if `is_trivial<value_type>`.
+>
+> - _Iterator invalidation_: none.
+>
+> - _Effects_: exactly one call to `T`'s constructor, the `size()` of the vector 
+> is incremented by one.
+>
+> - _Pre-condition_: `size() < Capacity`.
+> - _Post-condition_: `size() == size_before + 1`.
+
+
 ```c++
-/// Copy construct an element at the end of the vector from \p x.
-///
-/// Requirements: `CopyConstructible<value_type>`.
-///
-/// Enabled: if requirements are met.
-///
-/// Complexity:
-/// - time: O(1), exactly one call to `T`'s copy constructor,
-/// - space: O(1).
-///
-/// Exception safety: 
-/// - strong guarantee: no side-effects if `value_type`'s copy constructor throws. 
-/// - re-throws if `value_type`'s constructor throws.
-///
-/// Constexpr: if `is_trivial<value_type>`.
-///
-/// Iterator invalidation: none.
-///
-/// Effects: exactly one call to `T`'s copy constructor, the `size()` of the vector is 
-/// incremented by one.
-///
-/// Pre-condition: `size() < Capacity`.
-/// Post-condition: `size() == size_before + 1`.
-///
 constexpr void push_back(const value_type& x);
 ```
 
+> Copy construct an element at the end of the vector from \p x.
+>
+> - _Requirements_: `CopyConstructible<value_type>`.
+>
+> - _Enabled_: if requirements are met.
+>
+> - _Complexity_:
+> - time: O(1), exactly one call to `T`'s copy constructor,
+> - space: O(1).
+>
+> - _Exception safety_: 
+> - strong guarantee: no side-effects if `value_type`'s copy constructor throws. 
+> - re-throws if `value_type`'s constructor throws.
+>
+> - _Constexpr_: if `is_trivial<value_type>`.
+>
+> - _Iterator invalidation_: none.
+>
+> - _Effects_: exactly one call to `T`'s copy constructor, the `size()` of the vector is 
+> incremented by one.
+>
+> - _Pre-condition_: `size() < Capacity`.
+> - _Post-condition_: `size() == size_before + 1`.
+
+
 ```c++
-/// Move construct an element at the end of the vector from \p x.
-///
-/// Requirements: `MoveConstructible<value_type>`.
-///
-/// Enabled: if requirements are met.
-///
-/// Complexity:
-/// - time: O(1), exactly one call to `T`'s move constructor,
-/// - space: O(1).
-///
-/// Exception safety: 
-/// - strong guarantee: no side-effects if `value_type`'s move constructor throws. 
-/// - re-throws if `value_type`'s constructor throws.
-///
-/// Constexpr: if `is_trivial<value_type>`.
-///
-/// Iterator invalidation: none.
-///
-/// Effects: exactly one call to `T`'s move constructor, the `size()` of the vector is 
-/// incremented by one.
-///
-/// Pre-condition: `size() < Capacity`.
-/// Post-condition: `size() == size_before + 1`.
-///
 constexpr void push_back(value_type&& x);
 ```
 
+> Move construct an element at the end of the vector from \p x.
+>
+> - _Requirements_: `MoveConstructible<value_type>`.
+>
+> - _Enabled_: if requirements are met.
+>
+> - _Complexity_:
+> - time: O(1), exactly one call to `T`'s move constructor,
+> - space: O(1).
+>
+> - _Exception safety_: 
+> - strong guarantee: no side-effects if `value_type`'s move constructor throws. 
+> - re-throws if `value_type`'s constructor throws.
+>
+> - _Constexpr_: if `is_trivial<value_type>`.
+>
+> - _Iterator invalidation_: none.
+>
+> - _Effects_: exactly one call to `T`'s move constructor, the `size()` of the vector is 
+> incremented by one.
+>
+> - _Pre-condition_: `size() < Capacity`.
+> - _Post-condition_: `size() == size_before + 1`.
+
+
 ```c++
-/// Removes the last element from the vector.
-///
-/// Requirements: none.
-///
-/// Enabled: always.
-///
-/// Complexity:
-/// - time: O(1), exactly one call to `T`'s destructor,
-/// - space: O(1).
-///
-/// Exception safety: 
-/// - strong guarantee (note: `inline_vector` requires `Destructible<T>`). 
-///
-/// Constexpr: if `is_trivial<value_type>`.
-///
-/// Iterator invalidation: none.
-///
-/// Effects: exactly one call to `T`'s destructor, the `size()` of the vector is 
-/// decremented by one.
-///
-/// Pre-condition: `size() > 0`.
-/// Post-condition: `size() == size_before - 1`.
-///
 constexpr void pop_back();
 ```
 
+> Removes the last element from the vector.
+>
+> - _Requirements_: none.
+>
+> - _Enabled_: always.
+>
+> - _Complexity_:
+> - time: O(1), exactly one call to `T`'s destructor,
+> - space: O(1).
+>
+> - _Exception safety_: 
+> - strong guarantee (note: `embedded_vector` requires `Destructible<T>`). 
+>
+> - _Constexpr_: if `is_trivial<value_type>`.
+>
+> - _Iterator invalidation_: none.
+>
+> - _Effects_: exactly one call to `T`'s destructor, the `size()` of the vector is 
+> decremented by one.
+>
+> - _Pre-condition_: `size() > 0`.
+> - _Post-condition_: `size() == size_before - 1`.
+
+
 ```c++
-/// Stable inserts \p x at \p position.
-///
-/// Requirements: `CopyConstructible<value_type>`.
-///
-/// Enabled: if requirements are met.
-///
-/// Complexity:
-/// - time: O(size() + 1), exactly `end() - position` swaps, one call to `T`'s copy constructor,
-/// - space: O(1).
-///
-/// Exception safety: 
-/// - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects 
-/// (note: even if `T`s copy constructor can throw). 
-///
-/// Constexpr: if `is_trivial<value_type>`.
-///
-/// Iterator invalidation: all iterators pointing to elements after \p position are invalidated.
-///
-/// Effects: exactly `end() - position` swaps, one call to `T`'s copy constructor, the `size()` 
-/// of the vector is incremented by one.
-///
-/// Pre-condition: `size() + 1 <= Capacity`, `position` is in range `[begin(), end())`.
-/// Post-condition: `size() == size_before + 1`.
-/// Invariant: the relative order of the elements before and after \p position remains unchanged.
-///
 constexpr iterator insert(const_iterator position, const value_type& x);
 ```
 
+> Stable inserts \p x at \p position.
+>
+> - _Requirements_: `CopyConstructible<value_type>`.
+>
+> - _Enabled_: if requirements are met.
+>
+> - _Complexity_:
+> - time: O(size() + 1), exactly `end() - position` swaps, one call to `T`'s copy constructor,
+> - space: O(1).
+>
+> - _Exception safety_: 
+> - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects 
+> (note: even if `T`s copy constructor can throw). 
+>
+> - _Constexpr_: if `is_trivial<value_type>`.
+>
+> - _Iterator invalidation_: all iterators pointing to elements after \p position are invalidated.
+>
+> - _Effects_: exactly `end() - position` swaps, one call to `T`'s copy constructor, the `size()` 
+> of the vector is incremented by one.
+>
+> - _Pre-condition_: `size() + 1 <= Capacity`, `position` is in range `[begin(), end())`.
+> - _Post-condition_: `size() == size_before + 1`.
+> Invariant: the relative order of the elements before and after \p position remains unchanged.
+
+
 ```c++
-/// Stable inserts \p x at \p position.
-///
-/// Requirements: `MoveConstructible<value_type>`.
-///
-/// Enabled: if requirements are met.
-///
-/// Complexity:
-/// - time: O(size() + 1), exactly `end() - position` swaps, one call to `T`'s move constructor,
-/// - space: O(1).
-///
-/// Exception safety: 
-/// - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects 
-/// (note: even if `T`s move constructor can throw). 
-///
-/// Constexpr: if `is_trivial<value_type>`.
-///
-/// Iterator invalidation: all iterators pointing to elements after \p position are invalidated.
-///
-/// Effects: exactly `end() - position` swaps, one call to `T`'s move constructor, the `size()` 
-/// of the vector is incremented by one.
-///
-/// Pre-condition: `size() + 1 <= Capacity`, `position` is in range `[begin(), end())`.
-/// Post-condition: `size() == size_before - 1`.
-/// Invariant: the relative order of the elements before and after \p position remains unchanged.
-///
 constexpr iterator insert(const_iterator position, value_type&& x);
 ```
 
+> Stable inserts \p x at \p position.
+>
+> - _Requirements_: `MoveConstructible<value_type>`.
+>
+> - _Enabled_: if requirements are met.
+>
+> - _Complexity_:
+> - time: O(size() + 1), exactly `end() - position` swaps, one call to `T`'s move constructor,
+> - space: O(1).
+>
+> - _Exception safety_: 
+> - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects 
+> (note: even if `T`s move constructor can throw). 
+>
+> - _Constexpr_: if `is_trivial<value_type>`.
+>
+> - _Iterator invalidation_: all iterators pointing to elements after \p position are invalidated.
+>
+> - _Effects_: exactly `end() - position` swaps, one call to `T`'s move constructor, the `size()` 
+> of the vector is incremented by one.
+>
+> - _Pre-condition_: `size() + 1 <= Capacity`, `position` is in range `[begin(), end())`.
+> - _Post-condition_: `size() == size_before - 1`.
+> Invariant: the relative order of the elements before and after \p position remains unchanged.
+
+
 ```c++
-/// Stable inserts \p n copies of \p x at \p position.
-///
-/// Requirements: `CopyConstructible<value_type>`.
-///
-/// Enabled: if requirements are met.
-///
-/// Complexity:
-/// - time: O(size() + n), exactly `end() - position + n - 1` swaps, `n` calls to `T`'s copy constructor,
-/// - space: O(1).
-///
-/// Exception safety: 
-/// - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects 
-/// (note: even if `T`s copy constructor can throw). 
-///
-/// Constexpr: if `is_trivial<value_type>`.
-///
-/// Iterator invalidation: all iterators pointing to elements after \p position are invalidated.
-///
-/// Effects: exactly `end() - position + n - 1` swaps, `n` calls to `T`'s copy constructor, the `size()` 
-/// of the vector is incremented by `n`.
-///
-/// Pre-condition: `size() + n <= Capacity`, `position` is in range `[begin(), end())`.
-/// Post-condition: `size() == size_before + n`.
-/// Invariant: the relative order of the elements before and after \p position remains unchanged.
-///
 constexpr iterator insert(const_iterator position, size_type n, const value_type& x);
 ```
+
+> Stable inserts \p n copies of \p x at \p position.
+>
+> - _Requirements_: `CopyConstructible<value_type>`.
+>
+> - _Enabled_: if requirements are met.
+>
+> - _Complexity_:
+> - time: O(size() + n), exactly `end() - position + n - 1` swaps, `n` calls to `T`'s copy constructor,
+> - space: O(1).
+>
+> - _Exception safety_: 
+> - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects 
+> (note: even if `T`s copy constructor can throw). 
+>
+> - _Constexpr_: if `is_trivial<value_type>`.
+>
+> - _Iterator invalidation_: all iterators pointing to elements after \p position are invalidated.
+>
+> - _Effects_: exactly `end() - position + n - 1` swaps, `n` calls to `T`'s copy constructor, the `size()` 
+> of the vector is incremented by `n`.
+>
+> - _Pre-condition_: `size() + n <= Capacity`, `position` is in range `[begin(), end())`.
+> - _Post-condition_: `size() == size_before + n`.
+> Invariant: the relative order of the elements before and after \p position remains unchanged.
+
+
 ```c++
-/// Stable inserts the elements of the range [\p first, \p last) at \p position.
-///
-/// Requirements: `Constructible<value_type, iterator_traits<InputIt>::value_type>`, `InputIterator<InputIt>`.
-///
-/// Enabled: if requirements are met.
-///
-/// Complexity:
-/// - time: O(size() + distance(first, last)), exactly `end() - position + distance(first, last) - 1` swaps, `n` calls to `T`'s copy constructor (note: independently of `InputIt`'s iterator category),
-/// - space: O(1).
-///
-/// Exception safety: 
-/// - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects 
-/// (note: even if `T`s copy constructor can throw). 
-///
-/// Constexpr: if `is_trivial<value_type>`.
-///
-/// Iterator invalidation: all iterators pointing to elements after \p position are invalidated.
-///
-/// Effects: exactly `end() - position + distance(first, last) - 1` swaps, `n` calls to `T`'s copy constructor, the `size()` 
-/// of the vector is incremented by `n`.
-///
-/// Pre-condition: `size() + distance(first, last) <= Capacity`, `position` is in range `[begin(), end())`, `[first, last)` is not a sub-range of `[position, end())`.
-/// Post-condition: `size() == size_before + distance(first, last)`.
-/// Invariant: the relative order of the elements before and after \p position remains unchanged.
-///
-template<class InputIterator>
+template <typename InputIterator>
   constexpr iterator insert(const_iterator position, InputIterator first, InputIterator last);
 ```
+
+> Stable inserts the elements of the range [\p first, \p last) at \p position.
+>
+> - _Requirements_: `Constructible<value_type, iterator_traits<InputIt>::value_type>`, `InputIterator<InputIt>`.
+>
+> - _Enabled_: if requirements are met.
+>
+> - _Complexity_:
+> - time: O(size() + distance(first, last)), exactly `end() - position + distance(first, last) - 1` swaps, `n` calls to `T`'s copy constructor (note: independently of `InputIt`'s iterator category),
+> - space: O(1).
+>
+> - _Exception safety_: 
+> - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects 
+> (note: even if `T`s copy constructor can throw). 
+>
+> - _Constexpr_: if `is_trivial<value_type>`.
+>
+> - _Iterator invalidation_: all iterators pointing to elements after \p position are invalidated.
+>
+> - _Effects_: exactly `end() - position + distance(first, last) - 1` swaps, `n` calls to `T`'s copy constructor, the `size()` 
+> of the vector is incremented by `n`.
+>
+> - _Pre-condition_: `size() + distance(first, last) <= Capacity`, `position` is in range `[begin(), end())`, `[first, last)` is not a sub-range of `[position, end())`.
+> - _Post-condition_: `size() == size_before + distance(first, last)`.
+> Invariant: the relative order of the elements before and after \p position remains unchanged.
+
   
 ```c++
 /// Equivalent to `insert(position, begin(il), end(il))`.
@@ -1202,62 +1271,65 @@ constexpr iterator insert(const_iterator position, initializer_list<value_type> 
 ```
 
 ```c++
-/// Stable erases the element at \p position.
-///
-/// Requirements: none.
-///
-/// Enabled: always.
-///
-/// Complexity:
-/// - time: O(size()), exactly `end() - position - 1` swaps, 1 call to `T`'s destructor. 
-/// - space: O(1).
-///
-/// Exception safety: 
-/// - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects.
-///
-/// Constexpr: if `is_trivial<value_type>`.
-///
-/// Iterator invalidation: all iterators pointing to elements after \p position are invalidated.
-///
-/// Effects: exactly `end() - position - 1` swaps, 1 call to `T`'s destructor, the `size()` 
-/// of the vector is decremented by 1.
-///
-/// Pre-condition: `size() - 1 >= 0`, `position` is in range `[begin(), end())`.
-/// Post-condition: `size() == size_before - 1`, `size() >= 0`.
-/// Invariant: the relative order of the elements before and after \p position remains unchanged.
-///
 constexpr iterator erase(const_iterator position)
   noexcept(is_nothrow_destructible<value_type>{} and is_nothrow_swappable<value_type>{});
 ```
-  
+
+> Stable erases the element at \p position.
+>
+> - _Requirements_: none.
+>
+> - _Enabled_: always.
+>
+> - _Complexity_:
+> - time: O(size()), exactly `end() - position - 1` swaps, 1 call to `T`'s destructor. 
+> - space: O(1).
+>
+> - _Exception safety_: 
+> - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects.
+>
+> - _Constexpr_: if `is_trivial<value_type>`.
+>
+> - _Iterator invalidation_: all iterators pointing to elements after \p position are invalidated.
+>
+> - _Effects_: exactly `end() - position - 1` swaps, 1 call to `T`'s destructor, the `size()` 
+> of the vector is decremented by 1.
+>
+> - _Pre-condition_: `size() - 1 >= 0`, `position` is in range `[begin(), end())`.
+> - _Post-condition_: `size() == size_before - 1`, `size() >= 0`.
+> Invariant: the relative order of the elements before and after \p position remains unchanged.
+
+
 ```c++
-/// Stable erases the elements in range [\p first, \p last).
-///
-/// Requirements: none.
-///
-/// Enabled: always.
-///
-/// Complexity:
-/// - time: O(size()), exactly `end() - first - distance(first, last)` swaps, `distance(first, last)` calls to `T`'s destructor. 
-/// - space: O(1).
-///
-/// Exception safety: 
-/// - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects.
-///
-/// Constexpr: if `is_trivial<value_type>`.
-///
-/// Iterator invalidation: all iterators pointing to elements after \p first are invalidated.
-///
-/// Effects: exactly `end() - first - distance(first, last)` swaps, `distance(first, last)` calls to `T`'s destructor, the `size()` 
-/// of the vector is decremented by `distance(first, last)`.
-///
-/// Pre-condition: `size() - distance(first, last) >= 0`, `[first, last)` is a sub-range of `[begin(), end())`.
-/// Post-condition: `size() == size_before - distance(first, last)`, `size() >= 0`.
-/// Invariant: the relative order of the elements before and after \p position remains unchanged.
-///
 constexpr iterator erase(const_iterator first, const_iterator last)
   noexcept(is_nothrow_destructible<value_type>{} and is_nothrow_swappable<value_type>{});
 ```
+
+> Stable erases the elements in range [\p first, \p last).
+>
+> - _Requirements_: none.
+>
+> - _Enabled_: always.
+>
+> - _Complexity_:
+> - time: O(size()), exactly `end() - first - distance(first, last)` swaps, `distance(first, last)` 
+>   calls to `T`'s destructor. 
+> - space: O(1).
+>
+> - _Exception safety_: 
+> - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects.
+>
+> - _Constexpr_: if `is_trivial<value_type>`.
+>
+> - _Iterator invalidation_: all iterators pointing to elements after \p first are invalidated.
+>
+> - _Effects_: exactly `end() - first - distance(first, last)` swaps, 
+>   `distance(first, last)` calls to `T`'s destructor, the `size()` 
+> of the vector is decremented by `distance(first, last)`.
+>
+> - _Pre-condition_: `size() - distance(first, last) >= 0`, `[first, last)` is a sub-range of `[begin(), end())`.
+> - _Post-condition_: `size() == size_before - distance(first, last)`, `size() >= 0`.
+> Invariant: the relative order of the elements before and after \p position remains unchanged.
 
 ```c++
 /// Equivalent to `erase(begin(), end())`. 
@@ -1265,50 +1337,51 @@ constexpr void clear() noexcept(is_nothrow_destructible<value_type>{});
 ```
 
 ```c++
-/// Swaps the elements of two vectors.
-///
-/// Requirements: none.
-///
-/// Enabled: always.
-///
-/// Complexity:
-/// - time: O(max(size(), other.size())), exactly `max(size(), other.size())` swaps. 
-/// - space: O(1).
-///
-/// Exception safety: 
-/// - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects.
-///
-/// Constexpr: if `is_trivial<value_type>`.
-///
-/// Iterator invalidation: all iterators pointing to the elements of both vectors are invalidated.
-///
-/// Effects: exactly `max(size(), other.size())` swaps.
-///
-/// Pre-condition: none.
-/// Post-condition: `size() == other_size_before`, `other.size() == size_before`.
-///
-constexpr void swap(inline_vector& other)
+constexpr void swap(embedded_vector& other)
   noexcept(noexcept(swap(declval<value_type&>(), declval<value_type&>()))));
 ```
+
+> Swaps the elements of two vectors.
+>
+> - _Requirements_: none.
+>
+> - _Enabled_: always.
+>
+> - _Complexity_:
+>   - time: O(max(size(), other.size())), exactly `max(size(), other.size())` swaps. 
+>   - space: O(1).
+>
+> - _Exception safety_: 
+> - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects.
+>
+> - _Constexpr_: if `is_trivial<value_type>`.
+>
+> - _Iterator invalidation_: all iterators pointing to the elements of both vectors are invalidated.
+>
+> - _Effects_: exactly `max(size(), other.size())` swaps.
+>
+> - _Pre-condition_: none.
+> - _Post-condition_: `size() == other_size_before`, `other.size() == size_before`.
 
 ## Comparison operators
 
 The following operators are `noexcept` if the operations required to compute them are all `noexcept`:
 
 ```c++
-constexpr bool operator==(const inline_vector& a, const inline_vector& b);
-constexpr bool operator!=(const inline_vector& a, const inline_vector& b);
-constexpr bool operator<(const inline_vector& a, const inline_vector& b);
-constexpr bool operator<=(const inline_vector& a, const inline_vector& b);
-constexpr bool operator>(const inline_vector& a, const inline_vector& b);
-constexpr bool operator>=(const inline_vector& a, const inline_vector& b);
+constexpr bool operator==(const embedded_vector& a, const embedded_vector& b);
+constexpr bool operator!=(const embedded_vector& a, const embedded_vector& b);
+constexpr bool operator<(const embedded_vector& a, const embedded_vector& b);
+constexpr bool operator<=(const embedded_vector& a, const embedded_vector& b);
+constexpr bool operator>(const embedded_vector& a, const embedded_vector& b);
+constexpr bool operator>=(const embedded_vector& a, const embedded_vector& b);
 ```
 The following holds for the comparison operators:
 
-- Enabled/Requirements: only enabled if `value_type` supports the corresponding operations.
-- Complexity: for two vectors of sizes `N` and `M`, the complexity is `O(1)` if `N != M`, and the comparison operator
+- _Requirements_: only enabled if `value_type` supports the corresponding operations.
+- _Enabled_: if requirements are met.
+- _Complexity_: for two vectors of sizes `N` and `M`, the complexity is `O(1)` if `N != M`, and the comparison operator
   of `value_type` is invoked at most `N` times otherwise.
-- Exception safety: `noexcept` if the comparison operator of `value_type` is `noexcept`, otherwise can only throw if the comparison operator can throw.
+- _Exception safety_: `noexcept` if the comparison operator of `value_type` is `noexcept`, otherwise can only throw if the comparison operator can throw.
 
 # Acknowledgments
 
@@ -1324,9 +1397,9 @@ constructor). Casey Carter for his invaluable feedback on this proposal.
 
 - [Boost.Container::static_vector][boost_static_vector].
   - Discussions in the Boost developers mailing list:
-    - [Interest in StaticVector - fixed capacity vector](https://groups.google.com/d/topic/boost-developers-archive/4n1QuJyKTTk/discussion).
-    - [Stack-based vector container](https://groups.google.com/d/topic/boost-developers-archive/9BEXjV8ZMeQ/discussion).
-    - [static_vector: fixed capacity vector update](https://groups.google.com/d/topic/boost-developers-archive/d5_Kp-nmW6c/discussion).
+    - [Interest in StaticVector - fixed capacity vector](https:>>groups.google.com>d>topic>boost-developers-archive>4n1QuJyKTTk>discussion).
+    - [Stack-based vector container](https:>>groups.google.com>d>topic>boost-developers-archive>9BEXjV8ZMeQ>discussion).
+    - [static_vector: fixed capacity vector update](https:>>groups.google.com>d>topic>boost-developers-archive>d5_Kp-nmW6c>discussion).
 - [Boost.Container::small_vector][boostsmallvector].
 - [Howard Hinnant's stack_alloc][stack_alloc].
 - [EASTL fixed_vector][eastl] and [design][eastldesign].
@@ -1335,17 +1408,17 @@ constructor). Casey Carter for his invaluable feedback on this proposal.
 
 <!-- Links -->
 [stack_alloc]: https://howardhinnant.github.io/stack_alloc.html
-[inline_vector]: http://github.com/gnzlbg/inline_vector
+[embedded_vector]: http://github.com/gnzlbg/embedded_vector
 [boost_static_vector]: http://www.boost.org/doc/libs/1_59_0/doc/html/boost/container/static_vector.html
-[travis-shield]: https://img.shields.io/travis/gnzlbg/inline_vector.svg?style=flat-square
-[travis]: https://travis-ci.org/gnzlbg/inline_vector
-[coveralls-shield]: https://img.shields.io/coveralls/gnzlbg/inline_vector.svg?style=flat-square
-[coveralls]: https://coveralls.io/github/gnzlbg/inline_vector
+[travis-shield]: https://img.shields.io/travis/gnzlbg/embedded_vector.svg?style=flat-square
+[travis]: https://travis-ci.org/gnzlbg/embedded_vector
+[coveralls-shield]: https://img.shields.io/coveralls/gnzlbg/embedded_vector.svg?style=flat-square
+[coveralls]: https://coveralls.io/github/gnzlbg/embedded_vector
 [docs-shield]: https://img.shields.io/badge/docs-online-blue.svg?style=flat-square
-[docs]: https://gnzlbg.github.io/inline_vector
+[docs]: https://gnzlbg.github.io/embedded_vector
 [folly]: https://github.com/facebook/folly/blob/master/folly/docs/small_vector.md
 [eastl]: https://github.com/questor/eastl/blob/master/fixed_vector.h#L71
-[eastldesign]: https://github.com/questor/eastl/blob/master/doc%2FEASTL%20Design.html#L284
+[eastldesign]: https:github.com/questor/eastl/blob/master/doc%2FEASTL%20Design.html#L284
 [clump]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0274r0.pdf
 [boostsmallvector]: http://www.boost.org/doc/libs/master/doc/html/boost/container/small_vector.html
 [llvmsmallvector]: http://llvm.org/docs/doxygen/html/classllvm_1_1SmallVector.html
