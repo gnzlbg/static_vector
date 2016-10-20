@@ -713,7 +713,7 @@ constexpr embedded_vector(embedded_vector const& other);
   noexcept(is_nothrow_copy_constructible<value_type>{});
 ```
 
-> Constructs a embedded_vector whose elements are copied from `other`.
+> Constructs a `embedded_vector` whose elements are copied from `other`.
 >
 > - _Requirements_: `value_type` shall be `CopyInsertable` into `*this`.
 >
@@ -753,7 +753,7 @@ constexpr embedded_vector(embedded_vector&& other)
 >   - space: O(1).
 >
 > - _Exception safety_: 
->   - strong guarantee if std::nothrow_move_assignable<T> is true, basic
+>   - strong guarantee if `std::nothrow_move_assignable<T>` is true, basic
 >     guarantee otherwise: all moved elements shall be destroyed on failure.
 >   - re-throws if `value_type`'s move constructor throws.
 >
@@ -944,12 +944,12 @@ constexpr bool empty() const noexcept;
 For the checked resize functions:
 
 ```c++
-constexpr void resize(size_type sz);
-constexpr void resize(size_type sz, const value_type& c);
+constexpr void resize(size_type new_size);
+constexpr void resize(size_type new_size, const value_type& c);
 ```
 the following holds:
 
-- _Requirements_: T models DefaultInsertable>CopyInsertable.
+- _Requirements_: `T` models `DefaultInsertable`/`CopyInsertable`.
 - _Enabled_: if requirements satisfied.
 - _Complexity_: O(size()) time, O(1) space.
 - _Exception safety_:
@@ -961,9 +961,9 @@ the following holds:
   - if `new_size > size` exactly `new_size - size` elements default>copy constructed.
   - if `new_size < size`:
       - exactly `size - new_size` elements destroyed.
-      - all iterators pointing to elements at position > `new_size` are invalidated.
+      - all iterators pointing to elements with `position > new_size` are invalidated.
 
-## Element / da access
+## Element / data access
 
 For the unchecked element access functions:
 
@@ -1033,19 +1033,19 @@ template<class... Args>
 constexpr void emplace_back(Args&&... args);
 ```
 
-> Construct a new element at the end of the vector in place using \p args.
+> Construct a new element at the end of the vector in place using `args...`.
 >
 > - _Requirements_: `Constructible<value_type, Args...>`.
 >
 > - _Enabled_: if requirements are met.
 >
 > - _Complexity_:
-> - time: O(1), exactly one call to `T`'s constructor,
-> - space: O(1).
+>   - time: O(1), exactly one call to `T`'s constructor,
+>   - space: O(1).
 >
 > - _Exception safety_: 
-> - strong guarantee: no side-effects if `value_type`'s constructor throws. 
-> - re-throws if `value_type`'s constructor throws.
+>   - strong guarantee: no side-effects if `value_type`'s constructor throws. 
+>   - re-throws if `value_type`'s constructor throws.
 >
 > - _Constexpr_: if `is_trivial<value_type>`.
 >
@@ -1062,19 +1062,19 @@ constexpr void emplace_back(Args&&... args);
 constexpr void push_back(const value_type& x);
 ```
 
-> Copy construct an element at the end of the vector from \p x.
+> Copy construct an element at the end of the vector from `x`.
 >
 > - _Requirements_: `CopyConstructible<value_type>`.
 >
 > - _Enabled_: if requirements are met.
 >
 > - _Complexity_:
-> - time: O(1), exactly one call to `T`'s copy constructor,
-> - space: O(1).
+>   - time: O(1), exactly one call to `T`'s copy constructor,
+>   - space: O(1).
 >
 > - _Exception safety_: 
-> - strong guarantee: no side-effects if `value_type`'s copy constructor throws. 
-> - re-throws if `value_type`'s constructor throws.
+>   - strong guarantee: no side-effects if `value_type`'s copy constructor throws. 
+>   - re-throws if `value_type`'s constructor throws.
 >
 > - _Constexpr_: if `is_trivial<value_type>`.
 >
@@ -1091,19 +1091,19 @@ constexpr void push_back(const value_type& x);
 constexpr void push_back(value_type&& x);
 ```
 
-> Move construct an element at the end of the vector from \p x.
+> Move construct an element at the end of the vector from `x`.
 >
 > - _Requirements_: `MoveConstructible<value_type>`.
 >
 > - _Enabled_: if requirements are met.
 >
 > - _Complexity_:
-> - time: O(1), exactly one call to `T`'s move constructor,
-> - space: O(1).
+>   - time: O(1), exactly one call to `T`'s move constructor,
+>   - space: O(1).
 >
 > - _Exception safety_: 
-> - strong guarantee: no side-effects if `value_type`'s move constructor throws. 
-> - re-throws if `value_type`'s constructor throws.
+>   - strong guarantee: no side-effects if `value_type`'s move constructor throws. 
+>   - re-throws if `value_type`'s constructor throws.
 >
 > - _Constexpr_: if `is_trivial<value_type>`.
 >
@@ -1127,11 +1127,11 @@ constexpr void pop_back();
 > - _Enabled_: always.
 >
 > - _Complexity_:
-> - time: O(1), exactly one call to `T`'s destructor,
-> - space: O(1).
+>   - time: O(1), exactly one call to `T`'s destructor,
+>   - space: O(1).
 >
 > - _Exception safety_: 
-> - strong guarantee (note: `embedded_vector` requires `Destructible<T>`). 
+>   - strong guarantee (note: `embedded_vector` requires `Destructible<T>`). 
 >
 > - _Constexpr_: if `is_trivial<value_type>`.
 >
@@ -1148,90 +1148,90 @@ constexpr void pop_back();
 constexpr iterator insert(const_iterator position, const value_type& x);
 ```
 
-> Stable inserts \p x at \p position.
+> Stable inserts `x` at `position` within the vector (preserving the relative order of the elements in the vector).
 >
 > - _Requirements_: `CopyConstructible<value_type>`.
 >
 > - _Enabled_: if requirements are met.
 >
 > - _Complexity_:
-> - time: O(size() + 1), exactly `end() - position` swaps, one call to `T`'s copy constructor,
-> - space: O(1).
+>   - time: O(size() + 1), exactly `end() - position` swaps, one call to `T`'s copy constructor,
+>   - space: O(1).
 >
 > - _Exception safety_: 
-> - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects 
+>   - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects 
 > (note: even if `T`s copy constructor can throw). 
 >
 > - _Constexpr_: if `is_trivial<value_type>`.
 >
-> - _Iterator invalidation_: all iterators pointing to elements after \p position are invalidated.
+> - _Iterator invalidation_: all iterators pointing to elements after `position` are invalidated.
 >
 > - _Effects_: exactly `end() - position` swaps, one call to `T`'s copy constructor, the `size()` 
 > of the vector is incremented by one.
 >
 > - _Pre-condition_: `size() + 1 <= Capacity`, `position` is in range `[begin(), end())`.
 > - _Post-condition_: `size() == size_before + 1`.
-> Invariant: the relative order of the elements before and after \p position remains unchanged.
+> - _Invariant_: the relative order of the elements before and after \p position is preserved.
 
 
 ```c++
 constexpr iterator insert(const_iterator position, value_type&& x);
 ```
 
-> Stable inserts \p x at \p position.
+> Stable inserts `x` at `position` (preserving the relative order of the elements in the vector).
 >
 > - _Requirements_: `MoveConstructible<value_type>`.
 >
 > - _Enabled_: if requirements are met.
 >
 > - _Complexity_:
-> - time: O(size() + 1), exactly `end() - position` swaps, one call to `T`'s move constructor,
-> - space: O(1).
+>   - time: O(size() + 1), exactly `end() - position` swaps, one call to `T`'s move constructor,
+>   - space: O(1).
 >
 > - _Exception safety_: 
-> - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects 
+>   - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects 
 > (note: even if `T`s move constructor can throw). 
 >
 > - _Constexpr_: if `is_trivial<value_type>`.
 >
-> - _Iterator invalidation_: all iterators pointing to elements after \p position are invalidated.
+> - _Iterator invalidation_: all iterators pointing to elements after `position` are invalidated.
 >
 > - _Effects_: exactly `end() - position` swaps, one call to `T`'s move constructor, the `size()` 
 > of the vector is incremented by one.
 >
 > - _Pre-condition_: `size() + 1 <= Capacity`, `position` is in range `[begin(), end())`.
 > - _Post-condition_: `size() == size_before - 1`.
-> Invariant: the relative order of the elements before and after \p position remains unchanged.
+> - _Invariant_: the relative order of the elements before and after `position` is preserved.
 
 
 ```c++
 constexpr iterator insert(const_iterator position, size_type n, const value_type& x);
 ```
 
-> Stable inserts \p n copies of \p x at \p position.
+> Stable inserts `n` copies of `x` at `position` (preserving the relative order of the elements in the vector).
 >
 > - _Requirements_: `CopyConstructible<value_type>`.
 >
 > - _Enabled_: if requirements are met.
 >
 > - _Complexity_:
-> - time: O(size() + n), exactly `end() - position + n - 1` swaps, `n` calls to `T`'s copy constructor,
-> - space: O(1).
+>   - time: O(size() + n), exactly `end() - position + n - 1` swaps, `n` calls to `T`'s copy constructor,
+>   - space: O(1).
 >
 > - _Exception safety_: 
-> - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects 
+>   - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects 
 > (note: even if `T`s copy constructor can throw). 
 >
 > - _Constexpr_: if `is_trivial<value_type>`.
 >
-> - _Iterator invalidation_: all iterators pointing to elements after \p position are invalidated.
+> - _Iterator invalidation_: all iterators pointing to elements after `position` are invalidated.
 >
 > - _Effects_: exactly `end() - position + n - 1` swaps, `n` calls to `T`'s copy constructor, the `size()` 
 > of the vector is incremented by `n`.
 >
 > - _Pre-condition_: `size() + n <= Capacity`, `position` is in range `[begin(), end())`.
 > - _Post-condition_: `size() == size_before + n`.
-> Invariant: the relative order of the elements before and after \p position remains unchanged.
+> - _Invariant_: the relative order of the elements before and after `position` is preserved.
 
 
 ```c++
@@ -1239,30 +1239,30 @@ template <typename InputIterator>
   constexpr iterator insert(const_iterator position, InputIterator first, InputIterator last);
 ```
 
-> Stable inserts the elements of the range [\p first, \p last) at \p position.
+> Stable inserts the elements of the range `[first, last)` at `position` (preserving the relative order of the elements in the vector).
 >
 > - _Requirements_: `Constructible<value_type, iterator_traits<InputIt>::value_type>`, `InputIterator<InputIt>`.
 >
 > - _Enabled_: if requirements are met.
 >
 > - _Complexity_:
-> - time: O(size() + distance(first, last)), exactly `end() - position + distance(first, last) - 1` swaps, `n` calls to `T`'s copy constructor (note: independently of `InputIt`'s iterator category),
-> - space: O(1).
+>   - time: O(size() + distance(first, last)), exactly `end() - position + distance(first, last) - 1` swaps, `n` calls to `T`'s copy constructor (note: independently of `InputIt`'s iterator category),
+>   - space: O(1).
 >
 > - _Exception safety_: 
-> - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects 
+>   - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects 
 > (note: even if `T`s copy constructor can throw). 
 >
 > - _Constexpr_: if `is_trivial<value_type>`.
 >
-> - _Iterator invalidation_: all iterators pointing to elements after \p position are invalidated.
+> - _Iterator invalidation_: all iterators pointing to elements after `position` are invalidated.
 >
 > - _Effects_: exactly `end() - position + distance(first, last) - 1` swaps, `n` calls to `T`'s copy constructor, the `size()` 
 > of the vector is incremented by `n`.
 >
 > - _Pre-condition_: `size() + distance(first, last) <= Capacity`, `position` is in range `[begin(), end())`, `[first, last)` is not a sub-range of `[position, end())`.
 > - _Post-condition_: `size() == size_before + distance(first, last)`.
-> Invariant: the relative order of the elements before and after \p position remains unchanged.
+> - _Invariant_: the relative order of the elements before and after `position` is preserved.
 
   
 ```c++
@@ -1275,7 +1275,7 @@ constexpr iterator erase(const_iterator position)
   noexcept(is_nothrow_destructible<value_type>{} and is_nothrow_swappable<value_type>{});
 ```
 
-> Stable erases the element at \p position.
+> Stable erases the element at `position` (preserving the relative order of the elements in the vector).
 >
 > - _Requirements_: none.
 >
@@ -1290,14 +1290,14 @@ constexpr iterator erase(const_iterator position)
 >
 > - _Constexpr_: if `is_trivial<value_type>`.
 >
-> - _Iterator invalidation_: all iterators pointing to elements after \p position are invalidated.
+> - _Iterator invalidation_: all iterators pointing to elements after `position` are invalidated.
 >
 > - _Effects_: exactly `end() - position - 1` swaps, 1 call to `T`'s destructor, the `size()` 
 > of the vector is decremented by 1.
 >
 > - _Pre-condition_: `size() - 1 >= 0`, `position` is in range `[begin(), end())`.
 > - _Post-condition_: `size() == size_before - 1`, `size() >= 0`.
-> Invariant: the relative order of the elements before and after \p position remains unchanged.
+> - _Invariant_: the relative order of the elements before and after `position` is preserved.
 
 
 ```c++
@@ -1305,7 +1305,7 @@ constexpr iterator erase(const_iterator first, const_iterator last)
   noexcept(is_nothrow_destructible<value_type>{} and is_nothrow_swappable<value_type>{});
 ```
 
-> Stable erases the elements in range [\p first, \p last).
+> Stable erases the elements in range `[first, last)` (preserving the relative order of the elements in the vector).
 >
 > - _Requirements_: none.
 >
@@ -1321,7 +1321,7 @@ constexpr iterator erase(const_iterator first, const_iterator last)
 >
 > - _Constexpr_: if `is_trivial<value_type>`.
 >
-> - _Iterator invalidation_: all iterators pointing to elements after \p first are invalidated.
+> - _Iterator invalidation_: all iterators pointing to elements after `first` are invalidated.
 >
 > - _Effects_: exactly `end() - first - distance(first, last)` swaps, 
 >   `distance(first, last)` calls to `T`'s destructor, the `size()` 
@@ -1329,7 +1329,7 @@ constexpr iterator erase(const_iterator first, const_iterator last)
 >
 > - _Pre-condition_: `size() - distance(first, last) >= 0`, `[first, last)` is a sub-range of `[begin(), end())`.
 > - _Post-condition_: `size() == size_before - distance(first, last)`, `size() >= 0`.
-> Invariant: the relative order of the elements before and after \p position remains unchanged.
+> - _Invariant_: the relative order of the elements before and after `position` remains unchanged.
 
 ```c++
 /// Equivalent to `erase(begin(), end())`. 
