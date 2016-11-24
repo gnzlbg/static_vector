@@ -37,7 +37,7 @@ This container is useful when:
 
 # Design
 
-In this section Frequently Asked Questions are answered, an overview of existing implementations is given, and the proposed design is provided.
+In this section Frequently Asked Questions are answered, an overview of existing implementations is given, and the rationale behind the proposed design is provided.
 
 ## FAQ
 
