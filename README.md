@@ -17,8 +17,8 @@ the vector object itself. This container is a modernized version of
 advantage of C++17.
 
 Its API is almost a 1:1 map of `std::vector<T, A>`'s API. It is a contiguous sequence
-random-access container (with contiguous storage), `O(1)` insertion and removal of
-elements at the end, and `O(size())` insertion and removal otherwise. Like
+random-access container (with contiguous storage), non-amortized `O(1)` insertion and removal of
+elements at the end, and worst case `O(size())` insertion and removal otherwise. Like
 `std::vector`, the elements are initialized on insertion and destroyed on
 removal. It models `ContiguousContainer` and its iterators model
 the `ContiguousIterator` concept.
