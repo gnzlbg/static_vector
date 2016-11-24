@@ -49,42 +49,46 @@ interface.
 
 1. The `Allocator::allocate(N)` member function either succeeds, returning a
 pointer to the storage for `N` elements, or it fails. The current interface 
-allows returning storage for `M` elements where `M > N`, but it doesn't provide
-a way to communicate to the container that this happened, so the container cannot
-make use of it.
+allows returning storage for more elements than requested, but it doesn't provide 
+`Allocators` a way to communicate this situation to the container, so the 
+containers cannot make use of it. 
 
-2. The growth mechanism of `std::vector` is implementation defined. With the current
-`Allocator` interface, a stateful allocator with embedded storage needs to allocate
-memory for `growth_factor() * (Capacity - 1) * sizeof(T)`, since the vector might try
-to growh when inserting the last element. The current `Allocator` 
-interface does not provide a way to communicate the growing behavior to the `Allocator`,
-so an `Allocator` with embedded storage needs to either be coupled to an implementation 
-(resulting in code with different behavior on different platforms), or needs to make a 
-non-portable over-estimation of its capacity. Trying to solve this problem leads to
-other problems, like adding support for `realloc`.
+2. The `Allocator` interface does not provide a way to "extend" the storage in place
 
-3. An `Allocator` with embedded storage for `Capacity * sizeof(T)` elements makes
+3. The growth mechanism of `std::vector` is implementation defined. There is currently
+no way for an `Allocator` with embedded storage to know how much memory a vector will
+try to allocate for a maximum given number of elements at compile time. This information
+is required for allocating a memory buffer large enough to satisfy the growth policy
+of `std::vector` in its worst case. Even if this becomes achievable in a portable way,
+a stateful allocator with embedded storage would still need to allocate
+memory for `growth_factor() * (Capacity - 1)` vector elements to accomodate 
+`std::vector`'s growth policy, which is far from optimal (and thus, zero cost).
+
+4. An `Allocator` with embedded storage for `Capacity * sizeof(T)` elements makes
 storing data members for the `data` pointer and the `capacity` unnecessary in 
-`std::vector` implementation. In the current `Allocator` interface the is no mechanism
+`std::vector` implementation. In the current `Allocator` interface there is no mechanism
 to communicate `std::vector` that storing these data members is unnecessary. 
 
-4. The `Allocator` interface does not specify whether containers should propagate `noexcept`ness
+5. The `Allocator` interface does not specify whether containers should propagate `noexcept`ness
 off `Allocator` member functions into their interfaces. An `Allocator` with embedded storage for
-`Capacity` elements never throws on allocating memory. Whether trying to allocate more memory
-should result in a length / out-of-bounds / bad-alloc / logic error, or precondition violation
-is discussed below, but the current `Allocator` interface has no way to communicate this.
+`Capacity` elements _never throws_ on allocating memory, significantly improving the exception
+safety guarantees of multiple `std::vector` operations. 
 
 Improving the `Allocator` interface to solve issue 1. is enough to make an implementation
 based on `std::vector` with an user-defined `Allocator` be portable (this should probably be
 pursuded in a different proposal) since the `std::vector`constructors could 
 `Allocator::allocate(0)` on construction and directly get memory for`Capacity` elements. 
 However, in order to make this a zero-cost abstraction one would need
-to solve issues 3 and 4 as well. Whether solving these issues is worth pursuing or not is
-still an open problem.
+to solve issues 4 and 5 as well. Whether solving these issues is worth pursuing or not is
+still an open problem. Solving issue 4 to avoid dupplicated copies of the data and capacity
+members of vector could significantly complicate the `Allocator` interface.
 
-The author of this proposal does not think that it will be possible to solve issues 3 and 4 in
-the near future. Still, nothing prevents library implementors to reuse their `std::vector` 
-implementations when implementing `embedded_vector` if they are able to do so. 
+The author of this proposal does not think that it will be possible to solve issues 4 and 5 in
+the near future. Still, standard library implementors are encouraged to reuse their `std::vector` 
+implementations when implementing `embedded_vector` if they are able to do so. Even if that leads
+to a solution to all the issues above, an `embedded_vector` type is still an useful type to have
+in the standard library independently of how it is defined (e.g. as a stand alone type, or as a type
+alias of a `std::vector` with a specific allocator). 
 
 ### Can we reuse `small_vector`?
 
