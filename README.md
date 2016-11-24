@@ -1,4 +1,4 @@
-# embedded_vector 
+# Embedded vector 
 
 > A dynamically-resizable vector with fixed capacity and embedded storage (revision -1)
 
