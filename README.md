@@ -145,6 +145,17 @@ The types `embedded_vector` and `small_vector` have different algorithmic
 complexity and exception-safety guarantees. They solve different problems and
 should be different types. 
 
+### Can we reuse P0494R0 - `contiguous_container` proposal?
+
+The author has not tried but it might be possible to reuse this proposal to implement 
+`embedded_vector` on top of it by defining a new `Storage` type. Note however, that
+the semantics of `contiguous_container` highly depend on the concepts modeled by 
+the `Storage` type. It is not even guaranteed that `contiguous_container` models 
+`DefaultConstructible` (it only does so conditionally, if `Storage` does). So while
+an implementation might be able to reuse `contiguous_container` to implement 
+`embedded_vector`, its interface, or that of its storage, would still need to be 
+specified.
+
 ## Existing practice
 
 There are at least 3 widely used implementations of `embedded_vector`.
