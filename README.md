@@ -1,5 +1,4 @@
-# embedded_vector [![Travis build status][travis-shield]][travis] [![Coveralls.io code coverage][coveralls-shield]][coveralls] [![Docs][docs-shield]][docs]
-
+# embedded_vector 
 
 > A dynamically-resizable vector with fixed capacity and embedded storage (revision -1)
 
