@@ -12,8 +12,9 @@
 
 This paper proposes a dynamically-resizable `vector` with fixed capacity and
 contiguous embedded storage. That is, the elements of the vector are stored within
-the vector object itself. It is based on 
-[`boost::container::static_vector<T, Capacity>`][boost_static_vector].
+the vector object itself. This container is a modernized version of  
+[`boost::container::static_vector<T, Capacity>`][boost_static_vector] that takes 
+advantage of C++17.
 
 Its API is almost a 1:1 map of `std::vector<T, A>`'s API. It is a contiguous sequence
 random-access container (with contiguous storage), `O(1)` insertion and removal of
