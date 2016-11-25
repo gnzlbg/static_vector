@@ -449,9 +449,9 @@ implementation would use virtual functions internally for type-erasure. Devirtua
 in non-trivial programs (multiple TUs) is still not a solved problem (not even
 with the recent advances in LTO in modern compilers).
 
-Alternative types `variant_vector_view/variant_vector<T, MaxCapacity>` could be defined to 
-enable inlining in hot paths by restricting themselves to a set of types, instead of
-providing infinite flexibility like `any_vector_view` would do.
+Alternatively an `any_embedded_vector_view<T>` with reference
+semantics for `embedded_vector`s only can be implemented using the same 
+techniques as `array_view<T>` without introducing virtual dispatch. 
 
 It is possible to implement and propose those types in a future proposal, but 
 doing so is clearly out of this proposal's scope. 
