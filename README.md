@@ -432,11 +432,29 @@ Following names have been considered:
 
 #### Interoperability of embedded vectors with different capacities
 
-A possible backwards-compatible future extension that is not pursued further
-in this paper is providing interoperability of `embedded_vector`s of different
-capacities (e.g. copy construction/assignment/comparison>/swap). Currently,
-other standard containers like `std::array` do not pursue this, and it would
-complicate the exception-safety specification of, e.g., `swap`, significantly. 
+A source of pain when using embedded vectors on API is that the vector `Capacity`
+is part of its type. This is a problem worth solving, can be solved independently
+of this proposal, and in a backwards compatible way with it.
+
+To the author's best knowledge, the best way to solve this problem would be to 
+define an `any_vector_view<T>` and `any_vector<T>` types with reference and value 
+semantics respectively that use concept-based run-time polymorphism to erase 
+the type of the vector. These types would work with any vector-like type and provide
+infinite extensibility. Among the types they could work with are `std::vector`/ `boost::vector`
+with different allocators, and `embedded_vector`s and `small_vector`s of different capacities
+(and allocators for `small_vector`). 
+
+A down-side of such an `any_vector_view/any_vector` type is that its efficient 
+implementation would use virtual functions internally for type-erasure. Devirtualization
+in non-trivial programs (multiple TUs) is still not a solved problem (not even
+with the recent advances in LTO in modern compilers).
+
+Alternative types `variant_vector_view/variant_vector<T, MaxCapacity>` could be defined to 
+enable inlining in hot paths by restricting themselves to a set of types, instead of
+providing infinite flexibility like `any_vector_view` would do.
+
+It is possible to implement and propose those types in a future proposal, but 
+doing so is clearly out of this proposal's scope. 
 
 #### Default initialization
 
