@@ -449,9 +449,10 @@ implementation would use virtual functions internally for type-erasure. Devirtua
 in non-trivial programs (multiple TUs) is still not a solved problem (not even
 with the recent advances in LTO in modern compilers).
 
-Alternatively an `any_embedded_vector_view<T>` with reference
-semantics for `embedded_vector`s only can be implemented using the same 
-techniques as `array_view<T>` without introducing virtual dispatch. 
+An `any_embedded_vector_view<T>` that provides reference
+semantics for `embedded_vector`s can be implemented using the same 
+techniques as `array_view<T>` without introducing virtual dispatch. This would
+solve the pain points of using `embedded_vector<T, Capacity>` on APIs.
 
 It is possible to implement and propose those types in a future proposal, but 
 doing so is clearly out of this proposal's scope. 
