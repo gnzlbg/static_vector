@@ -1419,13 +1419,14 @@ The following holds for the comparison operators:
 
 # Acknowledgments
 
-The authors of Boost.Container's `boost::container::static_vector` (Adam
-Wulkiewicz, Andrew Hundt, and Ion Gaztanaga). Howard Hinnant for libc++
+The following people have significantly contributed to the development of this proposal. 
+First, the authors of Boost.Container's `boost::container::static_vector` (Adam Wulkiewicz, 
+Andrew Hundt, and Ion Gaztanaga), on which this proposal is based. Second, to Howard Hinnant for libc++
 `<algorithm>` and `<vector>` headers, and in particular, for the `<vector>` test
 suite which was extremely useful while prototyping an implementation. Andrzej 
-Krzemieński for providing an example that shows that using tags is better than
+Krzemieński provided an example that shows that using tags is better than
 using static member functions for "special constructors" (like the default initialized 
-constructor). Casey Carter for his invaluable feedback on this proposal.
+constructor). And finally, to Casey Carter for his very detailed invaluable feedback on lots of aspects of this proposal.
 
 # References
 
