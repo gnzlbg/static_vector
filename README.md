@@ -397,7 +397,7 @@ since:
 
 - moving an `embedded_vector` invalidates all iterators,
 - swapping two `embedded_vector`s invalidates all iterators, and 
-- inserting elements into an `embedded_vector` never invalidates iterators.
+- inserting elements at the end of an `embedded_vector` never invalidates iterators.
 
 The following functions can potentially invalidate the iterators of `embedded_vector`s: 
 `resize(n)`, `resize(n, v)`, `pop_back`, `erase`, and `swap`.
@@ -1420,13 +1420,12 @@ The following holds for the comparison operators:
 # Acknowledgments
 
 The following people have significantly contributed to the development of this proposal. 
-First, the authors of Boost.Container's `boost::container::static_vector` (Adam Wulkiewicz, 
-Andrew Hundt, and Ion Gaztanaga), on which this proposal is based. Second, to Howard Hinnant for libc++
-`<algorithm>` and `<vector>` headers, and in particular, for the `<vector>` test
-suite which was extremely useful while prototyping an implementation. Andrzej 
-Krzemieński provided an example that shows that using tags is better than
-using static member functions for "special constructors" (like the default initialized 
-constructor). And finally, to Casey Carter for his very detailed invaluable feedback on lots of aspects of this proposal.
+This proposal is based on Boost.Container's `boost::container::static_vector` and my extensive usage of this class
+over the years. As a consequence the authors of Boost.Container (Adam Wulkiewicz, 
+Andrew Hundt, and Ion Gaztanaga) have had a very significant indirect impact on this proposal. The implementation of libc++ `std::vector` and the libc++ test-suite have been used extensively while prototyping this proposal, such that its author, Howard Hinnant, has had a significant indirect impact on the result of this proposal as well. The following people provided valuable feedback that influenced some aspects of this proposal: Zach Laine and Andrzej 
+Krzemieński (who provided an example that shows that using tags is better than
+using static member functions for "special constructors" like the `default_initialized_t` 
+constructor). But I want to wholeheartedly acknowledge Casey Carter for taking the time to do a very detailed analysis of the whole proposal, which was invaluable and reshaped it in fundamental ways.
 
 # References
 
