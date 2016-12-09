@@ -995,8 +995,7 @@ the following holds:
   - if `new_size < size`:
       - exactly `size - new_size` elements destroyed.
       - all iterators pointing to elements with `position > new_size` are invalidated.
-  - if `new_size > capacity()` the behavior is undefined (a run-time diagnostic in
-    debug builds is encouraged as a QoI issue).
+- _Precondition_: `new_size <= capacity()`.
 
 ## Element / data access
 
@@ -1019,7 +1018,7 @@ the following holds:
 - _Exception safety_: never throws.
 - _Constexpr_: if `is_trivial<value_type>`.
 - _Effects_: none.
-- Pre-conditions: `size() > n` for `operator[]`, `size() > 0` for `front` and `back`.
+- _Pre-conditions_: `size() > n` for `operator[]`, `size() > 0` for `front` and `back`.
 
 
 For the checked element access functions:
