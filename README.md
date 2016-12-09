@@ -303,7 +303,7 @@ The only operations that can actually fail within `embedded_vector<T, Capacity>`
      `pop_back` when `empty()`, `embedded_vector(T, size)`, `embedded_vector(begin, end)`...).
 
   2. Out-of-bounds unchecked access:
-     2.1 `front/back/pop_back` when empty, operator[] (unchecked random-access). 
+     2.1 `front`/`back`/`pop_back` when empty, operator[] (unchecked random-access). 
      2.2  `at` (checked random-access) which can throw `out_of_range` exception.
 
 #### Rationale
@@ -376,7 +376,7 @@ These algorithms provide strong-exception safety guarantee, and if `T`'s special
 
 #### Exception-safety guarantees of unchecked access
 
-Out-of-bounds unchecked access (`front>back>pop_back` when empty, `operator[]`) is undefined behavior
+Out-of-bounds unchecked access (`front`/`back`/`pop_back` when empty, `operator[]`) is undefined behavior
 and a run-time diagnostic is encouraged but left as a Quality of Implementation issue.
 
 These functions provide the strong-exception safety guarantee and are `noexcept(true)`.
