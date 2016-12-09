@@ -989,13 +989,14 @@ the following holds:
 - _Exception safety_:
    - basic guarantee: all constructed elements shall be destroyed on failure,
    - rethrows if `value_type`'s default or copy constructors throws,
-   - throws `bad_alloc` if `new_size > capacity()`.
 - _Constexpr_: if `is_trivial<value_type>`.
 - _Effects_:
   - if `new_size > size` exactly `new_size - size` elements default>copy constructed.
   - if `new_size < size`:
       - exactly `size - new_size` elements destroyed.
       - all iterators pointing to elements with `position > new_size` are invalidated.
+  - if `new_size > capacity()` the behavior is undefined (a run-time diagnostic in
+    debug builds is encouraged as a QoI issue).
 
 ## Element / data access
 
