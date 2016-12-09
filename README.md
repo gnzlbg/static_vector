@@ -145,7 +145,7 @@ The types `embedded_vector` and `small_vector` have different algorithmic
 complexity and exception-safety guarantees. They solve different problems and
 should be different types. 
 
-### Can we reuse P0494R0 - `contiguous_container` proposal?
+### Can we reuse [P0494R0][contiguous_container] - `contiguous_container` proposal?
 
 The author has not tried but it might be possible to reuse this proposal to implement 
 `embedded_vector` on top of it by defining a new `Storage` type. Note however, that
@@ -687,7 +687,7 @@ constexpr embedded_vector(size_type n, const value_type& value);
 
 > Constructs an `embedded_vector` containing `n` copies of `value`.
 >
-> - _Requirements_: `value_type` shall be `CopyInsertable` into `*this`.
+> - _Requirements_: `value_type` shall be `EmplaceConstructible` into `*this` from `*first`.
 >
 > - _Enabled_: if requirements are met.
 >
@@ -1456,3 +1456,4 @@ constructor). But I want to wholeheartedly acknowledge Casey Carter for taking t
 [clump]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0274r0.pdf
 [boostsmallvector]: http://www.boost.org/doc/libs/master/doc/html/boost/container/small_vector.html
 [llvmsmallvector]: http://llvm.org/docs/doxygen/html/classllvm_1_1SmallVector.html
+[contiguous_container]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0494r0.pdf
