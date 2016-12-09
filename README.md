@@ -1452,7 +1452,7 @@ constructor). But I want to wholeheartedly acknowledge Casey Carter for taking t
 [docs]: https://gnzlbg.github.io/embedded_vector
 [folly]: https://github.com/facebook/folly/blob/master/folly/docs/small_vector.md
 [eastl]: https://github.com/questor/eastl/blob/master/fixed_vector.h#L71
-[eastldesign]: https:github.com/questor/eastl/blob/master/doc%2FEASTL%20Design.html#L284
+[eastldesign]: https://github.com/questor/eastl/blob/master/doc/EASTL%20Design.html#L284
 [clump]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0274r0.pdf
 [boostsmallvector]: http://www.boost.org/doc/libs/master/doc/html/boost/container/small_vector.html
 [llvmsmallvector]: http://llvm.org/docs/doxygen/html/classllvm_1_1SmallVector.html
