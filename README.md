@@ -368,7 +368,7 @@ in _undefined behavior_. While providing a run-time diagnostic in debug builds (
 `assertion`) is encouraged, this is a Quality of Implementation issue.
 
 The algorithms that perform insertions are the constructors `embedded_vector(T, size)` and 
-`embedded_vector(begin, end)`, and the member functions `push_back`, `emplace_back`, `insert`, 
+ `embedded_vector(begin, end)`, and the member functions `push_back`, `emplace_back`, `insert`, 
 and `resize`.
 
 These algorithms provide strong-exception safety guarantee, and if `T`'s special member functions or
@@ -588,7 +588,7 @@ constexpr const T* data() const noexcept;
 
 // modifiers:
 template<class... Args>
-  constexpr void emplace_back(Args&&... args);
+  constexpr reference emplace_back(Args&&... args);
 constexpr void push_back(const value_type& x);
 constexpr void push_back(value_type&& x);
 constexpr void pop_back();
@@ -1064,7 +1064,7 @@ For the modifiers:
 
 ```c++
 template<class... Args>
-constexpr void emplace_back(Args&&... args);
+constexpr reference emplace_back(Args&&... args);
 ```
 
 > Construct a new element at the end of the vector in place using `args...`.
