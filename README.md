@@ -1422,7 +1422,7 @@ The following holds for the comparison operators:
 The following people have significantly contributed to the development of this proposal. 
 This proposal is based on Boost.Container's `boost::container::static_vector` and my extensive usage of this class
 over the years. As a consequence the authors of Boost.Container (Adam Wulkiewicz, 
-Andrew Hundt, and Ion Gaztanaga) have had a very significant indirect impact on this proposal. The implementation of libc++ `std::vector` and the libc++ test-suite have been used extensively while prototyping this proposal, such that its author, Howard Hinnant, has had a significant indirect impact on the result of this proposal as well. The following people provided valuable feedback that influenced some aspects of this proposal: Zach Laine and Andrzej 
+Andrew Hundt, and Ion Gaztanaga) have had a very significant indirect impact on this proposal. The implementation of libc++ `std::vector` and the libc++ test-suite have been used extensively while prototyping this proposal, such that its author, Howard Hinnant, has had a significant indirect impact on the result of this proposal as well. The following people provided valuable feedback that influenced some aspects of this proposal: Zach Laine, Rein Halbersma, and Andrzej 
 Krzemieński (who provided an example that shows that using tags is better than
 using static member functions for "special constructors" like the `default_initialized_t` 
 constructor). But I want to wholeheartedly acknowledge Casey Carter for taking the time to do a very detailed analysis of the whole proposal, which was invaluable and reshaped it in fundamental ways.
