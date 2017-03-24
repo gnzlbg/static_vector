@@ -1,4 +1,4 @@
-# Embedded vector 
+# fixed_capacity_vector<T>
 
 > A dynamically-resizable vector with fixed capacity and embedded storage (revision -1)
 
@@ -85,8 +85,8 @@ members of vector could significantly complicate the `Allocator` interface.
 
 The author of this proposal does not think that it will be possible to solve issues 4 and 5 in
 the near future. Still, standard library implementors are encouraged to reuse their `std::vector` 
-implementations when implementing `embedded_vector` if they are able to do so. Even if that leads
-to a solution to all the issues above, an `embedded_vector` type is still an useful type to have
+implementations when implementing `fixed_capacity_vector` if they are able to do so. Even if that leads
+to a solution to all the issues above, an `fixed_capacity_vector` type is still an useful type to have
 in the standard library independently of how it is defined (e.g. as a stand alone type, or as a type
 alias of a `std::vector` with a specific allocator). 
 
@@ -107,24 +107,24 @@ for the case in which _only_ embedded storage is desired. This result in a type 
 slightly different but noticeable semantics (in the spirit of `vector<bool>`). The
 only library that offers it as a completely different type is Boost.Container.
 
-The main difference between `small_vector` and `embedded_vector` is:
+The main difference between `small_vector` and `fixed_capacity_vector` is:
 
 - `small_vector` uses embedded storage up-to `N` elements, and then falls back to
-  `Allocator`, while `embedded_vector` _only_ provides embedded storage.
+  `Allocator`, while `fixed_capacity_vector` _only_ provides embedded storage.
 
-As a consequence, for the use cases of `embedded_vector`:
+As a consequence, for the use cases of `fixed_capacity_vector`:
 
 - `small_vector` cannot provide the same exception safety guarantees than
-  `embedded_vector` because it sometimes allocates memory, which `embedded_vector`
+  `fixed_capacity_vector` because it sometimes allocates memory, which `fixed_capacity_vector`
   never does.
 
-- `small_vector` cannot provide the same reliability than `embedded_vector`,
+- `small_vector` cannot provide the same reliability than `fixed_capacity_vector`,
   because the algorithmic complexity of `small_vector` operations like move
   construction/assignment depends on whether the elements are allocated on the
   heap (swap pointer and size) or embedded within the vector object itself (must 
   always copy the elements).
 
-- `small_vector` cannot be as efficient as `embedded_vector`. It must discriminate 
+- `small_vector` cannot be as efficient as `fixed_capacity_vector`. It must discriminate 
   between the different storage location of its elements (embedded within the vector
   object or owned by the   allocator). A part of its methods must, at run-time, branch 
   to a different code-path depending on the active storage scheme.
@@ -135,37 +135,37 @@ has different complexity and exception-safety guarantees than `small_vector`'s
 with `Allocator::max_size() > 0`.
 
 That is, to make `small_vector` competitive in those situations in which 
-`embedded_vector` is required is to special case `small_vector` for a particular
-allocator type and in that case provide an `embedded_vector` implementation (with
+`fixed_capacity_vector` is required is to special case `small_vector` for a particular
+allocator type and in that case provide an `fixed_capacity_vector` implementation (with
 slightly different semantics). 
 
 ### Should we special case `small_vector` for embedded-storage-only like EASTL and Folly do?
 
-The types `embedded_vector` and `small_vector` have different algorithmic
+The types `fixed_capacity_vector` and `small_vector` have different algorithmic
 complexity and exception-safety guarantees. They solve different problems and
 should be different types. 
 
 ### Can we reuse [P0494R0][contiguous_container] - `contiguous_container` proposal?
 
 The author has not tried but it might be possible to reuse this proposal to implement 
-`embedded_vector` on top of it by defining a new `Storage` type. Note however, that
+`fixed_capacity_vector` on top of it by defining a new `Storage` type. Note however, that
 the semantics of `contiguous_container` highly depend on the concepts modeled by 
 the `Storage` type. It is not even guaranteed that `contiguous_container` models 
 `DefaultConstructible` (it only does so conditionally, if `Storage` does). So while
 an implementation might be able to reuse `contiguous_container` to implement 
-`embedded_vector`, its interface, or that of its storage, would still need to be 
+`fixed_capacity_vector`, its interface, or that of its storage, would still need to be 
 specified.
 
 ## Existing practice
 
-There are at least 3 widely used implementations of `embedded_vector`.
+There are at least 3 widely used implementations of `fixed_capacity_vector`.
 
 This proposal is strongly inspired by Boost.Container, which offers
 [`boost::container::static_vector<T, Capacity>` (1.59)][boost_static_vector],
 and, as a different type, also offers `boost::container::small_vector<T, N, Allocator>`
 as well.
 
-The other two libraries that implement `embedded_vector` are [Folly][folly] and
+The other two libraries that implement `fixed_capacity_vector` are [Folly][folly] and
 [EASTL][eastl]. Both of these libraries implement it as a special case of
 `small_vector` (which in both of these libraries has 4 template parameters).
 
@@ -186,24 +186,24 @@ Folly implements `small_vector<T, N, NoHeap, size_type>`, where the tag type
 `NoHeap` is used to switch off heap-fall back. Folly allows customizing the 
 `size_type` of `small_vector`. No rationale for this design decision is available
 in the documentation. A different `size_type` can potentially be used to reduce 
-`embedded_vector`s memory requirements.
+`fixed_capacity_vector`s memory requirements.
 
 ## Proposed design and rationale
 
 The current design follows that of `boost::container::static_vector<T,
 Capacity>` closely.
 
-It introduces a new type `std::experimental::embedded_vector<T, Capacity>` in the
-`<experimental/embedded_vector>` header. It is a pure library extension to the C++ 
+It introduces a new type `std::experimental::fixed_capacity_vector<T, Capacity>` in the
+`<experimental/fixed_capacity_vector>` header. It is a pure library extension to the C++ 
 standard library.
 
-> `embedded_vector` is a dynamically-resizable contiguous random-access sequence
+> `fixed_capacity_vector` is a dynamically-resizable contiguous random-access sequence
 > container with `O(1)` insert/erase at the end, and `O(size())` insert/erase otherwise.
 > Its elements are stored within the vector object itself. It models `ContiguousContainer`
 > and its iterators model the `ContiguousIterator` concept.
 
 A prototype implementation of this proposal is provided for standardization
-purposes: [`http://github.com/gnzlbg/embedded_vector`][embedded_vector].
+purposes: [`http://github.com/gnzlbg/embedded_vector`][fixed_capacity_vector].
 
 The main drawback of introducing a new type is, as the
 [design document of the EASTL][eastldesign] points out, increased code size.
@@ -220,33 +220,33 @@ throws the behavior is undefined.
 
 ### Storage/Memory Layout
 
-Specializations of `embedded_vector<T, Capacity>` model the `ContiguousContainer` concept.
+Specializations of `fixed_capacity_vector<T, Capacity>` model the `ContiguousContainer` concept.
 
 The elements of the vector are properly aligned to an `alignof(T)` memory address.
 
-The `embedded_vector<T, Capacity>::size_type` is the smallest unsigned integer type
+The `fixed_capacity_vector<T, Capacity>::size_type` is the smallest unsigned integer type
 that can represent `Capacity`.
 
 If the container is not empty, the member function `data()` returns a pointer such that
 `[data(), data() + size())` is a valid range and `data() == addressof(front()) == addressof(*begin())`.
 Otherwise, the result of `data()` is unspecified.
   
-**Note**: `embedded_vector<T, Capacity>` cannot be an aggregate since it provides
+**Note**: `fixed_capacity_vector<T, Capacity>` cannot be an aggregate since it provides
 user-defined constructors.
 
 #### Zero-sized
 
-It is required that `is_empty<embedded_vector<T, 0>>::value == true` and
-that `swap(embedded_vector<T, 0>&, embedded_vector<T, 0>&)` is `noexcept(true)`.
+It is required that `is_empty<fixed_capacity_vector<T, 0>>::value == true` and
+that `swap(fixed_capacity_vector<T, 0>&, fixed_capacity_vector<T, 0>&)` is `noexcept(true)`.
 
 ### Move semantics
 
-The move semantics of `embedded_vector<T, Capacity>` are equal to those of 
+The move semantics of `fixed_capacity_vector<T, Capacity>` are equal to those of 
 `std::array<T, Size>`. That is, after
 
 ```c++
-embedded_vector a(10);
-embedded_vector b(std::move(a));
+fixed_capacity_vector a(10);
+fixed_capacity_vector b(std::move(a));
 ```
 
 the elements of `a` have been moved element-wise into `b`, the elements of `a`
@@ -263,20 +263,20 @@ is `false`).
 
 ### Constexpr-support
 
-The whole API of `embedded_vector<T, Capacity>` is `constexpr` if `is_trivial<T>`
+The whole API of `fixed_capacity_vector<T, Capacity>` is `constexpr` if `is_trivial<T>`
 is true.
 
-Implementations can achieve this by using a C array for `embedded_vector`'s storage
-without altering the guarantees of `embedded_vector`'s methods in an observable way.
+Implementations can achieve this by using a C array for `fixed_capacity_vector`'s storage
+without altering the guarantees of `fixed_capacity_vector`'s methods in an observable way.
 
-For example, `embedded_vector(N)` constructor guarantees "exactly `N` calls to 
-`T`'s default constructor". Strictly speaking, `embedded_vector`'s constructor
+For example, `fixed_capacity_vector(N)` constructor guarantees "exactly `N` calls to 
+`T`'s default constructor". Strictly speaking, `fixed_capacity_vector`'s constructor
 for trivial types will construct a C array of `Capacity` length. However, because
 `is_trivial<T>` is true, the number of constructor or destructor calls is not
 observable.
 
 This introduces an additional implementation cost which the author believes is
-worth it because similarly to `std::array`, `embedded_vector`s of trivial types 
+worth it because similarly to `std::array`, `fixed_capacity_vector`s of trivial types 
 are incredibly common. 
 
 Note: this type of `constexpr` support does not require any core language changes.
@@ -286,7 +286,7 @@ paper does not propose any of these changes.
 
 ### Explicit instantiatiability
 
-The class `embedded_vector<T, Capacity>` can be explicitly instantiated for
+The class `fixed_capacity_vector<T, Capacity>` can be explicitly instantiated for
 all combinations of `T` and `Capacity` if `T` satisfied the container preconditions 
 (i.e. `T` models `Destructible<T>`).
 
@@ -294,13 +294,13 @@ all combinations of `T` and `Capacity` if `T` satisfied the container preconditi
 
 #### What could possibly go wrong?
 
-The only operations that can actually fail within `embedded_vector<T, Capacity>` are:
+The only operations that can actually fail within `fixed_capacity_vector<T, Capacity>` are:
 
   1. `T` special member functions and swap can only fail due
      to throwing constructors/assignment/destructors/swap of `T`. 
 
   2. Mutating operations exceeding the capacity (`push_back`, `insert`, `emplace`, 
-     `pop_back` when `empty()`, `embedded_vector(T, size)`, `embedded_vector(begin, end)`...).
+     `pop_back` when `empty()`, `fixed_capacity_vector(T, size)`, `fixed_capacity_vector(begin, end)`...).
 
   2. Out-of-bounds unchecked access:
      2.1 `front`/`back`/`pop_back` when empty, operator[] (unchecked random-access). 
@@ -308,24 +308,24 @@ The only operations that can actually fail within `embedded_vector<T, Capacity>`
 
 #### Rationale
 
-Three points influence the design of `embedded_vector` with respect to its exception-safety guarantees:
+Three points influence the design of `fixed_capacity_vector` with respect to its exception-safety guarantees:
 
 1. Making it a zero-cost abstraction.
 2. Making it safe to use.
 3. Making it easy to learn and use. 
 
-The best way to make `embedded_vector` easy to learn is to make it as similar to `std::vector` 
+The best way to make `fixed_capacity_vector` easy to learn is to make it as similar to `std::vector` 
 as possible. However,`std::vector` allocates memory using an `Allocator`, whose allocation 
 functions can throw, e.g., a `std::bad_alloc` exception, e.g., on Out Of Memory. 
 
-However, `embedded_vector` never allocates memory since its `Capacity` is fixed at compile-time.
+However, `fixed_capacity_vector` never allocates memory since its `Capacity` is fixed at compile-time.
 
-The main question then becomes, what should `embedded_vector` do when its `Capacity` is exceeded?
+The main question then becomes, what should `fixed_capacity_vector` do when its `Capacity` is exceeded?
 
 Two main choices were identified:
 
 1. Make it throw an exception. 
-2. Make not exceeding the `Capacity` of an `embedded_vector` a precondition on its mutating method (and thus exceeding it undefined-behavior).
+2. Make not exceeding the `Capacity` of an `fixed_capacity_vector` a precondition on its mutating method (and thus exceeding it undefined-behavior).
 
 While throwing an exception makes the interface more similar to that of `std::vector` and safer to use, it does introduces a performance cost since it means that all the mutating methods must check for this condition. It also raises the question: which exception? It cannot be `std::bad_alloc`, because nothing is being allocated.
 It should probably be either `std::out_of_bounds` or `std::logic_error`, but if exceeding the capacity is a logic error, why don't we make it a precondition instead?
@@ -336,39 +336,39 @@ Making exceeding the capacity a precondition has some advantages:
 
 - It allows the methods to be conditionally marked `noexcept(true)` when `T` is `std::is_nothrow_default_constructible/copy_assignable>...`
 
-- It makes `embedded_vector` a zero-cost abstraction by allowing the user to avoid unnecessary checks (e.g. hoisting checks out of a loop).
+- It makes `fixed_capacity_vector` a zero-cost abstraction by allowing the user to avoid unnecessary checks (e.g. hoisting checks out of a loop).
 
 And this advantages come at the expense of safety. It is possible to have both by making the methods checked by default, but offering `unchecked_xxx` alternatives that omit the checks which increases the API surface.
 
-Given this design space, this proposal opts for making not exceeding the `Capacity` of an `embedded_vector` a precondition. It still allows some safety by allowing implementations to make the operations checked in the debug builds of their standard libraries, while providing very strong exception safety guarantees (and conditional `noexcept(true)`), which makes `embedded_vector` a true zero-cost abstraction.
+Given this design space, this proposal opts for making not exceeding the `Capacity` of an `fixed_capacity_vector` a precondition. It still allows some safety by allowing implementations to make the operations checked in the debug builds of their standard libraries, while providing very strong exception safety guarantees (and conditional `noexcept(true)`), which makes `fixed_capacity_vector` a true zero-cost abstraction.
 
-The final question to be answered is if we should mark the mutating methods to be conditionally `noexcept(true)` or not when it is safe to do so. The current proposal does so since it is easier to remove `noexcept(...)` than to add it, and since this should allow the compiler to generate better code, which is relevant for some fields in which `embedded_vector` is very useful, like in embedded systems programming. 
+The final question to be answered is if we should mark the mutating methods to be conditionally `noexcept(true)` or not when it is safe to do so. The current proposal does so since it is easier to remove `noexcept(...)` than to add it, and since this should allow the compiler to generate better code, which is relevant for some fields in which `fixed_capacity_vector` is very useful, like in embedded systems programming. 
 
 #### Precondition on `T` modelling `Destructible`
 
 If `T` models `Destructible` (that is, if `T` destructor never throws), 
-`embedded_vector<T, Capacity>` provides at least the basic-exception guarantee.
-If `T` does not model `Destructible`, the behavior of `embedded_vector` is undefined. 
+`fixed_capacity_vector<T, Capacity>` provides at least the basic-exception guarantee.
+If `T` does not model `Destructible`, the behavior of `fixed_capacity_vector` is undefined. 
 Implementations are encouraged to rely on `T` modeling `Destructible` even
 if `T`'s destructor is `noexcept(false)`. 
 
 #### Exception-safety guarantees of special member functions and swap
 
 If `T`'s special member functions and/or swap are `noexcept(true)`, so are the respective
-special member functions and/or swap operations of `embedded_vector` which then provide the
+special member functions and/or swap operations of `fixed_capacity_vector` which then provide the
 strong-exception guarantee. They provide the basic-exception guarantee otherwise. 
 
 #### Exception-safety guarantees of algorithms that perform insertions
 
-The capacity of `embedded_vector` (a fixed-capacity vector) is statically known at 
+The capacity of `fixed_capacity_vector` (a fixed-capacity vector) is statically known at 
 compile-time, that is, exceeding it is a logic error.
 
-As a consequence, inserting elements beyond the `Capacity` of an `embedded_vector` results
+As a consequence, inserting elements beyond the `Capacity` of an `fixed_capacity_vector` results
 in _undefined behavior_. While providing a run-time diagnostic in debug builds (e.g. via an 
 `assertion`) is encouraged, this is a Quality of Implementation issue.
 
-The algorithms that perform insertions are the constructors `embedded_vector(T, size)` and 
- `embedded_vector(begin, end)`, and the member functions `push_back`, `emplace_back`, `insert`, 
+The algorithms that perform insertions are the constructors `fixed_capacity_vector(T, size)` and 
+ `fixed_capacity_vector(begin, end)`, and the member functions `push_back`, `emplace_back`, `insert`, 
 and `resize`.
 
 These algorithms provide strong-exception safety guarantee, and if `T`'s special member functions or
@@ -388,22 +388,22 @@ exception on out-of-bounds. It is `noexcept(false)`.
 
 ### Iterators 
 
-The iterators of `embedded_vector<T, Capacity>` model the `ContiguousIterator` concept.
+The iterators of `fixed_capacity_vector<T, Capacity>` model the `ContiguousIterator` concept.
 
 #### Iterator invalidation
 
 The iterator invalidation rules are different than those for `std::vector`,
 since:
 
-- moving an `embedded_vector` invalidates all iterators,
-- swapping two `embedded_vector`s invalidates all iterators, and 
-- inserting elements at the end of an `embedded_vector` never invalidates iterators.
+- moving an `fixed_capacity_vector` invalidates all iterators,
+- swapping two `fixed_capacity_vector`s invalidates all iterators, and 
+- inserting elements at the end of an `fixed_capacity_vector` never invalidates iterators.
 
-The following functions can potentially invalidate the iterators of `embedded_vector`s: 
+The following functions can potentially invalidate the iterators of `fixed_capacity_vector`s: 
 `resize(n)`, `resize(n, v)`, `pop_back`, `erase`, and `swap`.
 
 The following functions from the "possible future extensions" can potentially
-invalidate the iterators of `embedded_vector`s: `resize_default_initialized(n)`,
+invalidate the iterators of `fixed_capacity_vector`s: `resize_default_initialized(n)`,
 `resize_unchecked(n)`, `resize_unchecked(n, v)`, and
 `resize_default_initialized_unchecked(n)`.
 
@@ -411,11 +411,10 @@ invalidate the iterators of `embedded_vector`s: `resize_default_initialized(n)`,
 
 Following names have been considered: 
 
+- `fixed_capacity_vector`: this clearly indicates what this container is all about. 
 - `embedded_vector<T, Capacity>`: since the elements are "embedded" within the vector object itself. 
    Sadly, the name `embedded` is overloaded, e.g., embedded systems, and while in this domain this container
    is very useful, it is not the only domain in which it is useful. 
-
-- `fixed_capacity_vector`: a vector with fixed capacity, long name, but clearly indicates what this is.
 - `static_vector` (Boost.Container): due to "static" / compile-time allocation of the elements. The term 
    `static` is, however, overloaded in C++ (e.g. `static` memory?).
 - `inline_vector`: the elements are stored "inline" within the vector object itself. The term `inline` is,
@@ -426,7 +425,7 @@ Following names have been considered:
 
 ### Impact on the standard
 
-`embedded_vector<T, Capacity>` is a pure library extension to the C++ standard library and can be implemented by any C++11 compiler in a separate header `<embedded_vector>`. 
+`fixed_capacity_vector<T, Capacity>` is a pure library extension to the C++ standard library and can be implemented by any C++11 compiler in a separate header `<fixed_capacity_vector>`. 
 
 ### Future extensions 
 
@@ -441,7 +440,7 @@ define an `any_vector_view<T>` and `any_vector<T>` types with reference and valu
 semantics respectively that use concept-based run-time polymorphism to erase 
 the type of the vector. These types would work with any vector-like type and provide
 infinite extensibility. Among the types they could work with are `std::vector`/ `boost::vector`
-with different allocators, and `embedded_vector`s and `small_vector`s of different capacities
+with different allocators, and `fixed_capacity_vector`s and `small_vector`s of different capacities
 (and allocators for `small_vector`). 
 
 A down-side of such an `any_vector_view/any_vector` type is that its efficient 
@@ -449,17 +448,17 @@ implementation would use virtual functions internally for type-erasure. Devirtua
 in non-trivial programs (multiple TUs) is still not a solved problem (not even
 with the recent advances in LTO in modern compilers).
 
-An `any_embedded_vector_view<T>` that provides reference
-semantics for `embedded_vector`s can be implemented using the same 
+An `any_fixed_capacity_vector_view<T>` that provides reference
+semantics for `fixed_capacity_vector`s can be implemented using the same 
 techniques as `array_view<T>` without introducing virtual dispatch. This would
-solve the pain points of using `embedded_vector<T, Capacity>` on APIs.
+solve the pain points of using `fixed_capacity_vector<T, Capacity>` on APIs.
 
 It is possible to implement and propose those types in a future proposal, but 
 doing so is clearly out of this proposal's scope. 
 
 #### Default initialization
 
-The size-modifying operations of the `embedded_vector` that do not require a value
+The size-modifying operations of the `fixed_capacity_vector` that do not require a value
 also have the following analogous counterparts that perform default
 initialization instead of value initialization:
 
@@ -468,9 +467,9 @@ struct default_initialized_t {};
 inline constexpr default_initialized_t default_initialized{};
 
 template <typename Value, std::size_t Capacity>
-struct embedded_vector {
+struct fixed_capacity_vector {
     // ...
-    constexpr embedded_vector(default_initialized_t, size_type n);
+    constexpr fixed_capacity_vector(default_initialized_t, size_type n);
     constexpr void resize(default_initialized_t, size_type sz);
     constexpr void resize_unchecked(default_initialized_t, size_type sz);
 };
@@ -486,21 +485,21 @@ In the current proposal exceeding the capacity on the mutating operations is con
 Consider:
 
 ```c++
-using vec_t = embedded_vector<std::size_t, N>;
+using vec_t = fixed_capacity_vector<std::size_t, N>;
 vec_t v0(2);  // two-elements: 0, 0
 vec_t v1{2};  // one-element: 2
 vec_t v2(2, 1);  // two-elements: 1, 1
 vec_t v3{2, 1};  // two-elements: 2, 1
 ```
 
-A way to avoid this problem introduced by initializer list and braced initialization, present in the interface of `embedded_vector` and `std::vector`, would be to use a tagged-constructor of the form `embedded_vector(with_size_t, std::size_t N, T const& t = T())` to indicate that constructing a vector with `N` elements is inteded. For `std::vector`,
+A way to avoid this problem introduced by initializer list and braced initialization, present in the interface of `fixed_capacity_vector` and `std::vector`, would be to use a tagged-constructor of the form `fixed_capacity_vector(with_size_t, std::size_t N, T const& t = T())` to indicate that constructing a vector with `N` elements is inteded. For `std::vector`,
 a similar constructor using a `with_capacity_t` and maybe combinations thereof might make sense. This proposal 
 does not propose any of these, but this is a problem that should definetely be solved in STL2, and if it solved,
-it should be solved for `embedded_vector` as well. 
+it should be solved for `fixed_capacity_vector` as well. 
 
 # Technical specification
 
-This enhancement is a pure header-only addition to the C++ standard library as the `<experimental/embedded_vector>` header. 
+This enhancement is a pure header-only addition to the C++ standard library as the `<experimental/fixed_capacity_vector>` header. 
 
 ```c++
 template<typename T, std::size_t C /* Capacity */>
