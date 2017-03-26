@@ -536,19 +536,19 @@ struct inline_vector
   /// can always throw if other.size() > capacity() which can only happen if M
   /// >
   /// Capacity
-  template <std::size_t M, enable_if_t<(Capacity != M)>>
+  template <std::size_t M, typename = enable_if_t<(Capacity != M)>>
   constexpr inline_vector(inline_vector<T, M> const& other) noexcept(
    M <= Capacity and is_nothrow_copy_constructible<T>{}
    and is_nothrow_copy_assignable<T>{}) {
     using std::begin;
     using std::end;
-    insert(begin(), begin(other), end(other));
+    insert(this->begin(), begin(other), end(other));
   }
 
   /// can always throw if other.size() > capacity() which can only happen if M
   /// >
   /// Capacity
-  template <std::size_t M, enable_if_t<(Capacity != M)>>
+  template <std::size_t M, typename = enable_if_t<(Capacity != M)>>
   constexpr inline_vector(inline_vector<T, M>&& other) noexcept(
    M <= Capacity and is_nothrow_move_constructible<T>{}
    and is_nothrow_move_assignable<T>{}) {
@@ -614,17 +614,17 @@ struct inline_vector
   }
 
   /// TODO: conditionally noexcept
-  template <std::size_t M, enable_if_t<(Capacity != M)>>
+  template <std::size_t M, typename = enable_if_t<(Capacity != M)>>
   constexpr inline_vector& operator=(inline_vector<T, M> const& other) noexcept(
    is_nothrow_copy_constructible<T>{} and is_nothrow_copy_assignable<T>{}) {
     using std::begin;
     using std::end;
     clear();
-    insert(begin(), begin(other), end(other));
+    insert(this->begin(), begin(other), end(other));
     return *this;
   }
   /// TODO: conditionally noexcept
-  template <std::size_t M, enable_if_t<(Capacity != M)>>
+  template <std::size_t M, typename = enable_if_t<(Capacity != M)>>
   constexpr inline_vector& operator=(inline_vector<T, M>&& other) noexcept(
    is_nothrow_move_assignable<T>{} and is_nothrow_move_constructible<T>{}) {
     using std::begin;
