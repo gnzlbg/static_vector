@@ -1,5 +1,5 @@
 ---
-Checks:          '-*,clang-analyzer-*,-clang-analyzer-alpha*,readability-identifier-naming,google-*,-google-build-using-namespace,-google-build-namespaces,-google-explicit-constructor,-google-readability-function-size,-google-readability-todo,-google-runtime-operator,-google-runtime-int,llvm-*,-llvm-include-order,modernize-*,readability-*,-readability-function-size,-readability-named-parameter,misc-*,-misc-noexcept-move-constructor'
+Checks:          '*,-llvm-include-order'
 HeaderFilterRegex: '.*'
 AnalyzeTemporaryDtors: true
 CheckOptions:

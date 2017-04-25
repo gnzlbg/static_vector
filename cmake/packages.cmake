@@ -1,14 +1,6 @@
 # Copyright Gonzalo Brito Gadeschi 2015
 # Distributed under the Boost Software License, Version 1.0.
 # (See accompanying file LICENSE.md or copy at http://boost.org/LICENSE_1_0.txt)
-#
-# Search for packages.
-#
-# Behavior when the package is found or not is customized at the
-# point where the package is required.
-
-# Target for fetching packages
-add_custom_target(fetch_packages)
 
 # Git: parses current project commit
 find_package(Git)
