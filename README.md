@@ -10,7 +10,19 @@
 
 **Author**: Gonzalo Brito Gadeschi.
 
-# 1. Introduction
+# Table of contents
+
+- [1. Introduction](#INTRODUCTION)
+- [2. Motivation](#MOTIVATION)
+- [3. Design](#DESIGN)
+  - [3.1 FAQ](#FAQ)
+  - [3.2 Existing practice](#PRACTICE)
+  - [3.3 Proposed design and rationale](#RATIONALE)
+- [4. Technical Specification](#TECHNICAL_SPECIFICATION)
+- [5. Acknowledgments](#ACKNOWLEDGEMENTS)
+- [6. References](#REFERENCES)
+
+# <a id="INTRODUCTION"></a>1. Introduction
 
 This paper proposes a dynamically-resizable `vector` with fixed capacity and
 contiguous embedded storage. That is, the elements of the vector are stored
@@ -25,7 +37,7 @@ insertion and removal otherwise. Like `std::vector`, the elements are
 initialized on insertion and destroyed on removal. It models
 `ContiguousContainer` and its iterators model the `ContiguousIterator` concept.
 
-# 2. Motivation
+# <a id="MOTIVATION"></a>2. Motivation
 
 This container is useful when:
 
@@ -37,13 +49,13 @@ This container is useful when:
 - a dynamic resizable array is required within `constexpr` functions, 
 - full control over the storage location of the vector elements is required.
 
-# 3. Design
+# <a id="DESIGN"></a>3. Design
 
 In this section Frequently Asked Questions are answered, an overview of existing
 implementations is given, and the rationale behind the proposed design is
 provided.
 
-## 3.1 FAQ
+## <a id="FAQ"></a>3.1 FAQ
 
 ### 3.1.1 Can we reuse `std::vector` with a custom allocator? 
 
@@ -160,7 +172,7 @@ an implementation might be able to reuse `contiguous_container` to implement
 `fixed_capacity_vector`, its interface, or that of its storage, would still need to be 
 specified.
 
-## 3.2 Existing practice
+## <a id="PRACTICE"></a>3.2 Existing practice
 
 There are at least 3 widely used implementations of `fixed_capacity_vector`.
 
@@ -192,7 +204,7 @@ Folly implements `small_vector<T, N, NoHeap, size_type>`, where the tag type
 in the documentation. A different `size_type` can potentially be used to reduce 
 `fixed_capacity_vector`s memory requirements.
 
-## 3.3 Proposed design and rationale
+## <a id="RATIONALE"></a>3.3 Proposed design and rationale
 
 The current design follows that of `boost::container::static_vector<T,
 Capacity>` closely.
@@ -533,7 +545,7 @@ Note: a static member member function, e.g.,
 tagged-constructor because copy elision not work when the returned value is
 perfect-forwarded to the destination object.
 
-# 4. Technical specification
+# <a id="TECHNICAL_SPECIFICATION"></a>4. Technical specification
 
 This enhancement is a pure header-only addition to the C++ standard library as
 the `<experimental/fixed_capacity_vector>` header.
@@ -1642,7 +1654,7 @@ The following holds for the comparison operators:
 
 Note: the comparison operators have no preconditions, hence they have wide contracts, and this proposal makes them noexcept when the corresponding operator (e.g. `<`) for `value_type` is `noexcept(true)`.
 
-# 5. Acknowledgments
+# <a id="ACKNOWLEDGEMENTS"></a>5. Acknowledgments
 
 The following people have significantly contributed to the development of this
 proposal. This proposal is based on Boost.Container's
@@ -1660,7 +1672,7 @@ better than using static member functions for "special constructors" like the
 Casey Carter for taking the time to do a very detailed analysis of the whole
 proposal, which was invaluable and reshaped it in fundamental ways.
 
-# 6. References
+# <a id="REFERENCES"></a>6. References
 
 - [0] [Boost.Container::static_vector][boost_static_vector]: http://www.boost.org/doc/libs/1_59_0/doc/html/boost/container/static_vector.html .
   - Discussions in the Boost developers mailing list:
