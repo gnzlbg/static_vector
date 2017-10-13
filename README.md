@@ -477,7 +477,14 @@ struct fixed_capacity_vector {
 
 #### Unchecked mutating operations
 
-In the current proposal exceeding the capacity on the mutating operations is considered a logic-error and results in undefined behavior, which allows implementations to cheaply provide an assertion in debug builds without introducing checks in release builds. If a future revision of this paper changes this to an alternative solution that has an associated cost for checking the invariant, it might be worth it to consider adding support to unchecked mutating operations like `resize_unchecked`,`push_back_unchecked`, `assign_unchecked`, `emplace`, and `insert`.
+In the current proposal exceeding the capacity on the mutating operations is
+considered a logic-error and results in undefined behavior, which allows
+implementations to cheaply provide an assertion in debug builds without
+introducing checks in release builds. If a future revision of this paper changes
+this to an alternative solution that has an associated cost for checking the
+invariant, it might be worth it to consider adding support to unchecked mutating
+operations like `resize_unchecked`,`push_back_unchecked`, `assign_unchecked`,
+`emplace`, and `insert`.
 
 
 #### `with_size` / `with_capacity` constructors
@@ -492,10 +499,20 @@ vec_t v2(2, 1);  // two-elements: 1, 1
 vec_t v3{2, 1};  // two-elements: 2, 1
 ```
 
-A way to avoid this problem introduced by initializer list and braced initialization, present in the interface of `fixed_capacity_vector` and `std::vector`, would be to use a tagged-constructor of the form `fixed_capacity_vector(with_size_t, std::size_t N, T const& t = T())` to indicate that constructing a vector with `N` elements is inteded. For `std::vector`,
-a similar constructor using a `with_capacity_t` and maybe combinations thereof might make sense. This proposal 
-does not propose any of these, but this is a problem that should definetely be solved in STL2, and if it solved,
-it should be solved for `fixed_capacity_vector` as well. 
+A way to avoid this problem introduced by initializer list and braced
+initialization, present in the interface of `fixed_capacity_vector` and
+`std::vector`, would be to use a tagged-constructor of the form
+`fixed_capacity_vector(with_size_t, std::size_t N, T const& t = T())` to
+indicate that constructing a vector with `N` elements is inteded. For
+`std::vector`, a similar constructor using a `with_capacity_t` and maybe
+combinations thereof might make sense. This proposal does not propose any of
+these, but this is a problem that should definetely be solved in STL2, and if it
+solved, it should be solved for `fixed_capacity_vector` as well.
+
+Note: a static member member function, e.g.,
+`fixed_capacity_vector::with_size(N, T)` is a worse solution than using a
+tagged-constructor because copy elision not work when the returned value is
+perfect-forwarded to the destination object.
 
 # Technical specification
 
