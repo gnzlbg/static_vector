@@ -556,7 +556,7 @@ perfect-forwarded to the destination object.
 # <a id="TECHNICAL_SPECIFICATION"></a>4. Technical specification
 
 This enhancement is a pure header-only addition to the C++ standard library as
-the `<experimental/fixed_capacity_vector>` header.
+the `<experimental/fixed_capacity_vector>` header. It belongs in the "Sequence containers" part of the "Containers library".
 
 ```c++
 template<typename T, std::size_t C /* Capacity */>
