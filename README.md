@@ -711,9 +711,15 @@ constexpr bool operator>=(const fixed_capacity_vector<T, Capacity>& a, const fix
 template <typename T, std::size_t Capacity>
 constexpr void swap(fixed_capacity_vector<T, Capacity>&, fixed_capacity_vector<T, Capacity>&)
   noexcept(is_nothrow_swappable<T>{});
+  
+}  // namespace std
 ```
 
-## <a id="CONSTRUCTION"></a>4.1 Construction
+- 3. An incomplete type `T` may be used when instantiating vector. `T` shall be
+complete before any member of the resulting specialization of vector is
+referenced.
+
+## <a id="CONSTRUCTION"></a>4.1 `fixed_capacity_vector` constructors
 
 ---
 
@@ -721,24 +727,18 @@ constexpr void swap(fixed_capacity_vector<T, Capacity>&, fixed_capacity_vector<T
 constexpr fixed_capacity_vector() noexcept;
 ```
 
-> Constructs an empty `fixed_capacity_vector`.
+> - _Effects_: constructs an empty `fixed_capacity_vector`.
 >
-> - _Requirements_: none.
->
-> - _Enabled_: always.
->
-> - _Complexity_:
->   - time: O(1),
->   - space: O(1).
->
-> - _Exception safety_: `noexcept` always.
+> - _Complexity_: Constant.
+
+Notes (not part of the specification):
+
+> - _Exception safety_: `noexcept` always, wide contract.
 >
 > - _Constexpr_: always.
 >
 > - _Iterator invalidation_: none.
 >
-> - _Effects_: none.
-> 
 > - _Post-condition_: `size() == 0`.
 
 ---
@@ -747,28 +747,26 @@ constexpr fixed_capacity_vector() noexcept;
 constexpr explicit fixed_capacity_vector(size_type n);
 ```
 
-> Constructs an `fixed_capacity_vector` containing `n` value-initialized elements.
+> - _Effects_: constructs a `fixed_capacity_vector` with `n` default-inserted elements.
 >
-> - _Requirements_: `value_type` shall be `DefaultInsertable` into `*this`.
+> - _Requires_: `value_type` shall be `DefaultInsertable` into `*this`.
 >
-> - _Enabled_: if requirements are met.
+> - _Complexity_: Linear in `n`.
 >
-> - _Complexity_:
->   - time: exactly `n` calls to `value_type`'s default constructor,
->   - space: O(1).
+> - _Note_: `constexpr` if `is_trivial<value_type>`.
+
+Notes (not part of the specification):
+
+> - _Complexity_: implementable as exactly `n` calls to `value_type`'s default
+>     constructor
 >
 > - _Exception safety_:
 >   - `noexcept`: never, narrow contract.
 >   - strong guarantee: all constructed elements shall be destroyed on failure,
 >   - re-throws if `value_type`'s default constructor throws.
 >
-> - _Constexpr_: if `is_trivial<value_type>`.
->
-> - _Iterator invalidation_: none.
->
-> - _Effects_: exactly `n` calls to `value_type`s default constructor.
->
 > - _Pre-condition_: `n <= Capacity`.
+>
 > - _Post-condition_: `size() == n`.
 
 ---
@@ -777,28 +775,25 @@ constexpr explicit fixed_capacity_vector(size_type n);
 constexpr fixed_capacity_vector(size_type n, const value_type& value);
 ```
 
-> Constructs an `fixed_capacity_vector` containing `n` copies of `value`.
+> - _Effects_: Constructs a `fixed_capacity_vector` with `n` copies of `value`.
 >
-> - _Requirements_: `value_type` shall be `EmplaceConstructible` into `*this`.
+> - _Requires_: `value_type` shall be `CopyInsertable` into `*this`.
 >
-> - _Enabled_: if requirements are met.
+> - _Complexity_: Linear in `n`.
 >
-> - _Complexity_:
->   - time: exactly `n` calls to `value_type`'s copy constructor,
->   - space: O(1).
+> - _Note_: `constexpr` if `is_trivial<value_type>`.
+
+Notes (not part of the specification):
+
+> - _Complexity_: implementable as exactly `n` calls to `value_type`'s copy constructor
 >
 > - _Exception safety_: 
 >   - `noexcept`: never, narrow contract.
 >   - strong guarantee: all constructed elements shall be destroyed on failure,
 >   - re-throws if `value_type`'s copy constructor throws,
 >
-> - _Constexpr_: if `is_trivial<value_type>`.
->
-> - _Iterator invalidation_: none.
->
-> - _Effects_: exactly `n` calls to `value_type`s copy constructor.
->
 > - _Pre-condition_: `n <= Capacity`.
+>
 > - _Post-condition_: `size() == n`.
 
 ---
@@ -808,36 +803,33 @@ template<class InputIterator>
 constexpr fixed_capacity_vector(InputIterator first, InputIterator last);
 ```
 
-> Constructs an `fixed_capacity_vector` containing a copy of the elements in the range `[first, last)`.
+> - _Effects_: Constructs a `fixed_capacity_vector` equal to the range `[first, last)`
 >
-> - _Requirements_: `value_type` shall be either:
->   - `CopyInsertable` into `*this` _if_ the reference type of `InputIterator`
->      is an lvalue reference, or
->   - `MoveInsertable` into `*this` _if_ the reference type of `InputIterator`
->      is an rvalue reference.
->   - `InputIterator` must model `InputIterator`
+> - _Requires_: `value_type` shall be `MoveInsertable` into `*this`.
 >
-> - _Enabled_: if requirements are met.
+> - _Complexity_: Makes only `distance(first, last)` calls to the move
+>   constructor of `value_type`. 
 >
-> - _Complexity_:
->   - time: exactly `last - first` calls to `value_type`'s copy or move constructor,
->   - space: O(1).
+> - _Note_: `constexpr` if `is_trivial<value_type>`.
+
+Notes (not part of the specification):
+.
+>
+> - _Complexity_: `MoveInsertable` subsumes `CopyInsertable`. If the reference type 
+>   of `InputIterator` is an lvalue reference the move construction will perform a copy.>
 >
 > - _Exception safety_: 
 >   - `noexcept`: never, narrow contract.
 >   - strong guarantee: if [first, last) span a `ForwardRange`, the range is not modified and
 >     all constructed elements shall be destroyed on failure,
 >   - basic guarantee: if [first, last) span an `InputRange`, all constructed 
->     elements shall be destroyed on failure,
+>     elements shall be destroyed on failure, but the `InputRange` will be modified
 >   - re-throws if `value_type`'s copy or move constructors throws,
->
-> - _Constexpr_: if `is_trivial<value_type>`.
 >
 > - _Iterator invalidation_: none.
 >
-> - _Effects_: exactly `last - first` calls to `value_type`s copy or move constructor.
->
 > - _Pre-condition_: `last - first <= Capacity`.
+>
 > - _Post-condition_: `size() == last - first`.
 
 ---
@@ -847,30 +839,17 @@ constexpr fixed_capacity_vector(fixed_capacity_vector const& other);
   noexcept(is_nothrow_copy_constructible<value_type>{});
 ```
 
-> Constructs a `fixed_capacity_vector` whose elements are copied from `other`.
->
-> - _Requirements_: `value_type` shall be `CopyInsertable` into `*this`.
->
-> - _Enabled_: if requirements are met.
->
-> - _Complexity_:
->   - time: exactly `other.size()` calls to `value_type`'s copy constructor,
->   - space: O(1).
->
+> - _Note_: `constexpr` if `is_trivial<value_type>`.
+
+
+Notes (not part of the specification):
+
+
 > - _Exception safety_: 
 >   - `noexcept` if `is_nothrow_copy_constructible<value_type>{}`
 >   - strong guarantee: all constructed elements shall be destroyed on failure,
 >     other is not modified.
 >   - re-throws if `value_type`'s copy constructor throws.
->
-> - _Constexpr_: if `is_trivial<value_type>`.
->
-> - _Iterator invalidation_: none.
->
-> - _Effects_: exactly \p `other.size()` calls to `value_type`s copy constructor.
->
-> - _Pre-condition_: none.
-> - _Post-condition_: `size() == other.size()`.
 
 ---
 
@@ -879,30 +858,14 @@ constexpr fixed_capacity_vector(fixed_capacity_vector&& other)
   noexcept(is_nothrow_move_constructible<value_type>{});
 ```
 
-> Constructs an `fixed_capacity_vector` whose elements are moved from `other`.
->
-> - _Requirements_: `value_type` shall be `MoveInsertable` into `*this`.
->
-> - _Enabled_: if requirements are met.
->
-> - _Complexity_:
->   - time: exactly `other.size()` calls to `value_type`'s move constructor,
->   - space: O(1).
->
+> - _Note_: `constexpr` if `is_trivial<value_type>`.
+
+Notes (not part of the specification):
+
 > - _Exception safety_: 
 >   - `noexcept` if `std::nothrow_move_assignable<T>` is true
 >   - basic guarantee otherwise: all moved elements shall be destroyed on failure.
 >   - re-throws if `value_type`'s move constructor throws.
->
-> - _Constexpr_: if `is_trivial<value_type>`.
->
-> - _Iterator invalidation_: none.
->
-> - _Effects_: exactly `other.size()` calls to `value_type`s move constructor.
->
-> - _Pre-condition_: none.
-> - _Post-condition_: `size() == other.size()`.
-> - _Invariant_: `other.size()` does not change.
 
 ---
 
