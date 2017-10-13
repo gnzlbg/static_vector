@@ -1421,8 +1421,6 @@ constexpr void swap(fixed_capacity_vector& other)
 
 ## Comparison operators
 
-The following operators are `noexcept` if the operations required to compute them are all `noexcept`:
-
 ```c++
 template <typename T, std::size_t Capacity>
 constexpr bool operator==(const fixed_capacity_vector<T, Capacity>& a, const fixed_capacity_vector<T, Capacity>& b);
@@ -1445,6 +1443,8 @@ The following holds for the comparison operators:
 - _Complexity_: for two vectors of sizes `N` and `M`, the complexity is `O(1)` if `N != M`, and the comparison operator
   of `value_type` is invoked at most `N` times otherwise.
 - _Exception safety_: `noexcept` if the comparison operator of `value_type` is `noexcept`, otherwise can only throw if the comparison operator can throw.
+
+Note: the comparison operators have no preconditions, hence they have wide contracts, and this proposal makes them noexcept when the corresponding operator (e.g. `<`) for `value_type` is `noexcept(true)`.
 
 # Acknowledgments
 
