@@ -1013,7 +1013,7 @@ constexpr void assign(initializer_list<value_type> il);
 
 ## Destruction
 
-The destructor should be implicitly generated and it should be constexpr
+The destructor should be implicitly generated and it must be constexpr
 if `is_trivial<value_type>`.
 
 ```c++
@@ -1046,18 +1046,20 @@ the following holds:
 - _Requirements_: none.
 - _Enabled_: always.
 - _Complexity_: constant time and space.
-- _Exception safety_: never throw.
+- _Exception safety_: `noexcept` always, wide contract.
 - _Constexpr_: always.
 - _Effects_: none.
 
 The `iterator` and `const_iterator` types are implementation defined and model
 the `ContiguousIterator` concept. 
 
-There are also some guarantees between the results of `data` and the iterator
-functions that are explained in the section "Element / data access" below.
+Note: if the container is empty the result of the iterator functions is unspecified,
+but implementations are encourages to make it consistent with the result 
+of `fixed_capacity_vector::data()`.
 
 ## Size / capacity
 
+---
 
 ```c++
 constexpr size_type size()     const noexcept;
@@ -1071,12 +1073,13 @@ constexpr size_type size()     const noexcept;
 >
 > - _Complexity_: constant time and space.
 >
-> - _Exception safety_: never throws.
+> - _Exception safety_: `noexcept` always, wide contract.
 >
 > - _Constexpr_: always.
 >
 > - _Effects_: none.
 
+---
 
 ```c++
 static constexpr size_type capacity() noexcept;
@@ -1090,7 +1093,7 @@ static constexpr size_type capacity() noexcept;
 >
 > - _Complexity_: constant time and space.
 >
-> - _Exception safety_: never throws.
+> - _Exception safety_: `noexcept` always, wide contract.
 >
 > - _Constexpr_: always.
 >
@@ -1100,6 +1103,7 @@ static constexpr size_type capacity() noexcept;
 >   - if `capacity() == 0`, then `sizeof(fixed_capacity_vector) == 0`,
 >   - if `sizeof(T) == 0 and capacity() > 0`, then `sizeof(fixed_capacity_vector) == sizeof(unsigned char)`.
 
+---
 
 ```c++
 static constexpr size_type max_size() noexcept;
@@ -1113,12 +1117,13 @@ static constexpr size_type max_size() noexcept;
 >
 > - _Complexity_: constant time and space.
 >
-> - _Exception safety_: never throws.
+> - _Exception safety_: `noexcept` always, wide contract.
 >
 > - _Constexpr_: always.
 >
 > - _Effects_: none.
 
+---
 
 ```c++
 constexpr bool empty() const noexcept;
@@ -1132,36 +1137,45 @@ constexpr bool empty() const noexcept;
 >
 > - _Complexity_: constant time and space.
 >
-> - _Exception safety_: never throws.
+> - _Exception safety_: `noexcept` always, wide contract.
 >
 > - _Constexpr_: always.
 >
 > - _Effects_: none.
 
 
-For the checked resize functions:
+---
+
+For the checked `resize` functions:
 
 ```c++
-constexpr void resize(size_type new_size);
-constexpr void resize(size_type new_size, const value_type& c);
+constexpr void resize(size_type new_size);  // (1)
+constexpr void resize(size_type new_size, const value_type& c); // (2)
 ```
 the following holds:
 
-- _Requirements_: `T` models `DefaultInsertable`/`CopyInsertable`.
+- _Requirements_: `T` models:
+  - (1): `DefaultInsertable` 
+  - (2): `CopyInsertable`.
 - _Enabled_: if requirements satisfied.
 - _Complexity_: O(size()) time, O(1) space.
 - _Exception safety_:
+   - `noexcept` never: narrow contract.
    - basic guarantee: all constructed elements shall be destroyed on failure,
    - rethrows if `value_type`'s default or copy constructors throws,
 - _Constexpr_: if `is_trivial<value_type>`.
 - _Effects_:
-  - if `new_size > size` exactly `new_size - size` elements default>copy constructed.
+  - if `new_size > size` exactly `new_size - size` elements (1): default / (2): copy constructed.
   - if `new_size < size`:
       - exactly `size - new_size` elements destroyed.
       - all iterators pointing to elements with `position > new_size` are invalidated.
 - _Precondition_: `new_size <= capacity()`.
 
+---
+
 ## Element / data access
+
+---
 
 For the unchecked element access functions:
 
@@ -1179,11 +1193,12 @@ the following holds:
 - _Requirements_: none.
 - _Enabled_: always.
 - _Complexity_: O(1) in time and space.
-- _Exception safety_: never throws.
+- _Exception safety_: `noexcept` always, wide contract.
 - _Constexpr_: if `is_trivial<value_type>`.
 - _Effects_: none.
 - _Pre-conditions_: `size() > n` for `operator[]`, `size() > 0` for `front` and `back`.
 
+---
 
 For the checked element access functions:
 
@@ -1203,6 +1218,8 @@ the following holds:
 - _Effects_: none.
 - _Pre-conditions_: none.
 
+---
+
 For the data access:
 
 ```c++
@@ -1215,12 +1232,14 @@ the following holds:
 - _Requirements_: none.
 - _Enabled_: always.
 - _Complexity_: O(1) in time and space.
-- _Exception safety_: never throws.
+- _Exception safety_: `noexcept` always, wide contract.
 - _Constexpr_: if `is_trivial<value_type>`.
 - _Effects_: none.
 - _Pre-conditions_: none.
 - _Returns_: if the container is empty the return value is unspecified. If the container 
   is not empty, `[data(), data() + size())` is a valid range, and `data() == addressof(front())`.
+
+---
 
 ## Modifiers
 
