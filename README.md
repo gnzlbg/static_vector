@@ -718,6 +718,9 @@ constexpr void swap(fixed_capacity_vector<T, Capacity>&, fixed_capacity_vector<T
 complete before any member of the resulting specialization of vector is
 referenced.
 
+- 4. If `capacity() == 0`, then `sizeof(fixed_capacity_vector) == 0`. If `sizeof(T) == 0 and capacity() > 0`, then `sizeof(fixed_capacity_vector) == sizeof(unsigned char)`.
+
+
 ## <a id="CONSTRUCTION"></a>4.2 `fixed_capacity_vector` constructors
 
 ---
@@ -810,193 +813,23 @@ Notes (not part of the specification):
 
 ---
 
-```c++
-constexpr fixed_capacity_vector(fixed_capacity_vector const& other);
-  noexcept(is_nothrow_copy_constructible<value_type>{});
-```
-
-> - _Note_: `constexpr` if `is_trivial<value_type>`.
-
-
-Notes (not part of the specification):
-
-
-> - _Exception safety_: 
->   - `noexcept` if `is_nothrow_copy_constructible<value_type>{}`
->   - strong guarantee: all constructed elements shall be destroyed on failure,
->     other is not modified.
->   - re-throws if `value_type`'s copy constructor throws.
-
----
-
-```c++
-constexpr fixed_capacity_vector(fixed_capacity_vector&& other)
-  noexcept(is_nothrow_move_constructible<value_type>{});
-```
-
-> - _Note_: `constexpr` if `is_trivial<value_type>`.
-
-Notes (not part of the specification):
-
-> - _Exception safety_: 
->   - `noexcept` if `std::nothrow_move_assignable<T>` is true
->   - basic guarantee otherwise: all moved elements shall be destroyed on failure.
->   - re-throws if `value_type`'s move constructor throws.
-
----
-
-```c++
-constexpr fixed_capacity_vector(initializer_list<value_type> il);
-  noexcept(is_nothrow_copy_constructible<value_type>{});
-```
-
-Notes (not part of the specification):
-
-> Equivalent to `fixed_capacity_vector(il.begin(), il.end())`.
-
----
-
-## <a id="ASSIGNMENT"></a>4.3 Assignment
-
-```c++
-constexpr fixed_capacity_vector& operator=(fixed_capacity_vector const& other)
-  noexcept(is_nothrow_copy_assignable<value_type>{});
-```
-
-> - _Note_: `constexpr` if `is_trivial<value_type>`.
-
-Notes (not part of the specification):
-
-> - _Exception safety_:
->   - `noexcept` if `std::nothrow_copy_assignable<T>`
->   - basic guarantee otherwise: `other` is not modified.
->   - re-throws if `value_type`'s copy constructor throws.
->
-> - _Iterator invalidation_: always.
-
----
-
-```c++
-constexpr fixed_capacity_vector& operator=(fixed_capacity_vector && other);
-  noexcept(is_nothrow_move_assignable<value_type>{});
-```
-
-> - _Note_: `constexpr` if `is_trivial<value_type>`.
-
-Notes (not part of the specification):
-
-> - _Exception safety_:
->   - `noexcept` if `std::nothrow_move_assignable<T>`
->   - basic guarantee otherwise.
->   - re-throws if `value_type`'s move constructor throws.
->
-> - _Iterator invalidation_: always.
-
----
-
-```c++
-template<class InputIterator>
-constexpr void assign(InputIterator first, InputIterator last);
-```
-
-> - _Note_: `constexpr` if `is_trivial<value_type>`.
-
-Notes (not part of the specification):
-
-> - _Exception safety_: 
->   - `noexcept`: never, narrow contract.
->   - basic guarantee: if [first, last) span a `ForwardRange` and 
->     the reference type of `InputIterator` is an lvalue reference
->     the range is not modified but the container is.
->   - basic guarantee: if [first, last) span an `InputRange` the 
->     input range and the container are modified.
->   - re-throws if `value_type`'s copy or move constructors throws,
->
-> - _Iterator invalidation_: always.
-
----
-
-```c++
-constexpr void assign(size_type n, const value_type& value);
-```
-
-> - _Note_: `constexpr` if `is_trivial<value_type>`.
-
-Notes (not part of the specification):
-
-> - _Exception safety_: 
->   - `noexcept`: never, narrow contract.
->   - strong guarantee: all constructed elements shall be destroyed on failure,
->   - re-throws if `value_type`'s copy constructor throws,
->
-> - _Iterator invalidation_: always.
-
----
-
-```c++
-constexpr void assign(initializer_list<value_type> il);
-```
-
-Notes (not part of the specification):
-
-> Equivalent to `fixed_capacity_vector::assign(il.begin(), il.end())`.
-
----
-
 ## <a id="DESTRUCTION"></a>4.4 Destruction
 
-The destructor should be implicitly generated and it must be constexpr
-if `is_trivial<value_type>`.
+- 1. The destructor shall be implicitly generated and constexpr if
+`is_trivial<value_type>` is true.
 
-```c++
-/* constexpr ~fixed_capacity_vector(); */ // implicitly generated
-```
 
 ## <a id="SIZE"></a>4.5 Size and capacity
 
----
-
-```c++
-constexpr size_type size()     const noexcept;
-```
-
-> - _Returns_: the number of elements that the vector currently holds.
-> 
-> - _Requirements_: none.
->
-> - _Enabled_: always.
->
-> - _Complexity_: constant time and space.
->
-> - _Exception safety_: `noexcept` always, wide contract.
->
-> - _Constexpr_: always.
->
-> - _Effects_: none.
-
----
 
 ```c++
 static constexpr size_type capacity() noexcept;
 ```
 
+
 > - _Returns_: the total number of elements that the vector can hold.
 > 
-> - _Requirements_: none.
->
-> - _Enabled_: always.
->
-> - _Complexity_: constant time and space.
->
-> - _Exception safety_: `noexcept` always, wide contract.
->
-> - _Constexpr_: always.
->
-> - _Effects_: none.
->
-> - _Note_:  
->   - if `capacity() == 0`, then `sizeof(fixed_capacity_vector) == 0`,
->   - if `sizeof(T) == 0 and capacity() > 0`, then `sizeof(fixed_capacity_vector) == sizeof(unsigned char)`.
+> - _Complexity_: constant.
 
 ---
 
@@ -1004,47 +837,26 @@ static constexpr size_type capacity() noexcept;
 static constexpr size_type max_size() noexcept;
 ```
 
-> - _Returns_: the total number of elements that the vector can hold.
-> 
-> - _Requirements_: none.
->
-> - _Enabled_: always.
->
-> - _Complexity_: constant time and space.
->
-> - _Exception safety_: `noexcept` always, wide contract.
->
-> - _Constexpr_: always.
->
-> - _Effects_: none.
+> - _Note_: returns `capacity()`.
 
 ---
 
 ```c++
-constexpr bool empty() const noexcept;
+constexpr void resize(size_type sz);  // (1)
 ```
 
-> - _Returns_: `true` if the total number of elements is zero, `false` otherwise.
-> 
-> - _Requirements_: none.
+> - _Effects_: If `sz < size()`, erases the last `size() - sz` elements from the
+>   sequence. Otherwise, appends `sz - size()` default-inserted elements to the
+>   sequence.
 >
-> - _Enabled_: always.
+> - _Requires_: `value_type` shall be `MoveInsertable` and `DefaultInsertable` into `*this`.
 >
-> - _Complexity_: constant time and space.
->
-> - _Exception safety_: `noexcept` always, wide contract.
->
-> - _Constexpr_: always.
->
-> - _Effects_: none.
-
+> - _Remarks_: If an exception is thrown other than by the move constructor of a
+>   non-`CopyInsertable` `value_type` there are no effects.
 
 ---
 
-For the checked `resize` functions:
-
 ```c++
-constexpr void resize(size_type new_size);  // (1)
 constexpr void resize(size_type new_size, const value_type& c); // (2)
 ```
 the following holds:
