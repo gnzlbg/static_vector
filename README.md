@@ -19,6 +19,14 @@
   - [3.2 Existing practice](#PRACTICE)
   - [3.3 Proposed design and rationale](#RATIONALE)
 - [4. Technical Specification](#TECHNICAL_SPECIFICATION)
+  - [4.1 Construction](#CONSTRUCTION)
+  - [4.2 Assignment](#ASSIGNMENT)
+  - [4.3 Destruction](#DESTRUCTION)
+  - [4.4 Iterators](#ITERATORS)
+  - [4.5 Size and capacity](#SIZE)
+  - [4.6 Element and data access](#ACCESS)
+  - [4.7 Modifiers](#MODIFIERS)
+  - [4.8 Comparison operators](#COMPARISON)
 - [5. Acknowledgments](#ACKNOWLEDGEMENTS)
 - [6. References](#REFERENCES)
 
@@ -680,7 +688,7 @@ constexpr void swap(fixed_capacity_vector<T, Capacity>&, fixed_capacity_vector<T
   noexcept(is_nothrow_swappable<T>{});
 ```
 
-## 4.1 Construction
+## <a id="CONSTRUCTION"></a>4.1 Construction
 
 ---
 
@@ -882,7 +890,7 @@ constexpr fixed_capacity_vector(initializer_list<value_type> il);
 
 ---
 
-## 4.2 Assignment
+## <a id="ASSIGNMENT"></a>4.2 Assignment
 
 ```c++
 constexpr fixed_capacity_vector& operator=(fixed_capacity_vector const& other)
@@ -1027,7 +1035,7 @@ constexpr void assign(initializer_list<value_type> il);
 
 ---
 
-## 4.3 Destruction
+## <a id="DESTRUCTION"></a>4.3 Destruction
 
 The destructor should be implicitly generated and it must be constexpr
 if `is_trivial<value_type>`.
@@ -1036,7 +1044,7 @@ if `is_trivial<value_type>`.
 /* constexpr ~fixed_capacity_vector(); */ // implicitly generated
 ```
 
-## 4.4 Iterators
+## <a id="ITERATORS"></a>4.4 Iterators
 
 For all iterator functions:
 
@@ -1073,7 +1081,7 @@ Note: if the container is empty the result of the iterator functions is unspecif
 but implementations are encourages to make it consistent with the result 
 of `fixed_capacity_vector::data()`.
 
-## 4.5 Size / capacity
+## <a id="SIZE"></a>4.5 Size and capacity
 
 ---
 
@@ -1189,7 +1197,7 @@ the following holds:
 
 ---
 
-## 4.6 Element / data access
+## <a id="ACCESS"></a>4.6 Element and data access
 
 ---
 
@@ -1257,7 +1265,7 @@ the following holds:
 
 ---
 
-## 4.7 Modifiers
+## <a id="MODIFIERS"></a>4.7 Modifiers
 
 ---
 
@@ -1627,7 +1635,7 @@ constexpr void swap(fixed_capacity_vector& other)
 
 ---
 
-## 4.8 Comparison operators
+## <a id="COMPARISON"></a>4.8 Comparison operators
 
 ```c++
 template <typename T, std::size_t Capacity>
