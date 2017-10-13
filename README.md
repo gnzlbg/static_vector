@@ -520,7 +520,7 @@ This enhancement is a pure header-only addition to the C++ standard library as t
 
 ```c++
 template<typename T, std::size_t C /* Capacity */>
-struct embedded_vector {
+struct fixed_capacity_vector {
 
 // types:
 typedef value_type& reference;
@@ -536,22 +536,22 @@ typedef reverse_iterator<iterator> reverse_iterator;
 typedef reverse_iterator<const_iterator> const_reverse_iterator;
 
 // construct/copy/move/destroy:
-constexpr embedded_vector() noexcept;
-constexpr explicit embedded_vector(size_type n);
-constexpr embedded_vector(size_type n, const value_type& value);
+constexpr fixed_capacity_vector() noexcept;
+constexpr explicit fixed_capacity_vector(size_type n);
+constexpr fixed_capacity_vector(size_type n, const value_type& value);
 template<class InputIterator>
-constexpr embedded_vector(InputIterator first, InputIterator last);
-constexpr embedded_vector(embedded_vector const& other)
+constexpr fixed_capacity_vector(InputIterator first, InputIterator last);
+constexpr fixed_capacity_vector(fixed_capacity_vector const& other)
   noexcept(is_nothrow_copy_constructible<value_type>{});
-constexpr embedded_vector(embedded_vector && other)
+constexpr fixed_capacity_vector(fixed_capacity_vector && other)
   noexcept(is_nothrow_move_constructible<value_type>{});
-constexpr embedded_vector(initializer_list<value_type> il);
+constexpr fixed_capacity_vector(initializer_list<value_type> il);
 
-/* constexpr ~embedded_vector(); */ // implicitly generated
+/* constexpr ~fixed_capacity_vector(); */ // implicitly generated
 
-constexpr embedded_vector& operator=(embedded_vector const& other)
+constexpr fixed_capacity_vector& operator=(fixed_capacity_vector const& other)
   noexcept(is_nothrow_copy_assignable<value_type>{});
-constexpr embedded_vector& operator=(embedded_vector && other);
+constexpr fixed_capacity_vector& operator=(fixed_capacity_vector && other);
   noexcept(is_nothrow_move_assignable<value_type>{});
 
 template<class InputIterator>
@@ -626,29 +626,35 @@ constexpr iterator erase(const_iterator first, const_iterator last)
 
 constexpr void clear() noexcept(is_nothrow_destructible<value_type>{});
 
-constexpr void swap(embedded_vector&)
+constexpr void swap(fixed_capacity_vector&)
   noexcept(noexcept(swap(declval<value_type&>(), declval<value_type&>()))));
-
-friend constexpr bool operator==(const embedded_vector& a, const embedded_vector& b);
-friend constexpr bool operator!=(const embedded_vector& a, const embedded_vector& b);
-friend constexpr bool operator<(const embedded_vector& a, const embedded_vector& b);
-friend constexpr bool operator<=(const embedded_vector& a, const embedded_vector& b);
-friend constexpr bool operator>(const embedded_vector& a, const embedded_vector& b);
-friend constexpr bool operator>=(const embedded_vector& a, const embedded_vector& b);
 };
 
 template <typename T, std::size_t Capacity>
-constexpr void swap(embedded_vector<T, Capacity>&, embedded_vector<T, Capacity>&)
+constexpr bool operator==(const fixed_capacity_vector<T, Capacity>& a, const fixed_capacity_vector<T, Capacity>& b);
+template <typename T, std::size_t Capacity>
+constexpr bool operator!=(const fixed_capacity_vector<T, Capacity>& a, const fixed_capacity_vector<T, Capacity>& b);
+template <typename T, std::size_t Capacity>
+constexpr bool operator<(const fixed_capacity_vector<T, Capacity>& a, const fixed_capacity_vector<T, Capacity>& b);
+template <typename T, std::size_t Capacity>
+constexpr bool operator<=(const fixed_capacity_vector<T, Capacity>& a, const fixed_capacity_vector<T, Capacity>& b);
+template <typename T, std::size_t Capacity>
+constexpr bool operator>(const fixed_capacity_vector<T, Capacity>& a, const fixed_capacity_vector<T, Capacity>& b);
+template <typename T, std::size_t Capacity>
+constexpr bool operator>=(const fixed_capacity_vector<T, Capacity>& a, const fixed_capacity_vector<T, Capacity>& b);
+
+template <typename T, std::size_t Capacity>
+constexpr void swap(fixed_capacity_vector<T, Capacity>&, fixed_capacity_vector<T, Capacity>&)
   noexcept(is_nothrow_swappable<T>{});
 ```
 
 ## Construction
 
 ```c++
-constexpr embedded_vector() noexcept;
+constexpr fixed_capacity_vector() noexcept;
 ```
 
-> Constructs an empty `embedded_vector`.
+> Constructs an empty `fixed_capacity_vector`.
 >
 > - _Requirements_: none.
 >
@@ -670,10 +676,10 @@ constexpr embedded_vector() noexcept;
 
 
 ```c++
-constexpr explicit embedded_vector(size_type n);
+constexpr explicit fixed_capacity_vector(size_type n);
 ```
 
-> Constructs an `embedded_vector` containing `n` value-initialized elements.
+> Constructs an `fixed_capacity_vector` containing `n` value-initialized elements.
 >
 > - _Requirements_: `value_type` shall be `DefaultInsertable` into `*this`.
 >
@@ -698,10 +704,10 @@ constexpr explicit embedded_vector(size_type n);
 
 
 ```c++
-constexpr embedded_vector(size_type n, const value_type& value);
+constexpr fixed_capacity_vector(size_type n, const value_type& value);
 ```
 
-> Constructs an `embedded_vector` containing `n` copies of `value`.
+> Constructs an `fixed_capacity_vector` containing `n` copies of `value`.
 >
 > - _Requirements_: `value_type` shall be `EmplaceConstructible` into `*this` from `*first`.
 >
@@ -727,10 +733,10 @@ constexpr embedded_vector(size_type n, const value_type& value);
 
 ```c++ 
 template<class InputIterator>
-constexpr embedded_vector(InputIterator first, InputIterator last);
+constexpr fixed_capacity_vector(InputIterator first, InputIterator last);
 ```
 
-> Constructs an `embedded_vector` containing a copy of the elements in the range `[first, last)`.
+> Constructs an `fixed_capacity_vector` containing a copy of the elements in the range `[first, last)`.
 >
 > - _Requirements_: `value_type` shall be either:
 > - `CopyInsertable` into `*this` _if_ the reference type of `InputIterator`
@@ -759,11 +765,11 @@ constexpr embedded_vector(InputIterator first, InputIterator last);
 
 
 ```c++
-constexpr embedded_vector(embedded_vector const& other);
+constexpr fixed_capacity_vector(fixed_capacity_vector const& other);
   noexcept(is_nothrow_copy_constructible<value_type>{});
 ```
 
-> Constructs a `embedded_vector` whose elements are copied from `other`.
+> Constructs a `fixed_capacity_vector` whose elements are copied from `other`.
 >
 > - _Requirements_: `value_type` shall be `CopyInsertable` into `*this`.
 >
@@ -788,11 +794,11 @@ constexpr embedded_vector(embedded_vector const& other);
 
 
 ```c++
-constexpr embedded_vector(embedded_vector&& other)
+constexpr fixed_capacity_vector(fixed_capacity_vector&& other)
   noexcept(is_nothrow_move_constructible<value_type>{});
 ```
 
-> Constructs an `embedded_vector` whose elements are moved from `other`.
+> Constructs an `fixed_capacity_vector` whose elements are moved from `other`.
 >
 > - _Requirements_: `value_type` shall be `MoveInsertable` into `*this`.
 >
@@ -819,8 +825,8 @@ constexpr embedded_vector(embedded_vector&& other)
 
 
 ```c++
-/// Equivalent to `embedded_vector(il.begin(), il.end())`.
-constexpr embedded_vector(initializer_list<value_type> il);
+/// Equivalent to `fixed_capacity_vector(il.begin(), il.end())`.
+constexpr fixed_capacity_vector(initializer_list<value_type> il);
   noexcept(is_nothrow_copy_constructible<value_type>{});
 ```
 
@@ -829,24 +835,24 @@ constexpr embedded_vector(initializer_list<value_type> il);
 Move assignment operations invalidate iterators.
 
 ```c++
-constexpr embedded_vector& operator=(embedded_vector const& other)
+constexpr fixed_capacity_vector& operator=(fixed_capacity_vector const& other)
   noexcept(is_nothrow_copy_assignable<value_type>{});
 ```
 
 ```c++
-constexpr embedded_vector& operator=(embedded_vector && other);
+constexpr fixed_capacity_vector& operator=(fixed_capacity_vector && other);
   noexcept(is_nothrow_move_assignable<value_type>{});
 ```
 
 ```c++
 template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr embedded_vector& operator=(embedded_vector<value_type, M>const& other)
+  constexpr fixed_capacity_vector& operator=(fixed_capacity_vector<value_type, M>const& other)
     noexcept(is_nothrow_copy_assignable<value_type>{} and C >= M);
 ```
 
 ```c++
 template<std::size_t M, enable_if_t<(C != M)>>
-  constexpr embedded_vector& operator=(embedded_vector<value_type, M>&& other);
+  constexpr fixed_capacity_vector& operator=(fixed_capacity_vector<value_type, M>&& other);
     noexcept(is_nothrow_move_assignable<value_type>{} and C >= M);
 ```
 
@@ -869,7 +875,7 @@ The destructor should be implicitly generated and it should be constexpr
 if `is_trivial<value_type>`.
 
 ```c++
-/* constexpr ~embedded_vector(); */ // implicitly generated
+/* constexpr ~fixed_capacity_vector(); */ // implicitly generated
 ```
 
 ## Iterators
@@ -949,8 +955,8 @@ static constexpr size_type capacity() noexcept;
 > - _Effects_: none.
 >
 > - _Note_:  
->   - if `capacity() == 0`, then `sizeof(embedded_vector) == 0`,
->   - if `sizeof(T) == 0 and capacity() > 0`, then `sizeof(embedded_vector) == sizeof(unsigned char)`.
+>   - if `capacity() == 0`, then `sizeof(fixed_capacity_vector) == 0`,
+>   - if `sizeof(T) == 0 and capacity() > 0`, then `sizeof(fixed_capacity_vector) == sizeof(unsigned char)`.
 
 
 ```c++
@@ -1181,7 +1187,7 @@ constexpr void pop_back();
 >   - space: O(1).
 >
 > - _Exception safety_: 
->   - strong guarantee (note: `embedded_vector` requires `Destructible<T>`). 
+>   - strong guarantee (note: `fixed_capacity_vector` requires `Destructible<T>`). 
 >
 > - _Constexpr_: if `is_trivial<value_type>`.
 >
@@ -1387,7 +1393,7 @@ constexpr void clear() noexcept(is_nothrow_destructible<value_type>{});
 ```
 
 ```c++
-constexpr void swap(embedded_vector& other)
+constexpr void swap(fixed_capacity_vector& other)
   noexcept(noexcept(swap(declval<value_type&>(), declval<value_type&>()))));
 ```
 
@@ -1418,13 +1424,20 @@ constexpr void swap(embedded_vector& other)
 The following operators are `noexcept` if the operations required to compute them are all `noexcept`:
 
 ```c++
-constexpr bool operator==(const embedded_vector& a, const embedded_vector& b);
-constexpr bool operator!=(const embedded_vector& a, const embedded_vector& b);
-constexpr bool operator<(const embedded_vector& a, const embedded_vector& b);
-constexpr bool operator<=(const embedded_vector& a, const embedded_vector& b);
-constexpr bool operator>(const embedded_vector& a, const embedded_vector& b);
-constexpr bool operator>=(const embedded_vector& a, const embedded_vector& b);
+template <typename T, std::size_t Capacity>
+constexpr bool operator==(const fixed_capacity_vector<T, Capacity>& a, const fixed_capacity_vector<T, Capacity>& b);
+template <typename T, std::size_t Capacity>
+constexpr bool operator!=(const fixed_capacity_vector<T, Capacity>& a, const fixed_capacity_vector<T, Capacity>& b);
+template <typename T, std::size_t Capacity>
+constexpr bool operator<(const fixed_capacity_vector<T, Capacity>& a, const fixed_capacity_vector<T, Capacity>& b);
+template <typename T, std::size_t Capacity>
+constexpr bool operator<=(const fixed_capacity_vector<T, Capacity>& a, const fixed_capacity_vector<T, Capacity>& b);
+template <typename T, std::size_t Capacity>
+constexpr bool operator>(const fixed_capacity_vector<T, Capacity>& a, const fixed_capacity_vector<T, Capacity>& b);
+template <typename T, std::size_t Capacity>
+constexpr bool operator>=(const fixed_capacity_vector<T, Capacity>& a, const fixed_capacity_vector<T, Capacity>& b);
 ```
+
 The following holds for the comparison operators:
 
 - _Requirements_: only enabled if `value_type` supports the corresponding operations.
@@ -1435,13 +1448,21 @@ The following holds for the comparison operators:
 
 # Acknowledgments
 
-The following people have significantly contributed to the development of this proposal. 
-This proposal is based on Boost.Container's `boost::container::static_vector` and my extensive usage of this class
-over the years. As a consequence the authors of Boost.Container (Adam Wulkiewicz, 
-Andrew Hundt, and Ion Gaztanaga) have had a very significant indirect impact on this proposal. The implementation of libc++ `std::vector` and the libc++ test-suite have been used extensively while prototyping this proposal, such that its author, Howard Hinnant, has had a significant indirect impact on the result of this proposal as well. The following people provided valuable feedback that influenced some aspects of this proposal: Zach Laine, Rein Halbersma, and Andrzej 
-Krzemieński (who provided an example that shows that using tags is better than
-using static member functions for "special constructors" like the `default_initialized_t` 
-constructor). But I want to wholeheartedly acknowledge Casey Carter for taking the time to do a very detailed analysis of the whole proposal, which was invaluable and reshaped it in fundamental ways.
+The following people have significantly contributed to the development of this
+proposal. This proposal is based on Boost.Container's
+`boost::container::static_vector` and my extensive usage of this class over the
+years. As a consequence the authors of Boost.Container (Adam Wulkiewicz, Andrew
+Hundt, and Ion Gaztanaga) have had a very significant indirect impact on this
+proposal. The implementation of libc++ `std::vector` and the libc++ test-suite
+have been used extensively while prototyping this proposal, such that its
+author, Howard Hinnant, has had a significant indirect impact on the result of
+this proposal as well. The following people provided valuable feedback that
+influenced some aspects of this proposal: Zach Laine, Rein Halbersma, and
+Andrzej Krzemieński (who provided an example that shows that using tags is
+better than using static member functions for "special constructors" like the
+`default_initialized_t` constructor). But I want to wholeheartedly acknowledge
+Casey Carter for taking the time to do a very detailed analysis of the whole
+proposal, which was invaluable and reshaped it in fundamental ways.
 
 # References
 
