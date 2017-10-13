@@ -19,14 +19,15 @@
   - [3.2 Existing practice](#PRACTICE)
   - [3.3 Proposed design and rationale](#RATIONALE)
 - [4. Technical Specification](#TECHNICAL_SPECIFICATION)
-  - [4.1 Construction](#CONSTRUCTION)
-  - [4.2 Assignment](#ASSIGNMENT)
-  - [4.3 Destruction](#DESTRUCTION)
-  - [4.4 Iterators](#ITERATORS)
-  - [4.5 Size and capacity](#SIZE)
-  - [4.6 Element and data access](#ACCESS)
-  - [4.7 Modifiers](#MODIFIERS)
-  - [4.8 Comparison operators](#COMPARISON)
+  - [4.1 Overview](#OVERVIEW)
+  - [4.2 Construction](#CONSTRUCTION)
+  - [4.3 Assignment](#ASSIGNMENT)
+  - [4.4 Destruction](#DESTRUCTION)
+  - [4.5 Iterators](#ITERATORS)
+  - [4.6 Size and capacity](#SIZE)
+  - [4.7 Element and data access](#ACCESS)
+  - [4.8 Modifiers](#MODIFIERS)
+  - [4.9 Comparison operators](#COMPARISON)
 - [5. Acknowledgments](#ACKNOWLEDGEMENTS)
 - [6. References](#REFERENCES)
 
@@ -555,27 +556,57 @@ perfect-forwarded to the destination object.
 
 # <a id="TECHNICAL_SPECIFICATION"></a>4. Technical specification
 
-This enhancement is a pure header-only addition to the C++ standard library as
-the `<experimental/fixed_capacity_vector>` header. It belongs in the "Sequence containers" part of the "Containers library".
+---
+
+Note to editor: This enhancement is a pure header-only addition to the C++ standard library as
+the `<experimental/fixed_capacity_vector>` header. It belongs in the "Sequence
+containers" (26.3) part of the "Containers library" (26) as "Class template
+`fixed_capacity_vector`".
+
+---
+
+## 4. Class template `fixed_capacity_vector`
+
+### <a id="OVERVIEW"></a>4.1 Class template `fixed_capacity_vector` overview
+
+- 1. A `fixed_capacity_vector` is a sequence container that supports contiguous
+  iterators. In addition, it supports (amortized) constant time insert and erase
+  operations at the end; insert and erase in the middle take linear time. It's
+  capacity is a constant-expr and storage management is handled automatically.
+  The elements of a `fixed_capacity_vector` are stored contiguously within the
+  vector object itself, meaning that that if `v` is a `fixed_capacity_vector<T,
+  Capacity>` then it obeys the identity `&v[n] == &v[0] + n` for all `0 <= n <=
+  v.size()`.
+
+- 2. A `fixed_capacity_vector` satisfies all of the requirements of a container
+  and of a reversible container (given in two tables in 26.2), of a sequence
+  container, including the optional sequence container requirements (26.2.3),
+  and of a contiguous container (26.2.1). The exceptions are the `push_front`,
+  `pop_front`, and `emplace_front` member functions, which are not provided.
+  Descriptions are provided here only for operations on `fixed_capacity_vector`
+  that are not described in one of these tables or for operations where there is
+  additional semantic information.
 
 ```c++
+namespace std {
+
 template<typename T, std::size_t C /* Capacity */>
-struct fixed_capacity_vector {
-
+class fixed_capacity_vector {
+public:
 // types:
-typedef value_type& reference;
-typedef value_type const& const_reference;
-typedef implementation-defined iterator;
-typedef implementation-defined const_iterator;
-typedef /*smallest unsigned integer type that is able to represent Capacity */ size_type;
-typedef ptrdiff_t difference_type;
-typedef T value_type;
-typedef T* pointer;
-typedef T const* const_pointer;
-typedef reverse_iterator<iterator> reverse_iterator;
-typedef reverse_iterator<const_iterator> const_reverse_iterator;
+using value_type = T;
+using pointer = T*;
+using const_pointer = T const*; 
+using reference = value_type&;
+using const_reference = const value_type&;
+using size_type =  /*smallest unsigned integer type that can represent C (Capacity)*/;
+using difference_type = std::make_signed_t<size_type>;
+using iterator = implementation-defined;
+using const_iterator = implementation-defined;
+using reverse_iterator = reverse_iterator<iterator>;
+using const_reverse_iterator = reverse_iterator<const_iterator>;
 
-// construct/copy/move/destroy:
+// 4.2, copy/move construction:
 constexpr fixed_capacity_vector() noexcept;
 constexpr explicit fixed_capacity_vector(size_type n);
 constexpr fixed_capacity_vector(size_type n, const value_type& value);
@@ -587,48 +618,42 @@ constexpr fixed_capacity_vector(fixed_capacity_vector && other)
   noexcept(is_nothrow_move_constructible<value_type>{});
 constexpr fixed_capacity_vector(initializer_list<value_type> il);
 
-/* constexpr ~fixed_capacity_vector(); */ // implicitly generated
-
+// 4.3, copy/move assignment:
 constexpr fixed_capacity_vector& operator=(fixed_capacity_vector const& other)
   noexcept(is_nothrow_copy_assignable<value_type>{});
 constexpr fixed_capacity_vector& operator=(fixed_capacity_vector && other);
   noexcept(is_nothrow_move_assignable<value_type>{});
-
 template<class InputIterator>
 constexpr void assign(InputIterator first, InputIterator last);
 constexpr void assign(size_type n, const value_type& u);
 constexpr void assign(initializer_list<value_type> il);
 
+// 4.4, destruction
+/* constexpr ~fixed_capacity_vector(); */ // implicitly generated
 
-// iterators:
+// 4.5, iterators:
 constexpr iterator               begin()         noexcept;
 constexpr const_iterator         begin()   const noexcept;
 constexpr iterator               end()           noexcept;
 constexpr const_iterator         end()     const noexcept;
-
 constexpr reverse_iterator       rbegin()        noexcept;
 constexpr const_reverse_iterator rbegin()  const noexcept;
 constexpr reverse_iterator       rend()          noexcept;
 constexpr const_reverse_iterator rend()    const noexcept;
-
 constexpr const_iterator         cbegin()        noexcept;
 constexpr const_iterator         cend()    const noexcept;
 constexpr const_reverse_iterator crbegin()       noexcept;
 constexpr const_reverse_iterator crend()   const noexcept;
 
-
-// size/capacity:
+// 4.6, size/capacity:
+constexpr bool empty() const noexcept;
 constexpr size_type size()     const noexcept;
-static constexpr size_type capacity() noexcept;
 static constexpr size_type max_size() noexcept;
+static constexpr size_type capacity() noexcept;
 constexpr void resize(size_type sz);
 constexpr void resize(size_type sz, const value_type& c)
-constexpr bool empty() const noexcept;
 
-void reserve(size_type n) = delete;
-void shrink_to_fit() = delete; 
-
-// element access:
+// 4.7, element and data access:
 constexpr reference       operator[](size_type n) noexcept; 
 constexpr const_reference operator[](size_type n) const noexcept;
 constexpr const_reference at(size_type n) const;
@@ -637,12 +662,10 @@ constexpr reference       front() noexcept;
 constexpr const_reference front() const noexcept;
 constexpr reference       back() noexcept;
 constexpr const_reference back() const noexcept;
-
-// data access:
 constexpr       T* data()       noexcept;
 constexpr const T* data() const noexcept;
 
-// modifiers:
+// 4.8, modifiers:
 template<class... Args>
   constexpr reference emplace_back(Args&&... args);
 constexpr void push_back(const value_type& x);
@@ -670,6 +693,7 @@ constexpr void swap(fixed_capacity_vector&)
   noexcept(noexcept(swap(declval<value_type&>(), declval<value_type&>()))));
 };
 
+// 4.9, comparisons:
 template <typename T, std::size_t Capacity>
 constexpr bool operator==(const fixed_capacity_vector<T, Capacity>& a, const fixed_capacity_vector<T, Capacity>& b) noexcept(...);
 template <typename T, std::size_t Capacity>
@@ -683,6 +707,7 @@ constexpr bool operator>(const fixed_capacity_vector<T, Capacity>& a, const fixe
 template <typename T, std::size_t Capacity>
 constexpr bool operator>=(const fixed_capacity_vector<T, Capacity>& a, const fixed_capacity_vector<T, Capacity>& b) noexcept(...);
 
+// 4.8, modifiers:
 template <typename T, std::size_t Capacity>
 constexpr void swap(fixed_capacity_vector<T, Capacity>&, fixed_capacity_vector<T, Capacity>&)
   noexcept(is_nothrow_swappable<T>{});
