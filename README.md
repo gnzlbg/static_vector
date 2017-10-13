@@ -23,11 +23,10 @@
   - [4.2 Construction](#CONSTRUCTION)
   - [4.3 Assignment](#ASSIGNMENT)
   - [4.4 Destruction](#DESTRUCTION)
-  - [4.5 Iterators](#ITERATORS)
-  - [4.6 Size and capacity](#SIZE)
-  - [4.7 Element and data access](#ACCESS)
-  - [4.8 Modifiers](#MODIFIERS)
-  - [4.9 Comparison operators](#COMPARISON)
+  - [4.5 Size and capacity](#SIZE)
+  - [4.6 Element and data access](#ACCESS)
+  - [4.7 Modifiers](#MODIFIERS)
+  - [4.8 Comparison operators](#COMPARISON)
 - [5. Acknowledgments](#ACKNOWLEDGEMENTS)
 - [6. References](#REFERENCES)
 
@@ -631,7 +630,7 @@ constexpr void assign(initializer_list<value_type> il);
 // 4.4, destruction
 /* constexpr ~fixed_capacity_vector(); */ // implicitly generated
 
-// 4.5, iterators:
+// iterators
 constexpr iterator               begin()         noexcept;
 constexpr const_iterator         begin()   const noexcept;
 constexpr iterator               end()           noexcept;
@@ -645,7 +644,7 @@ constexpr const_iterator         cend()    const noexcept;
 constexpr const_reverse_iterator crbegin()       noexcept;
 constexpr const_reverse_iterator crend()   const noexcept;
 
-// 4.6, size/capacity:
+// 4.5, size/capacity:
 constexpr bool empty() const noexcept;
 constexpr size_type size()     const noexcept;
 static constexpr size_type max_size() noexcept;
@@ -653,7 +652,7 @@ static constexpr size_type capacity() noexcept;
 constexpr void resize(size_type sz);
 constexpr void resize(size_type sz, const value_type& c)
 
-// 4.7, element and data access:
+// 4.6, element and data access:
 constexpr reference       operator[](size_type n) noexcept; 
 constexpr const_reference operator[](size_type n) const noexcept;
 constexpr const_reference at(size_type n) const;
@@ -665,7 +664,7 @@ constexpr const_reference back() const noexcept;
 constexpr       T* data()       noexcept;
 constexpr const T* data() const noexcept;
 
-// 4.8, modifiers:
+// 4.7, modifiers:
 template<class... Args>
   constexpr reference emplace_back(Args&&... args);
 constexpr void push_back(const value_type& x);
@@ -693,7 +692,7 @@ constexpr void swap(fixed_capacity_vector&)
   noexcept(noexcept(swap(declval<value_type&>(), declval<value_type&>()))));
 };
 
-// 4.9, comparisons:
+// 4.8, comparisons:
 template <typename T, std::size_t Capacity>
 constexpr bool operator==(const fixed_capacity_vector<T, Capacity>& a, const fixed_capacity_vector<T, Capacity>& b) noexcept(...);
 template <typename T, std::size_t Capacity>
@@ -719,7 +718,7 @@ constexpr void swap(fixed_capacity_vector<T, Capacity>&, fixed_capacity_vector<T
 complete before any member of the resulting specialization of vector is
 referenced.
 
-## <a id="CONSTRUCTION"></a>4.1 `fixed_capacity_vector` constructors
+## <a id="CONSTRUCTION"></a>4.2 `fixed_capacity_vector` constructors
 
 ---
 
@@ -793,19 +792,14 @@ constexpr fixed_capacity_vector(InputIterator first, InputIterator last);
 
 > - _Effects_: Constructs a `fixed_capacity_vector` equal to the range `[first, last)`
 >
-> - _Requires_: `value_type` shall be `MoveInsertable` into `*this`.
+> - _Requires_: `value_type` shall be `EmplaceConstructible` into `*this` from `*first`.
 >
-> - _Complexity_: Makes only `distance(first, last)` calls to the move
->   constructor of `value_type`. 
+> - _Complexity_: Initializes `distance(first, last)` `value_type`s. 
 >
 > - _Note_: `constexpr` if `is_trivial<value_type>`.
 
 Notes (not part of the specification):
-.
->
-> - _Complexity_: `MoveInsertable` subsumes `CopyInsertable`. If the reference type 
->   of `InputIterator` is an lvalue reference the move construction will perform a copy.>
->
+
 > - _Exception safety_: 
 >   - `noexcept`: never, narrow contract.
 >   - strong guarantee: if [first, last) span a `ForwardRange`, the range is not modified and
@@ -862,7 +856,7 @@ Notes (not part of the specification):
 
 ---
 
-## <a id="ASSIGNMENT"></a>4.2 Assignment
+## <a id="ASSIGNMENT"></a>4.3 Assignment
 
 ```c++
 constexpr fixed_capacity_vector& operator=(fixed_capacity_vector const& other)
@@ -949,7 +943,7 @@ Notes (not part of the specification):
 
 ---
 
-## <a id="DESTRUCTION"></a>4.3 Destruction
+## <a id="DESTRUCTION"></a>4.4 Destruction
 
 The destructor should be implicitly generated and it must be constexpr
 if `is_trivial<value_type>`.
@@ -957,43 +951,6 @@ if `is_trivial<value_type>`.
 ```c++
 /* constexpr ~fixed_capacity_vector(); */ // implicitly generated
 ```
-
-## <a id="ITERATORS"></a>4.4 Iterators
-
-For all iterator functions:
-
-```c++
-constexpr iterator               begin()         noexcept;
-constexpr const_iterator         begin()   const noexcept;
-constexpr iterator               end()           noexcept;
-constexpr const_iterator         end()     const noexcept;
-
-constexpr reverse_iterator       rbegin()        noexcept;
-constexpr const_reverse_iterator rbegin()  const noexcept;
-constexpr reverse_iterator       rend()          noexcept;
-constexpr const_reverse_iterator rend()    const noexcept;
-
-constexpr const_iterator         cbegin()        noexcept;
-constexpr const_iterator         cend()    const noexcept;
-constexpr const_reverse_iterator crbegin()       noexcept;
-constexpr const_reverse_iterator crend()   const noexcept;
-```
-
-the following holds:
-
-- _Requirements_: none.
-- _Enabled_: always.
-- _Complexity_: constant time and space.
-- _Exception safety_: `noexcept` always, wide contract.
-- _Constexpr_: always.
-- _Effects_: none.
-
-The `iterator` and `const_iterator` types are implementation defined and model
-the `ContiguousIterator` concept. 
-
-Note: if the container is empty the result of the iterator functions is unspecified,
-but implementations are encourages to make it consistent with the result 
-of `fixed_capacity_vector::data()`.
 
 ## <a id="SIZE"></a>4.5 Size and capacity
 
