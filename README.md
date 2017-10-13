@@ -215,7 +215,7 @@ encouraged to consider code-size as a quality of implementation issue.
 
 ### Preconditions
 
-This container requires that `T` models `Destructible`. If `T`'s destructor
+This container requires that `value_type` models `Destructible`. If `value_type`'s destructor
 throws the behavior is undefined.
 
 ### Storage/Memory Layout
@@ -270,7 +270,7 @@ Implementations can achieve this by using a C array for `fixed_capacity_vector`'
 without altering the guarantees of `fixed_capacity_vector`'s methods in an observable way.
 
 For example, `fixed_capacity_vector(N)` constructor guarantees "exactly `N` calls to 
-`T`'s default constructor". Strictly speaking, `fixed_capacity_vector`'s constructor
+`value_type`'s default constructor". Strictly speaking, `fixed_capacity_vector`'s constructor
 for trivial types will construct a C array of `Capacity` length. However, because
 `is_trivial<T>` is true, the number of constructor or destructor calls is not
 observable.
@@ -287,8 +287,8 @@ paper does not propose any of these changes.
 ### Explicit instantiatiability
 
 The class `fixed_capacity_vector<T, Capacity>` can be explicitly instantiated for
-all combinations of `T` and `Capacity` if `T` satisfied the container preconditions 
-(i.e. `T` models `Destructible<T>`).
+all combinations of `value_type` and `Capacity` if `value_type` satisfied the container preconditions 
+(i.e. `value_type` models `Destructible<T>`).
 
 ### Exception Safety
 
@@ -296,8 +296,8 @@ all combinations of `T` and `Capacity` if `T` satisfied the container preconditi
 
 The only operations that can actually fail within `fixed_capacity_vector<T, Capacity>` are:
 
-  1. `T` special member functions and swap can only fail due
-     to throwing constructors/assignment/destructors/swap of `T`. 
+  1. `value_type` special member functions and swap can only fail due
+     to throwing constructors/assignment/destructors/swap of `value_type`. 
 
   2. Mutating operations exceeding the capacity (`push_back`, `insert`, `emplace`, 
      `pop_back` when `empty()`, `fixed_capacity_vector(T, size)`, `fixed_capacity_vector(begin, end)`...).
@@ -334,7 +334,7 @@ Making exceeding the capacity a precondition has some advantages:
 
 - It llows implementations to trivially provide a run-time diagnostic on debug builds by, e.g., means of an assertion. 
 
-- It allows the methods to be conditionally marked `noexcept(true)` when `T` is `std::is_nothrow_default_constructible/copy_assignable>...`
+- It allows the methods to be conditionally marked `noexcept(true)` when `value_type` is `std::is_nothrow_default_constructible/copy_assignable>...`
 
 - It makes `fixed_capacity_vector` a zero-cost abstraction by allowing the user to avoid unnecessary checks (e.g. hoisting checks out of a loop).
 
@@ -344,17 +344,17 @@ Given this design space, this proposal opts for making not exceeding the `Capaci
 
 The final question to be answered is if we should mark the mutating methods to be conditionally `noexcept(true)` or not when it is safe to do so. The current proposal does so since it is easier to remove `noexcept(...)` than to add it, and since this should allow the compiler to generate better code, which is relevant for some fields in which `fixed_capacity_vector` is very useful, like in embedded systems programming. 
 
-#### Precondition on `T` modelling `Destructible`
+#### Precondition on `value_type` modelling `Destructible`
 
-If `T` models `Destructible` (that is, if `T` destructor never throws), 
+If `value_type` models `Destructible` (that is, if `value_type` destructor never throws), 
 `fixed_capacity_vector<T, Capacity>` provides at least the basic-exception guarantee.
-If `T` does not model `Destructible`, the behavior of `fixed_capacity_vector` is undefined. 
-Implementations are encouraged to rely on `T` modeling `Destructible` even
-if `T`'s destructor is `noexcept(false)`. 
+If `value_type` does not model `Destructible`, the behavior of `fixed_capacity_vector` is undefined. 
+Implementations are encouraged to rely on `value_type` modeling `Destructible` even
+if `value_type`'s destructor is `noexcept(false)`. 
 
 #### Exception-safety guarantees of special member functions and swap
 
-If `T`'s special member functions and/or swap are `noexcept(true)`, so are the respective
+If `value_type`'s special member functions and/or swap are `noexcept(true)`, so are the respective
 special member functions and/or swap operations of `fixed_capacity_vector` which then provide the
 strong-exception guarantee. They provide the basic-exception guarantee otherwise. 
 
@@ -371,7 +371,7 @@ The algorithms that perform insertions are the constructors `fixed_capacity_vect
  `fixed_capacity_vector(begin, end)`, and the member functions `push_back`, `emplace_back`, `insert`, 
 and `resize`.
 
-These algorithms provide strong-exception safety guarantee, and if `T`'s special member functions or
+These algorithms provide strong-exception safety guarantee, and if `value_type`'s special member functions or
 `swap` can throw are `noexcept(false)`, and `noexcept(true)` otherwise.
 
 #### Exception-safety guarantees of unchecked access
@@ -1154,7 +1154,7 @@ constexpr void resize(size_type new_size, const value_type& c); // (2)
 ```
 the following holds:
 
-- _Requirements_: `T` models:
+- _Requirements_: `value_type` models:
   - (1): `DefaultInsertable` 
   - (2): `CopyInsertable`.
 - _Enabled_: if requirements satisfied.
@@ -1243,24 +1243,25 @@ the following holds:
 
 ## Modifiers
 
-For the modifiers:
+---
 
 ```c++
 template<class... Args>
 constexpr reference emplace_back(Args&&... args);
 ```
 
-> Construct a new element at the end of the vector in place using `args...`.
+> Construct a new element at the end of the vector in place using the constructor arguments `args...`.
 >
 > - _Requirements_: `Constructible<value_type, Args...>`.
 >
 > - _Enabled_: if requirements are met.
 >
 > - _Complexity_:
->   - time: O(1), exactly one call to `T`'s constructor,
+>   - time: O(1), exactly one call to `value_type`'s constructor,
 >   - space: O(1).
 >
 > - _Exception safety_: 
+>   - `noexcept` never: narrow contract.
 >   - strong guarantee: no side-effects if `value_type`'s constructor throws. 
 >   - re-throws if `value_type`'s constructor throws.
 >
@@ -1268,12 +1269,13 @@ constexpr reference emplace_back(Args&&... args);
 >
 > - _Iterator invalidation_: none.
 >
-> - _Effects_: exactly one call to `T`'s constructor, the `size()` of the vector 
+> - _Effects_: exactly one call to `value_type`'s constructor, the `size()` of the vector 
 > is incremented by one.
 >
 > - _Pre-condition_: `size() < Capacity`.
 > - _Post-condition_: `size() == size_before + 1`.
 
+---
 
 ```c++
 constexpr void push_back(const value_type& x);
@@ -1286,10 +1288,11 @@ constexpr void push_back(const value_type& x);
 > - _Enabled_: if requirements are met.
 >
 > - _Complexity_:
->   - time: O(1), exactly one call to `T`'s copy constructor,
+>   - time: O(1), exactly one call to `value_type`'s copy constructor,
 >   - space: O(1).
 >
 > - _Exception safety_: 
+>   - `noexcept` never: narrow contract.
 >   - strong guarantee: no side-effects if `value_type`'s copy constructor throws. 
 >   - re-throws if `value_type`'s constructor throws.
 >
@@ -1297,12 +1300,13 @@ constexpr void push_back(const value_type& x);
 >
 > - _Iterator invalidation_: none.
 >
-> - _Effects_: exactly one call to `T`'s copy constructor, the `size()` of the vector is 
+> - _Effects_: exactly one call to `value_type`'s copy constructor, the `size()` of the vector is 
 > incremented by one.
 >
 > - _Pre-condition_: `size() < Capacity`.
 > - _Post-condition_: `size() == size_before + 1`.
 
+---
 
 ```c++
 constexpr void push_back(value_type&& x);
@@ -1315,23 +1319,26 @@ constexpr void push_back(value_type&& x);
 > - _Enabled_: if requirements are met.
 >
 > - _Complexity_:
->   - time: O(1), exactly one call to `T`'s move constructor,
+>   - time: O(1), exactly one call to `value_type`'s move constructor,
 >   - space: O(1).
 >
-> - _Exception safety_: 
->   - strong guarantee: no side-effects if `value_type`'s move constructor throws. 
+> - _Exception safety_:
+>   - `noexcept` never: narrow contract.
+>   - basic guarantee: the vector is not modified if `value_type`'s move constructor throws,
+>     whether `x` is modified depends on the guarantees of `value_type`'s' move constructor.
 >   - re-throws if `value_type`'s constructor throws.
 >
 > - _Constexpr_: if `is_trivial<value_type>`.
 >
 > - _Iterator invalidation_: none.
 >
-> - _Effects_: exactly one call to `T`'s move constructor, the `size()` of the vector is 
+> - _Effects_: exactly one call to `value_type`'s move constructor, the `size()` of the vector is 
 > incremented by one.
 >
 > - _Pre-condition_: `size() < Capacity`.
 > - _Post-condition_: `size() == size_before + 1`.
 
+---
 
 ```c++
 constexpr void pop_back();
@@ -1344,22 +1351,24 @@ constexpr void pop_back();
 > - _Enabled_: always.
 >
 > - _Complexity_:
->   - time: O(1), exactly one call to `T`'s destructor,
+>   - time: O(1), exactly one call to `value_type`'s destructor,
 >   - space: O(1).
 >
 > - _Exception safety_: 
->   - strong guarantee (note: `fixed_capacity_vector` requires `Destructible<T>`). 
+>   - `noexcept` never: narrow contract.
+>   - basic guarantee (note: `fixed_capacity_vector` requires `Destructible<value_type>`). 
 >
 > - _Constexpr_: if `is_trivial<value_type>`.
 >
 > - _Iterator invalidation_: none.
 >
-> - _Effects_: exactly one call to `T`'s destructor, the `size()` of the vector is 
+> - _Effects_: exactly one call to `value_type`'s destructor, the `size()` of the vector is 
 > decremented by one.
 >
 > - _Pre-condition_: `size() > 0`.
 > - _Post-condition_: `size() == size_before - 1`.
 
+---
 
 ```c++
 constexpr iterator insert(const_iterator position, const value_type& x);
@@ -1372,24 +1381,26 @@ constexpr iterator insert(const_iterator position, const value_type& x);
 > - _Enabled_: if requirements are met.
 >
 > - _Complexity_:
->   - time: O(size() + 1), exactly `end() - position` swaps, one call to `T`'s copy constructor,
+>   - time: O(size() + 1), exactly `end() - position` swaps, one call to `value_type`'s copy constructor,
 >   - space: O(1).
 >
 > - _Exception safety_: 
+>   - `noexcept` never: narrow contract.
 >   - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects 
-> (note: even if `T`s copy constructor can throw). 
+> (note: even if `value_type`s copy constructor can throw). 
 >
 > - _Constexpr_: if `is_trivial<value_type>`.
 >
 > - _Iterator invalidation_: all iterators pointing to elements after `position` are invalidated.
 >
-> - _Effects_: exactly `end() - position` swaps, one call to `T`'s copy constructor, the `size()` 
+> - _Effects_: exactly `end() - position` swaps, one call to `value_type`'s copy constructor, the `size()` 
 > of the vector is incremented by one.
 >
 > - _Pre-condition_: `size() + 1 <= Capacity`, `position` is in range `[begin(), end())`.
 > - _Post-condition_: `size() == size_before + 1`.
 > - _Invariant_: the relative order of the elements before and after \p position is preserved.
 
+---
 
 ```c++
 constexpr iterator insert(const_iterator position, value_type&& x);
@@ -1402,24 +1413,26 @@ constexpr iterator insert(const_iterator position, value_type&& x);
 > - _Enabled_: if requirements are met.
 >
 > - _Complexity_:
->   - time: O(size() + 1), exactly `end() - position` swaps, one call to `T`'s move constructor,
+>   - time: O(size() + 1), exactly `end() - position` swaps, one call to `value_type`'s move constructor,
 >   - space: O(1).
 >
 > - _Exception safety_: 
+>   - `noexcept` never: narrow contract.
 >   - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects 
-> (note: even if `T`s move constructor can throw). 
+> (note: even if `value_type`s move constructor can throw). 
 >
 > - _Constexpr_: if `is_trivial<value_type>`.
 >
 > - _Iterator invalidation_: all iterators pointing to elements after `position` are invalidated.
 >
-> - _Effects_: exactly `end() - position` swaps, one call to `T`'s move constructor, the `size()` 
+> - _Effects_: exactly `end() - position` swaps, one call to `value_type`'s move constructor, the `size()` 
 > of the vector is incremented by one.
 >
 > - _Pre-condition_: `size() + 1 <= Capacity`, `position` is in range `[begin(), end())`.
 > - _Post-condition_: `size() == size_before - 1`.
 > - _Invariant_: the relative order of the elements before and after `position` is preserved.
 
+---
 
 ```c++
 constexpr iterator insert(const_iterator position, size_type n, const value_type& x);
@@ -1432,24 +1445,26 @@ constexpr iterator insert(const_iterator position, size_type n, const value_type
 > - _Enabled_: if requirements are met.
 >
 > - _Complexity_:
->   - time: O(size() + n), exactly `end() - position + n - 1` swaps, `n` calls to `T`'s copy constructor,
+>   - time: O(size() + n), exactly `end() - position + n - 1` swaps, `n` calls to `value_type`'s copy constructor,
 >   - space: O(1).
 >
 > - _Exception safety_: 
+>   - `noexcept` never: narrow contract.
 >   - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects 
-> (note: even if `T`s copy constructor can throw). 
+> (note: even if `value_type`s copy constructor can throw). 
 >
 > - _Constexpr_: if `is_trivial<value_type>`.
 >
 > - _Iterator invalidation_: all iterators pointing to elements after `position` are invalidated.
 >
-> - _Effects_: exactly `end() - position + n - 1` swaps, `n` calls to `T`'s copy constructor, the `size()` 
+> - _Effects_: exactly `end() - position + n - 1` swaps, `n` calls to `value_type`'s copy constructor, the `size()` 
 > of the vector is incremented by `n`.
 >
 > - _Pre-condition_: `size() + n <= Capacity`, `position` is in range `[begin(), end())`.
 > - _Post-condition_: `size() == size_before + n`.
 > - _Invariant_: the relative order of the elements before and after `position` is preserved.
 
+---
 
 ```c++
 template <typename InputIterator>
@@ -1463,29 +1478,34 @@ template <typename InputIterator>
 > - _Enabled_: if requirements are met.
 >
 > - _Complexity_:
->   - time: O(size() + distance(first, last)), exactly `end() - position + distance(first, last) - 1` swaps, `n` calls to `T`'s copy constructor (note: independently of `InputIt`'s iterator category),
+>   - time: O(size() + distance(first, last)), exactly `end() - position + distance(first, last) - 1` swaps, `n` calls to `value_type`'s copy constructor (note: independently of `InputIt`'s iterator category),
 >   - space: O(1).
 >
 > - _Exception safety_: 
+>   - `noexcept` never: narrow contract.
 >   - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects 
-> (note: even if `T`s copy constructor can throw). 
+> (note: even if `value_type`s copy constructor can throw). 
 >
 > - _Constexpr_: if `is_trivial<value_type>`.
 >
 > - _Iterator invalidation_: all iterators pointing to elements after `position` are invalidated.
 >
-> - _Effects_: exactly `end() - position + distance(first, last) - 1` swaps, `n` calls to `T`'s copy constructor, the `size()` 
+> - _Effects_: exactly `end() - position + distance(first, last) - 1` swaps, `n` calls to `value_type`'s copy constructor, the `size()` 
 > of the vector is incremented by `n`.
 >
 > - _Pre-condition_: `size() + distance(first, last) <= Capacity`, `position` is in range `[begin(), end())`, `[first, last)` is not a sub-range of `[position, end())`.
 > - _Post-condition_: `size() == size_before + distance(first, last)`.
 > - _Invariant_: the relative order of the elements before and after `position` is preserved.
 
+---
   
 ```c++
-/// Equivalent to `insert(position, begin(il), end(il))`.
 constexpr iterator insert(const_iterator position, initializer_list<value_type> il);
 ```
+
+> Equivalent to `fixed_capacity_vector::insert(position, begin(il), end(il))`.
+
+---
 
 ```c++
 constexpr iterator erase(const_iterator position)
@@ -1499,23 +1519,25 @@ constexpr iterator erase(const_iterator position)
 > - _Enabled_: always.
 >
 > - _Complexity_:
-> - time: O(size()), exactly `end() - position - 1` swaps, 1 call to `T`'s destructor. 
+> - time: O(size()), exactly `end() - position - 1` swaps, 1 call to `value_type`'s destructor. 
 > - space: O(1).
 >
 > - _Exception safety_: 
-> - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects.
+>   - `noexcept` never: narrow contract.
+>   - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects.
 >
 > - _Constexpr_: if `is_trivial<value_type>`.
 >
 > - _Iterator invalidation_: all iterators pointing to elements after `position` are invalidated.
 >
-> - _Effects_: exactly `end() - position - 1` swaps, 1 call to `T`'s destructor, the `size()` 
+> - _Effects_: exactly `end() - position - 1` swaps, 1 call to `value_type`'s destructor, the `size()` 
 > of the vector is decremented by 1.
 >
 > - _Pre-condition_: `size() - 1 >= 0`, `position` is in range `[begin(), end())`.
 > - _Post-condition_: `size() == size_before - 1`, `size() >= 0`.
 > - _Invariant_: the relative order of the elements before and after `position` is preserved.
 
+---
 
 ```c++
 constexpr iterator erase(const_iterator first, const_iterator last)
@@ -1530,28 +1552,34 @@ constexpr iterator erase(const_iterator first, const_iterator last)
 >
 > - _Complexity_:
 > - time: O(size()), exactly `end() - first - distance(first, last)` swaps, `distance(first, last)` 
->   calls to `T`'s destructor. 
+>   calls to `value_type`'s destructor. 
 > - space: O(1).
 >
 > - _Exception safety_: 
-> - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects.
+>   - `noexcept` never: narrow contract.
+>   - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects.
 >
 > - _Constexpr_: if `is_trivial<value_type>`.
 >
 > - _Iterator invalidation_: all iterators pointing to elements after `first` are invalidated.
 >
 > - _Effects_: exactly `end() - first - distance(first, last)` swaps, 
->   `distance(first, last)` calls to `T`'s destructor, the `size()` 
+>   `distance(first, last)` calls to `value_type`'s destructor, the `size()` 
 > of the vector is decremented by `distance(first, last)`.
 >
 > - _Pre-condition_: `size() - distance(first, last) >= 0`, `[first, last)` is a sub-range of `[begin(), end())`.
 > - _Post-condition_: `size() == size_before - distance(first, last)`, `size() >= 0`.
 > - _Invariant_: the relative order of the elements before and after `position` remains unchanged.
 
+---
+
 ```c++
-/// Equivalent to `erase(begin(), end())`. 
 constexpr void clear() noexcept(is_nothrow_destructible<value_type>{});
 ```
+
+> Equivalent to `fixed_capacity_vector::erase(begin(), end())`. 
+
+---
 
 ```c++
 constexpr void swap(fixed_capacity_vector& other)
@@ -1569,7 +1597,8 @@ constexpr void swap(fixed_capacity_vector& other)
 >   - space: O(1).
 >
 > - _Exception safety_: 
-> - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects.
+>   - `noexcept` never: narrow contract.
+>   - strong guarantee if `std::is_nothrow_swappable<value_type>`: no observable side-effects.
 >
 > - _Constexpr_: if `is_trivial<value_type>`.
 >
@@ -1579,6 +1608,8 @@ constexpr void swap(fixed_capacity_vector& other)
 >
 > - _Pre-condition_: none.
 > - _Post-condition_: `size() == other_size_before`, `other.size() == size_before`.
+
+---
 
 ## Comparison operators
 
@@ -1603,7 +1634,7 @@ The following holds for the comparison operators:
 - _Enabled_: if requirements are met.
 - _Complexity_: for two vectors of sizes `N` and `M`, the complexity is `O(1)` if `N != M`, and the comparison operator
   of `value_type` is invoked at most `N` times otherwise.
-- _Exception safety_: `noexcept` if the comparison operator of `value_type` is `noexcept`, otherwise can only throw if the comparison operator can throw.
+- _Exception safety_: `noexcept` if the comparison operator of `value_type` is `noexcept`, otherwise strong guarantee (can only throw if the comparison operator can throw).
 
 Note: the comparison operators have no preconditions, hence they have wide contracts, and this proposal makes them noexcept when the corresponding operator (e.g. `<`) for `value_type` is `noexcept(true)`.
 
