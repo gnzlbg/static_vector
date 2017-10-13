@@ -63,10 +63,14 @@
 #include <stdexcept>    // for length_error
 #include <type_traits>  // for aligned_storage and all meta-functions
 
+/// Unreachable code
 #define FCV_UNREACHABLE __builtin_unreachable()
+
+/// Optimizer allowed to assume that EXPR evaluates to true
 #define FCV_ASSUME(EXPR) \
     static_cast<void>((EXPR) ? void(0) : __builtin_unreachable())
 
+/// Assert pretty printer
 #define FCV_ASSERT(...)                                                       \
     static_cast<void>((__VA_ARGS__)                                           \
                           ? void(0)                                           \
@@ -74,9 +78,12 @@
                                 static_cast<const char*>(__FILE__), __LINE__, \
                                 "assertion failed: " #__VA_ARGS__))
 
+/// Likely/unlikely branches
 #define FCV_LIKELY(boolean_expr) __builtin_expect(!!(boolean_expr), 1)
 #define FCV_UNLIKELY(boolean_expr) __builtin_expect(!!(boolean_expr), 0)
 
+/// Expect asserts the condition in debug builds and assumes the condition to be
+/// true in release builds.
 #ifdef NDEBUG
 #define FCV_EXPECT(EXPR) FCV_ASSUME(EXPR)
 #else
@@ -86,6 +93,7 @@
 #define FCV_CONCEPT_PP_CAT_(X, Y) X##Y
 #define FCV_CONCEPT_PP_CAT(X, Y) FCV_CONCEPT_PP_CAT_(X, Y)
 
+/// Requires-clause emulation with SFINAE (for templates)
 #define FCV_REQUIRES_(...)                                                 \
     int FCV_CONCEPT_PP_CAT(_concept_requires_, __LINE__)                   \
         = 42,                                                              \
@@ -94,6 +102,7 @@
             || (__VA_ARGS__),                                              \
         int > ::type = 0 /**/
 
+/// Requires-clause emulation with SFINAE (for "non-templates")
 #define FCV_REQUIRES(...)                                                  \
     template <int FCV_CONCEPT_PP_CAT(_concept_requires_, __LINE__) = 42,   \
               typename ::std::enable_if<                                   \
@@ -106,6 +115,7 @@ namespace std
 {
     namespace experimental
     {
+        // Private utilites (each std lib should already have this)
         namespace fcv_detail
         {
             /// \name Utilities
@@ -113,8 +123,7 @@ namespace std
 
             template <class = void>
             [[noreturn]] void assert_failure(char const* file, int line,
-                                             char const* msg)
-            {
+                                             char const* msg) {
                 fprintf(stderr, "%s(%d): %s\n", file, line, msg);
                 abort();
             }
@@ -122,6 +131,8 @@ namespace std
             template <bool v>
             using bool_ = integral_constant<bool, v>;
 
+            /// \name Concepts (poor-man emulation using type traits)
+            ///@{
             template <typename T, typename... Args>
             static constexpr bool Constructible
                 = is_constructible_v<T, Args...>;
@@ -152,6 +163,7 @@ namespace std
 
             template <typename T>
             static constexpr bool Pointer = is_pointer_v<T>;
+            ///@}  // Concepts
 
             template <typename Rng>
             using range_iterator_t = decltype(begin(declval<Rng>()));
@@ -174,6 +186,8 @@ namespace std
             {
             };
 
+            /// \name Concepts (poor-man emulation using type traits)
+            ///@{
             template <typename T>
             static constexpr bool InputIterator
                 = Iterator_<T, input_iterator_tag>{};
@@ -197,6 +211,7 @@ namespace std
             template <typename T>
             static constexpr bool RandomAccessRange
                 = RandomAccessIterator<range_iterator_t<T>>;
+            ///@}  // Concepts
 
             // clang-format off
 
@@ -211,6 +226,7 @@ namespace std
                                  size_t>>>>;
             // clang-format on
 
+            /// Index a range doing bound checks in debug builds
             template <typename Rng, typename Index,
                       FCV_REQUIRES_(RandomAccessRange<Rng>)>
             constexpr decltype(auto) index(Rng&& rng, Index&& i) noexcept
@@ -218,6 +234,9 @@ namespace std
                 FCV_EXPECT(static_cast<ptrdiff_t>(i) < (end(rng) - begin(rng)));
                 return begin(forward<Rng>(rng))[forward<Index>(i)];
             }
+
+            /// \name Workarounds
+            ///@{
 
             // WORKAROUND: std::rotate is not constexpr
             template <typename ForwardIt,
@@ -273,484 +292,498 @@ namespace std
                 return first1 == last1 && first2 == last2;
             }
 
+            ///@}  // Workarounds
+
             ///@} // Utilities
 
-            /// Storage for zero elements.
-            template <typename T>
-            struct empty_storage
+            /// Types implementing the `fixed_capactiy_vector`'s storage
+            namespace storage
             {
-                using size_type       = uint8_t;
-                using value_type      = T;
-                using difference_type = ptrdiff_t;
-                using pointer         = T*;
-                using const_pointer   = T const*;
-
-                /// Pointer to the data in the storage.
-                static constexpr pointer data() noexcept
+                /// Storage for zero elements.
+                template <typename T>
+                struct zero_sized
                 {
-                    return nullptr;
-                }
-                /// Number of elements currently stored.
-                static constexpr size_type size() noexcept
-                {
-                    return 0;
-                }
-                /// Capacity of the storage.
-                static constexpr size_type capacity() noexcept
-                {
-                    return 0;
-                }
-                /// Is the storage empty?
-                static constexpr bool empty() noexcept
-                {
-                    return true;
-                }
-                /// Is the storage full?
-                static constexpr bool full() noexcept
-                {
-                    return true;
-                }
+                    using size_type       = uint8_t;
+                    using value_type      = T;
+                    using difference_type = ptrdiff_t;
+                    using pointer         = T*;
+                    using const_pointer   = T const*;
 
-                /// Constructs a new element at the end of the storage in-place.
-                ///
-                /// Increases size of the storage by one.
-                /// Always fails for empty storage.
-                template <typename... Args,
-                          FCV_REQUIRES_(Constructible<T, Args...>)>
-                static constexpr void emplace_back(Args&&...) noexcept
-                {
-                    FCV_EXPECT(false
-                               && "tried to emplace_back on empty storage");
-                }
-                /// Removes the last element of the storage.
-                /// Always fails for empty storage.
-                static constexpr void pop_back() noexcept
-                {
-                    FCV_EXPECT(false && "tried to pop_back on empty storage");
-                }
-                /// Changes the size of the storage without adding or removing
-                /// elements (unsafe).
-                ///
-                /// The size of an empty storage can only be changed to 0.
-                static constexpr void unsafe_set_size(size_t new_size) noexcept
-                {
-                    FCV_EXPECT(new_size == 0
-                               && "tried to change size of empty storage to "
-                                  "non-zero value");
-                }
-
-                /// Destroys all elements of the storage in range [begin, end)
-                /// without changings its size (unsafe).
-                ///
-                /// Nothing to destroy since the storage is empty.
-                template <typename InputIt,
-                          FCV_REQUIRES_(InputIterator<InputIt>)>
-                static constexpr void unsafe_destroy(InputIt /* begin */,
-                                                     InputIt /* end */) noexcept
-                {
-                }
-
-                /// Destroys all elements of the storage without changing its
-                /// size (unsafe).
-                ///
-                /// Nothing to destroy since the storage is empty.
-                static constexpr void unsafe_destroy_all() noexcept
-                {
-                }
-
-                constexpr empty_storage()                     = default;
-                constexpr empty_storage(empty_storage const&) = default;
-                constexpr empty_storage& operator=(empty_storage const&)
-                    = default;
-                constexpr empty_storage(empty_storage&&) = default;
-                constexpr empty_storage& operator=(empty_storage&&) = default;
-                ~empty_storage()                                    = default;
-
-                /// Constructs an empty storage from an initializer list of zero
-                /// elements.
-                template <typename U, FCV_REQUIRES_(Convertible<U, T>)>
-                constexpr empty_storage(initializer_list<U> il) noexcept
-                {
-                    FCV_EXPECT(il.size() == 0
-                               && "tried to construct empty_storage from a "
-                                  "non-empty initializer list");
-                }
-            };
-
-            /// Storage for trivial types.
-            template <typename T, size_t Capacity>
-            struct trivial_storage
-            {
-                static_assert(Trivial<T>,
-                              "trivial_storage<T, C> requires Trivial<T>");
-                static_assert(Capacity != size_t{0}, "Capacity must be greater "
-                                                     "than zero (use "
-                                                     "empty_storage instead)");
-
-                using size_type       = smallest_size_t<Capacity>;
-                using value_type      = T;
-                using difference_type = ptrdiff_t;
-                using pointer         = T*;
-                using const_pointer   = T const*;
-
-              private:
-                // If the value_type is const, make a const array of non-const
-                // elements:
-                using data_t
-                    = conditional_t<!Const<T>, array<T, Capacity>,
-                                    const array<remove_const_t<T>, Capacity>>;
-                alignas(alignof(T)) data_t data_{};
-
-                /// Number of elements allocated in the storage:
-                size_type size_ = 0;
-
-              public:
-                /// Direct access to the underlying storage.
-                ///
-                /// Complexity: O(1) in time and space.
-                constexpr const_pointer data() const noexcept
-                {
-                    return data_.data();
-                }
-
-                /// Direct access to the underlying storage.
-                ///
-                /// Complexity: O(1) in time and space.
-                constexpr pointer data() noexcept
-                {
-                    return data_.data();
-                }
-
-                /// Number of elements in the storage.
-                ///
-                /// Complexity: O(1) in time and space.
-                constexpr size_type size() const noexcept
-                {
-                    return size_;
-                }
-
-                /// Maximum number of elements that can be allocated in the
-                /// storage.
-                ///
-                /// Complexity: O(1) in time and space.
-                static constexpr size_type capacity() noexcept
-                {
-                    return Capacity;
-                }
-
-                /// Is the storage empty?
-                constexpr bool empty() const noexcept
-                {
-                    return size() == size_type{0};
-                }
-
-                /// Is the storage full?
-                constexpr bool full() const noexcept
-                {
-                    return size() == Capacity;
-                }
-
-                /// Constructs an element in-place at the end of the storage.
-                ///
-                /// Complexity: O(1) in time and space.
-                /// Contract: the storage is not full.
-                template <typename... Args,
-                          FCV_REQUIRES_(Constructible<T, Args...>and
-                                            Assignable<value_type&, T>)>
-                constexpr void emplace_back(Args&&... args) noexcept
-                {
-                    FCV_EXPECT(!full()
-                               && "tried to emplace_back on full storage!");
-                    index(data_, size()) = T(forward<Args>(args)...);
-                    unsafe_set_size(size() + 1);
-                }
-
-                /// Remove the last element from the container.
-                ///
-                /// Complexity: O(1) in time and space.
-                /// Contract: the storage is not empty.
-                constexpr void pop_back() noexcept
-                {
-                    FCV_EXPECT(!empty()
-                               && "tried to pop_back from empty storage!");
-                    unsafe_set_size(size() - 1);
-                }
-
-                /// (unsafe) Changes the container size to \p new_size.
-                ///
-                /// Contract: `new_size <= capacity()`.
-                /// \warning No elements are constructed or destroyed.
-                constexpr void unsafe_set_size(size_t new_size) noexcept
-                {
-                    FCV_EXPECT(new_size <= Capacity
-                               && "new_size out-of-bounds [0, Capacity]");
-                    size_ = size_type(new_size);
-                }
-
-                /// (unsafe) Destroy elements in the range [begin, end).
-                ///
-                /// \warning: The size of the storage is not changed.
-                template <typename InputIt,
-                          FCV_REQUIRES_(InputIterator<InputIt>)>
-                constexpr void unsafe_destroy(InputIt, InputIt) noexcept
-                {
-                }
-
-                /// (unsafe) Destroys all elements of the storage.
-                ///
-                /// \warning: The size of the storage is not changed.
-                static constexpr void unsafe_destroy_all() noexcept
-                {
-                }
-
-                constexpr trivial_storage() noexcept = default;
-                constexpr trivial_storage(trivial_storage const&) noexcept
-                    = default;
-                constexpr trivial_storage& operator=(
-                    trivial_storage const&) noexcept
-                    = default;
-                constexpr trivial_storage(trivial_storage&&) noexcept = default;
-                constexpr trivial_storage& operator=(trivial_storage&&) noexcept
-                    = default;
-                ~trivial_storage() = default;
-
-              private:
-                template <typename U, FCV_REQUIRES_(Convertible<U, T>)>
-                static constexpr array<remove_const_t<T>, Capacity>
-                unsafe_recast_init_list(initializer_list<U>& il) noexcept
-                {
-                    FCV_EXPECT(il.size() <= capacity()
-                               && "trying to construct storage from an "
-                                  "initializer_list "
-                                  "whose size exceeds the storage capacity");
-                    array<remove_const_t<T>, Capacity> d_{};
-                    for (size_t i = 0, e = il.size(); i < e; ++i)
+                    /// Pointer to the data in the storage.
+                    static constexpr pointer data() noexcept
                     {
-                        index(d_, i) = index(il, i);
+                        return nullptr;
                     }
-                    return d_;
-                }
-
-              public:
-                /// Constructor from initializer list.
-                ///
-                /// Contract: `il.size() <= capacity()`.
-                template <typename U, FCV_REQUIRES_(Convertible<U, T>)>
-                constexpr trivial_storage(initializer_list<U> il) noexcept
-                    : data_(unsafe_recast_init_list(il))
-                {
-                    unsafe_set_size(static_cast<size_type>(il.size()));
-                }
-            };
-
-            /// Storage for non-trivial elements.
-            template <typename T, size_t Capacity>
-            struct non_trivial_storage
-            {
-                static_assert(!Trivial<T>,
-                              "use trivial_storage for Trivial<T> elements");
-                static_assert(Capacity != size_t{0},
-                              "Capacity must be greater than zero!");
-
-                /// Smallest size_type that can represent Capacity:
-                using size_type       = smallest_size_t<Capacity>;
-                using value_type      = T;
-                using difference_type = ptrdiff_t;
-                using pointer         = T*;
-                using const_pointer   = T const*;
-
-              private:
-                /// Number of elements allocated in the embedded storage:
-                size_type size_ = 0;
-
-                using aligned_storage_t
-                    = aligned_storage_t<sizeof(remove_const_t<T>),
-                                        alignof(remove_const_t<T>)>;
-                using data_t = conditional_t<!Const<T>, aligned_storage_t,
-                                             const aligned_storage_t>;
-                alignas(alignof(T)) data_t data_[Capacity]{};
-                // FIXME: ^ this won't work for types with "broken" alignof like
-                // SIMD types (one would also need to provide an overload
-                // of operator new to make heap allocations of this type work
-                // for these types).
-
-              public:
-                /// Direct access to the underlying storage.
-                ///
-                /// Complexity: O(1) in time and space.
-                const_pointer data() const noexcept
-                {
-                    return reinterpret_cast<const_pointer>(data_);
-                }
-
-                /// Direct access to the underlying storage.
-                ///
-                /// Complexity: O(1) in time and space.
-                pointer data() noexcept
-                {
-                    return reinterpret_cast<pointer>(data_);
-                }
-
-                /// Pointer to one-past-the-end.
-                const_pointer end() const noexcept
-                {
-                    return data() + size();
-                }
-
-                /// Pointer to one-past-the-end.
-                pointer end() noexcept
-                {
-                    return data() + size();
-                }
-
-                /// Number of elements in the storage.
-                ///
-                /// Complexity: O(1) in time and space.
-                constexpr size_type size() const noexcept
-                {
-                    return size_;
-                }
-
-                /// Maximum number of elements that can be allocated in the
-                /// storage.
-                ///
-                /// Complexity: O(1) in time and space.
-                static constexpr size_type capacity() noexcept
-                {
-                    return Capacity;
-                }
-
-                /// Is the storage empty?
-                constexpr bool empty() const noexcept
-                {
-                    return size() == size_type{0};
-                }
-
-                /// Is the storage full?
-                constexpr bool full() const noexcept
-                {
-                    return size() == Capacity;
-                }
-
-                /// Constructs an element in-place at the end of the embedded
-                /// storage.
-                ///
-                /// Complexity: O(1) in time and space.
-                /// Contract: the storage is not full.
-                template <typename... Args,
-                          FCV_REQUIRES_(Constructible<T, Args...>)>
-                void emplace_back(Args&&... args) noexcept(
-                    noexcept(new (end()) T(forward<Args>(args)...)))
-                {
-                    FCV_EXPECT(!full()
-                               && "tried to emplace_back on full storage");
-                    new (end()) T(forward<Args>(args)...);
-                    unsafe_set_size(size() + 1);
-                }
-
-                /// Remove the last element from the container.
-                ///
-                /// Complexity: O(1) in time and space.
-                /// Contract: the storage is not empty.
-                void pop_back() noexcept(is_nothrow_destructible_v<T>)
-                {
-                    FCV_EXPECT(!empty()
-                               && "tried to pop_back from empty storage!");
-                    auto ptr = end() - 1;
-                    ptr->~T();
-                    unsafe_set_size(size() - 1);
-                }
-
-                /// (unsafe) Changes the container size to \p new_size.
-                ///
-                /// Contract: `new_size <= capacity()`.
-                /// \warning No elements are constructed or destroyed.
-                constexpr void unsafe_set_size(size_t new_size) noexcept
-                {
-                    FCV_EXPECT(new_size <= Capacity
-                               && "new_size out-of-bounds [0, Capacity)");
-                    size_ = size_type(new_size);
-                }
-
-                /// (unsafe) Destroy elements in the range [begin, end).
-                ///
-                /// \warning: The size of the storage is not changed.
-                template <typename InputIt,
-                          FCV_REQUIRES_(InputIterator<InputIt>)>
-                void unsafe_destroy(InputIt first, InputIt last) noexcept(
-                    is_nothrow_destructible_v<T>)
-                {
-                    FCV_EXPECT(first >= data() && first <= end()
-                               && "first is out-of-bounds");
-                    FCV_EXPECT(last >= data() && last <= end()
-                               && "last is out-of-bounds");
-                    for (; first != last; ++first)
+                    /// Number of elements currently stored.
+                    static constexpr size_type size() noexcept
                     {
-                        first->~T();
+                        return 0;
                     }
-                }
-
-                /// (unsafe) Destroys all elements of the storage.
-                ///
-                /// \warning: The size of the storage is not changed.
-                void unsafe_destroy_all() noexcept(is_nothrow_destructible_v<T>)
-                {
-                    unsafe_destroy(data(), end());
-                }
-
-                constexpr non_trivial_storage() = default;
-                constexpr non_trivial_storage(non_trivial_storage const&)
-                    = default;
-                constexpr non_trivial_storage& operator=(
-                    non_trivial_storage const&)
-                    = default;
-                constexpr non_trivial_storage(non_trivial_storage&&) = default;
-                constexpr non_trivial_storage& operator=(non_trivial_storage&&)
-                    = default;
-                ~non_trivial_storage() noexcept(is_nothrow_destructible_v<T>)
-                {
-                    unsafe_destroy_all();
-                }
-
-                /// Constructor from initializer list.
-                ///
-                /// Contract: `il.size() <= capacity()`.
-                template <typename U, FCV_REQUIRES_(Convertible<U, T>)>
-                constexpr non_trivial_storage(initializer_list<U> il) noexcept(
-                    noexcept(emplace_back(index(il, 0))))
-                {
-                    FCV_EXPECT(il.size() <= capacity()
-                               && "trying to construct storage from an "
-                                  "initializer_list "
-                                  "whose size exceeds the storage capacity");
-                    for (size_t i = 0; i < il.size(); ++i)
+                    /// Capacity of the storage.
+                    static constexpr size_type capacity() noexcept
                     {
-                        emplace_back(index(il, i));
+                        return 0;
                     }
-                }
-            };
+                    /// Is the storage empty?
+                    static constexpr bool empty() noexcept
+                    {
+                        return true;
+                    }
+                    /// Is the storage full?
+                    static constexpr bool full() noexcept
+                    {
+                        return true;
+                    }
 
-            template <typename T, size_t Capacity>
-            using storage = conditional_t<
-                Capacity == 0, empty_storage<T>,
-                conditional_t<Trivial<T>, trivial_storage<T, Capacity>,
-                              non_trivial_storage<T, Capacity>>>;
+                    /// Constructs a new element at the end of the storage
+                    /// in-place.
+                    ///
+                    /// Increases size of the storage by one.
+                    /// Always fails for empty storage.
+                    template <typename... Args,
+                              FCV_REQUIRES_(Constructible<T, Args...>)>
+                    static constexpr void emplace_back(Args&&...) noexcept
+                    {
+                        FCV_EXPECT(false
+                                   && "tried to emplace_back on empty storage");
+                    }
+                    /// Removes the last element of the storage.
+                    /// Always fails for empty storage.
+                    static constexpr void pop_back() noexcept
+                    {
+                        FCV_EXPECT(false
+                                   && "tried to pop_back on empty storage");
+                    }
+                    /// Changes the size of the storage without adding or
+                    /// removing elements (unsafe).
+                    ///
+                    /// The size of an empty storage can only be changed to 0.
+                    static constexpr void unsafe_set_size(
+                        size_t new_size) noexcept
+                    {
+                        FCV_EXPECT(
+                            new_size == 0
+                            && "tried to change size of empty storage to "
+                               "non-zero value");
+                    }
+
+                    /// Destroys all elements of the storage in range [begin,
+                    /// end) without changings its size (unsafe).
+                    ///
+                    /// Nothing to destroy since the storage is empty.
+                    template <typename InputIt,
+                              FCV_REQUIRES_(InputIterator<InputIt>)>
+                    static constexpr void unsafe_destroy(
+                        InputIt /* begin */, InputIt /* end */) noexcept
+                    {
+                    }
+
+                    /// Destroys all elements of the storage without changing
+                    /// its size (unsafe).
+                    ///
+                    /// Nothing to destroy since the storage is empty.
+                    static constexpr void unsafe_destroy_all() noexcept
+                    {
+                    }
+
+                    constexpr zero_sized()                  = default;
+                    constexpr zero_sized(zero_sized const&) = default;
+                    constexpr zero_sized& operator          =(zero_sized const&)
+                        = default;
+                    constexpr zero_sized(zero_sized&&) = default;
+                    constexpr zero_sized& operator=(zero_sized&&) = default;
+                    ~zero_sized()                                 = default;
+
+                    /// Constructs an empty storage from an initializer list of
+                    /// zero elements.
+                    template <typename U, FCV_REQUIRES_(Convertible<U, T>)>
+                    constexpr zero_sized(initializer_list<U> il) noexcept
+                    {
+                        FCV_EXPECT(
+                            il.size() == 0
+                            && "tried to construct storage::empty from a "
+                               "non-empty initializer list");
+                    }
+                };
+
+                /// Storage for trivial types.
+                template <typename T, size_t Capacity>
+                struct trivial
+                {
+                    static_assert(Trivial<T>,
+                                  "storage::trivial<T, C> requires Trivial<T>");
+                    static_assert(Capacity != size_t{0},
+                                  "Capacity must be greater "
+                                  "than zero (use "
+                                  "storage::zero_sized instead)");
+
+                    using size_type       = smallest_size_t<Capacity>;
+                    using value_type      = T;
+                    using difference_type = ptrdiff_t;
+                    using pointer         = T*;
+                    using const_pointer   = T const*;
+
+                  private:
+                    // If the value_type is const, make a const array of
+                    // non-const elements:
+                    using data_t = conditional_t<
+                        !Const<T>, array<T, Capacity>,
+                        const array<remove_const_t<T>, Capacity>>;
+                    alignas(alignof(T)) data_t data_{};
+
+                    /// Number of elements allocated in the storage:
+                    size_type size_ = 0;
+
+                  public:
+                    /// Direct access to the underlying storage.
+                    ///
+                    /// Complexity: O(1) in time and space.
+                    constexpr const_pointer data() const noexcept
+                    {
+                        return data_.data();
+                    }
+
+                    /// Direct access to the underlying storage.
+                    ///
+                    /// Complexity: O(1) in time and space.
+                    constexpr pointer data() noexcept
+                    {
+                        return data_.data();
+                    }
+
+                    /// Number of elements in the storage.
+                    ///
+                    /// Complexity: O(1) in time and space.
+                    constexpr size_type size() const noexcept
+                    {
+                        return size_;
+                    }
+
+                    /// Maximum number of elements that can be allocated in the
+                    /// storage.
+                    ///
+                    /// Complexity: O(1) in time and space.
+                    static constexpr size_type capacity() noexcept
+                    {
+                        return Capacity;
+                    }
+
+                    /// Is the storage empty?
+                    constexpr bool empty() const noexcept
+                    {
+                        return size() == size_type{0};
+                    }
+
+                    /// Is the storage full?
+                    constexpr bool full() const noexcept
+                    {
+                        return size() == Capacity;
+                    }
+
+                    /// Constructs an element in-place at the end of the
+                    /// storage.
+                    ///
+                    /// Complexity: O(1) in time and space.
+                    /// Contract: the storage is not full.
+                    template <typename... Args,
+                              FCV_REQUIRES_(Constructible<T, Args...>and
+                                                Assignable<value_type&, T>)>
+                    constexpr void emplace_back(Args&&... args) noexcept
+                    {
+                        FCV_EXPECT(!full()
+                                   && "tried to emplace_back on full storage!");
+                        index(data_, size()) = T(forward<Args>(args)...);
+                        unsafe_set_size(size() + 1);
+                    }
+
+                    /// Remove the last element from the container.
+                    ///
+                    /// Complexity: O(1) in time and space.
+                    /// Contract: the storage is not empty.
+                    constexpr void pop_back() noexcept
+                    {
+                        FCV_EXPECT(!empty()
+                                   && "tried to pop_back from empty storage!");
+                        unsafe_set_size(size() - 1);
+                    }
+
+                    /// (unsafe) Changes the container size to \p new_size.
+                    ///
+                    /// Contract: `new_size <= capacity()`.
+                    /// \warning No elements are constructed or destroyed.
+                    constexpr void unsafe_set_size(size_t new_size) noexcept
+                    {
+                        FCV_EXPECT(new_size <= Capacity
+                                   && "new_size out-of-bounds [0, Capacity]");
+                        size_ = size_type(new_size);
+                    }
+
+                    /// (unsafe) Destroy elements in the range [begin, end).
+                    ///
+                    /// \warning: The size of the storage is not changed.
+                    template <typename InputIt,
+                              FCV_REQUIRES_(InputIterator<InputIt>)>
+                    constexpr void unsafe_destroy(InputIt, InputIt) noexcept
+                    {
+                    }
+
+                    /// (unsafe) Destroys all elements of the storage.
+                    ///
+                    /// \warning: The size of the storage is not changed.
+                    static constexpr void unsafe_destroy_all() noexcept
+                    {
+                    }
+
+                    constexpr trivial() noexcept               = default;
+                    constexpr trivial(trivial const&) noexcept = default;
+                    constexpr trivial& operator=(trivial const&) noexcept
+                        = default;
+                    constexpr trivial(trivial&&) noexcept = default;
+                    constexpr trivial& operator=(trivial&&) noexcept = default;
+                    ~trivial()                                       = default;
+
+                  private:
+                    template <typename U, FCV_REQUIRES_(Convertible<U, T>)>
+                    static constexpr array<remove_const_t<T>, Capacity>
+                    unsafe_recast_init_list(initializer_list<U>& il) noexcept
+                    {
+                        FCV_EXPECT(
+                            il.size() <= capacity()
+                            && "trying to construct storage from an "
+                               "initializer_list "
+                               "whose size exceeds the storage capacity");
+                        array<remove_const_t<T>, Capacity> d_{};
+                        for (size_t i = 0, e = il.size(); i < e; ++i)
+                        {
+                            index(d_, i) = index(il, i);
+                        }
+                        return d_;
+                    }
+
+                  public:
+                    /// Constructor from initializer list.
+                    ///
+                    /// Contract: `il.size() <= capacity()`.
+                    template <typename U, FCV_REQUIRES_(Convertible<U, T>)>
+                    constexpr trivial(initializer_list<U> il) noexcept
+                        : data_(unsafe_recast_init_list(il))
+                    {
+                        unsafe_set_size(static_cast<size_type>(il.size()));
+                    }
+                };
+
+                /// Storage for non-trivial elements.
+                template <typename T, size_t Capacity>
+                struct non_trivial
+                {
+                    static_assert(
+                        !Trivial<T>,
+                        "use storage::trivial for Trivial<T> elements");
+                    static_assert(Capacity != size_t{0},
+                                  "Capacity must be greater than zero!");
+
+                    /// Smallest size_type that can represent Capacity:
+                    using size_type       = smallest_size_t<Capacity>;
+                    using value_type      = T;
+                    using difference_type = ptrdiff_t;
+                    using pointer         = T*;
+                    using const_pointer   = T const*;
+
+                  private:
+                    /// Number of elements allocated in the embedded storage:
+                    size_type size_ = 0;
+
+                    using aligned_storage_t
+                        = aligned_storage_t<sizeof(remove_const_t<T>),
+                                            alignof(remove_const_t<T>)>;
+                    using data_t = conditional_t<!Const<T>, aligned_storage_t,
+                                                 const aligned_storage_t>;
+                    alignas(alignof(T)) data_t data_[Capacity]{};
+                    // FIXME: ^ this won't work for types with "broken" alignof
+                    // like SIMD types (one would also need to provide an
+                    // overload of operator new to make heap allocations of this
+                    // type work for these types).
+
+                  public:
+                    /// Direct access to the underlying storage.
+                    ///
+                    /// Complexity: O(1) in time and space.
+                    const_pointer data() const noexcept
+                    {
+                        return reinterpret_cast<const_pointer>(data_);
+                    }
+
+                    /// Direct access to the underlying storage.
+                    ///
+                    /// Complexity: O(1) in time and space.
+                    pointer data() noexcept
+                    {
+                        return reinterpret_cast<pointer>(data_);
+                    }
+
+                    /// Pointer to one-past-the-end.
+                    const_pointer end() const noexcept
+                    {
+                        return data() + size();
+                    }
+
+                    /// Pointer to one-past-the-end.
+                    pointer end() noexcept
+                    {
+                        return data() + size();
+                    }
+
+                    /// Number of elements in the storage.
+                    ///
+                    /// Complexity: O(1) in time and space.
+                    constexpr size_type size() const noexcept
+                    {
+                        return size_;
+                    }
+
+                    /// Maximum number of elements that can be allocated in the
+                    /// storage.
+                    ///
+                    /// Complexity: O(1) in time and space.
+                    static constexpr size_type capacity() noexcept
+                    {
+                        return Capacity;
+                    }
+
+                    /// Is the storage empty?
+                    constexpr bool empty() const noexcept
+                    {
+                        return size() == size_type{0};
+                    }
+
+                    /// Is the storage full?
+                    constexpr bool full() const noexcept
+                    {
+                        return size() == Capacity;
+                    }
+
+                    /// Constructs an element in-place at the end of the
+                    /// embedded storage.
+                    ///
+                    /// Complexity: O(1) in time and space.
+                    /// Contract: the storage is not full.
+                    template <typename... Args,
+                              FCV_REQUIRES_(Constructible<T, Args...>)>
+                    void emplace_back(Args&&... args) noexcept(
+                        noexcept(new (end()) T(forward<Args>(args)...)))
+                    {
+                        FCV_EXPECT(!full()
+                                   && "tried to emplace_back on full storage");
+                        new (end()) T(forward<Args>(args)...);
+                        unsafe_set_size(size() + 1);
+                    }
+
+                    /// Remove the last element from the container.
+                    ///
+                    /// Complexity: O(1) in time and space.
+                    /// Contract: the storage is not empty.
+                    void pop_back() noexcept(is_nothrow_destructible_v<T>)
+                    {
+                        FCV_EXPECT(!empty()
+                                   && "tried to pop_back from empty storage!");
+                        auto ptr = end() - 1;
+                        ptr->~T();
+                        unsafe_set_size(size() - 1);
+                    }
+
+                    /// (unsafe) Changes the container size to \p new_size.
+                    ///
+                    /// Contract: `new_size <= capacity()`.
+                    /// \warning No elements are constructed or destroyed.
+                    constexpr void unsafe_set_size(size_t new_size) noexcept
+                    {
+                        FCV_EXPECT(new_size <= Capacity
+                                   && "new_size out-of-bounds [0, Capacity)");
+                        size_ = size_type(new_size);
+                    }
+
+                    /// (unsafe) Destroy elements in the range [begin, end).
+                    ///
+                    /// \warning: The size of the storage is not changed.
+                    template <typename InputIt,
+                              FCV_REQUIRES_(InputIterator<InputIt>)>
+                    void unsafe_destroy(InputIt first, InputIt last) noexcept(
+                        is_nothrow_destructible_v<T>)
+                    {
+                        FCV_EXPECT(first >= data() && first <= end()
+                                   && "first is out-of-bounds");
+                        FCV_EXPECT(last >= data() && last <= end()
+                                   && "last is out-of-bounds");
+                        for (; first != last; ++first)
+                        {
+                            first->~T();
+                        }
+                    }
+
+                    /// (unsafe) Destroys all elements of the storage.
+                    ///
+                    /// \warning: The size of the storage is not changed.
+                    void unsafe_destroy_all() noexcept(
+                        is_nothrow_destructible_v<T>)
+                    {
+                        unsafe_destroy(data(), end());
+                    }
+
+                    constexpr non_trivial()                   = default;
+                    constexpr non_trivial(non_trivial const&) = default;
+                    constexpr non_trivial& operator=(non_trivial const&)
+                        = default;
+                    constexpr non_trivial(non_trivial&&) = default;
+                    constexpr non_trivial& operator=(non_trivial&&) = default;
+                    ~non_trivial() noexcept(is_nothrow_destructible_v<T>)
+                    {
+                        unsafe_destroy_all();
+                    }
+
+                    /// Constructor from initializer list.
+                    ///
+                    /// Contract: `il.size() <= capacity()`.
+                    template <typename U, FCV_REQUIRES_(Convertible<U, T>)>
+                    constexpr non_trivial(initializer_list<U> il) noexcept(
+                        noexcept(emplace_back(index(il, 0))))
+                    {
+                        FCV_EXPECT(
+                            il.size() <= capacity()
+                            && "trying to construct storage from an "
+                               "initializer_list "
+                               "whose size exceeds the storage capacity");
+                        for (size_t i = 0; i < il.size(); ++i)
+                        {
+                            emplace_back(index(il, i));
+                        }
+                    }
+                };
+
+                /// Selects the vector storage.
+                template <typename T, size_t Capacity>
+                using _t = conditional_t<
+                    Capacity == 0, zero_sized<T>,
+                    conditional_t<Trivial<T>, trivial<T, Capacity>,
+                                  non_trivial<T, Capacity>>>;
+
+            }  // namespace storage
 
         }  // namespace fcv_detail
 
         /// Dynamically-resizable fixed-capacity vector.
         template <typename T, size_t Capacity>
-        struct fixed_capacity_vector : private fcv_detail::storage<T, Capacity>
+        struct fixed_capacity_vector
+            : private fcv_detail::storage::_t<T, Capacity>
         {
           private:
             static_assert(is_nothrow_destructible_v<T>,
                           "T must be nothrow destructible");
-            using base_t = fcv_detail::storage<T, Capacity>;
+            using base_t = fcv_detail::storage::_t<T, Capacity>;
             using self   = fixed_capacity_vector<T, Capacity>;
 
-            using base_t::unsafe_set_size;
-            using base_t::unsafe_destroy_all;
             using base_t::unsafe_destroy;
+            using base_t::unsafe_destroy_all;
+            using base_t::unsafe_set_size;
 
           public:
             using value_type       = typename base_t::value_type;
@@ -771,11 +804,13 @@ namespace std
             using base_t::empty;
             using base_t::full;
 
+            /// Number of elements in the vector
             constexpr size_type size() const noexcept
             {
                 return base_t::size();
             }
 
+            /// Maximum number of elements that can be allocated in the vector
             static constexpr size_type capacity() noexcept
             {
                 return base_t::capacity();
@@ -853,6 +888,9 @@ namespace std
             ///@}  // Iterators
 
           private:
+            /// \name Iterator bound-check utilites
+            ///@{
+
             template <typename It>
             constexpr void assert_iterator_in_range(It it) noexcept
             {
@@ -879,56 +917,67 @@ namespace std
                 assert_valid_iterator_pair(first, last);
             }
 
+            ///@}
           public:
             /// \name Element access
             ///
             ///@{
 
+            /// Unchecked access to element at index \p pos (UB if index not in
+            /// range)
             constexpr reference operator[](size_type pos) noexcept
             {
-                return index(*this, pos);
-            }
-            constexpr const_reference operator[](size_type pos) const noexcept
-            {
-                return index(*this, pos);
+                return fcv_detail::index(*this, pos);
             }
 
+            /// Unchecked access to element at index \p pos (UB if index not in
+            /// range)
+            constexpr const_reference operator[](size_type pos) const noexcept
+            {
+                return fcv_detail::index(*this, pos);
+            }
+
+            /// Checked access to element at index \p pos (throws `out_of_range`
+            /// if index not in range)
             constexpr reference at(size_type pos)
             {
                 if (FCV_UNLIKELY(pos >= size()))
                 {
                     throw out_of_range("fixed_capacity_vector::at");
                 }
-                return index(*this, pos);
+                return fcv_detail::index(*this, pos);
             }
 
+            /// Checked access to element at index \p pos (throws `out_of_range`
+            /// if index not in range)
             constexpr const_reference at(size_type pos) const
             {
                 if (FCV_UNLIKELY(pos >= size()))
                 {
                     throw out_of_range("fixed_capacity_vector::at");
                 }
-                return index(*this, pos);
+                return fcv_detail::index(*this, pos);
             }
 
+            ///
             constexpr reference front() noexcept
             {
-                return index(*this, 0);
+                return fcv_detail::index(*this, 0);
             }
             constexpr const_reference front() const noexcept
             {
-                return index(*this, 0);
+                return fcv_detail::index(*this, 0);
             }
 
             constexpr reference back() noexcept
             {
                 FCV_EXPECT(!empty() && "calling back on an empty vector");
-                return index(*this, size() - 1);
+                return fcv_detail::index(*this, size() - 1);
             }
             constexpr const_reference back() const noexcept
             {
                 FCV_EXPECT(!empty() && "calling back on an empty vector");
-                return index(*this, size() - 1);
+                return fcv_detail::index(*this, size() - 1);
             }
 
             ///@} // Element access
@@ -936,8 +985,8 @@ namespace std
             /// \name Modifiers
             ///@{
 
-            using base_t::pop_back;
             using base_t::emplace_back;
+            using base_t::pop_back;
 
             /// Clears the vector.
             constexpr void clear() noexcept
@@ -1024,24 +1073,6 @@ namespace std
                 return writable_position;
             }
 
-            // template <typename SizeType, FCV_REQUIRES_(Same<SizeType,
-            // size_type>{})>
-            // constexpr iterator insert(const_iterator position, SizeType n)
-            //   noexcept(noexcept(emplace_back()))
-            // {
-            //   assert_iterator_in_range(position);
-            //   const auto new_size = size() + n;
-            //   FCV_EXPECT(new_size <= capacity(), "trying to insert beyond
-            //   capacity!"); auto b = end(); while (n != 0) {
-            //     emplace_back();
-            //     --n;
-            //   }
-
-            //   iterator writable_position = begin() + (position - begin());
-            //   fcv_detail::slow_rotate(writable_position, b,
-            //   end()); return writable_position;
-            // }
-
             template <class InputIt,
                       FCV_REQUIRES_(
                           fcv_detail::InputIterator<InputIt>and
@@ -1054,13 +1085,12 @@ namespace std
             {
                 assert_iterator_in_range(position);
                 assert_valid_iterator_pair(first, last);
-                if
-                    constexpr(fcv_detail::RandomAccessIterator<InputIt>)
-                    {
-                        FCV_EXPECT(size() + static_cast<size_type>(last - first)
-                                       <= capacity()
-                                   && "trying to insert beyond capacity!");
-                    }
+                if constexpr (fcv_detail::RandomAccessIterator<InputIt>)
+                {
+                    FCV_EXPECT(size() + static_cast<size_type>(last - first)
+                                   <= capacity()
+                               && "trying to insert beyond capacity!");
+                }
                 auto b = end();
 
                 // insert at the end and then just rotate:
@@ -1088,13 +1118,12 @@ namespace std
             {
                 assert_iterator_in_range(position);
                 assert_valid_iterator_pair(first, last);
-                if
-                    constexpr(fcv_detail::RandomAccessIterator<InputIt>)
-                    {
-                        FCV_EXPECT(size() + static_cast<size_type>(last - first)
-                                       <= capacity()
-                                   && "trying to insert beyond capacity!");
-                    }
+                if constexpr (fcv_detail::RandomAccessIterator<InputIt>)
+                {
+                    FCV_EXPECT(size() + static_cast<size_type>(last - first)
+                                   <= capacity()
+                               && "trying to insert beyond capacity!");
+                }
                 iterator b = end();
 
                 // we insert at the end and then just rotate:
@@ -1305,14 +1334,13 @@ namespace std
                       FCV_REQUIRES_(fcv_detail::InputIterator<InputIt>)>
             constexpr fixed_capacity_vector(InputIt first, InputIt last)
             {
-                if
-                    constexpr(fcv_detail::RandomAccessIterator<InputIt>)
-                    {
-                        FCV_EXPECT(last - first >= 0);
-                        FCV_EXPECT(static_cast<size_type>(last - first)
-                                       <= capacity()
-                                   && "range size exceeds capacity");
-                    }
+                if constexpr (fcv_detail::RandomAccessIterator<InputIt>)
+                {
+                    FCV_EXPECT(last - first >= 0);
+                    FCV_EXPECT(static_cast<size_type>(last - first)
+                                   <= capacity()
+                               && "range size exceeds capacity");
+                }
                 insert(begin(), first, last);
             }
 
@@ -1329,14 +1357,13 @@ namespace std
             constexpr void assign(InputIt first, InputIt last) noexcept(
                 noexcept(clear()) and noexcept(insert(begin(), first, last)))
             {
-                if
-                    constexpr(fcv_detail::RandomAccessIterator<InputIt>)
-                    {
-                        FCV_EXPECT(last - first >= 0);
-                        FCV_EXPECT(static_cast<size_type>(last - first)
-                                       <= capacity()
-                                   && "range size exceeds capacity");
-                    }
+                if constexpr (fcv_detail::RandomAccessIterator<InputIt>)
+                {
+                    FCV_EXPECT(last - first >= 0);
+                    FCV_EXPECT(static_cast<size_type>(last - first)
+                                   <= capacity()
+                               && "range size exceeds capacity");
+                }
                 clear();
                 insert(begin(), first, last);
             }

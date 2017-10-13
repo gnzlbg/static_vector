@@ -17,7 +17,7 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include "utils.hpp"
+//#include "utils.hpp"
 
 #define FCV_ASSERT(...)                                                       \
     static_cast<void>((__VA_ARGS__)                                           \
@@ -26,14 +26,14 @@
                                 static_cast<const char*>(__FILE__), __LINE__, \
                                 "assertion failed: " #__VA_ARGS__))
 
-template struct std::experimental::fcv_detail::empty_storage<int>;
-template struct std::experimental::fcv_detail::trivial_storage<int, 10>;
-template struct std::experimental::fcv_detail::non_trivial_storage<
+template struct std::experimental::fcv_detail::storage::zero_sized<int>;
+template struct std::experimental::fcv_detail::storage::trivial<int, 10>;
+template struct std::experimental::fcv_detail::storage::non_trivial<
     std::unique_ptr<int>, 10>;
 
-template struct std::experimental::fcv_detail::empty_storage<const int>;
-template struct std::experimental::fcv_detail::trivial_storage<const int, 10>;
-template struct std::experimental::fcv_detail::non_trivial_storage<
+template struct std::experimental::fcv_detail::storage::zero_sized<const int>;
+template struct std::experimental::fcv_detail::storage::trivial<const int, 10>;
+template struct std::experimental::fcv_detail::storage::non_trivial<
     const std::unique_ptr<int>, 10>;
 
 // empty:
@@ -54,7 +54,7 @@ template struct std::experimental::fixed_capacity_vector<std::unique_ptr<int>,
 template struct std::experimental::fixed_capacity_vector<
     const std::unique_ptr<int>, 3>;
 
-struct[[gsl::suppress("cppcoreguidelines-special-member-functions")]] tint
+struct [[gsl::suppress("cppcoreguidelines-special-member-functions")]] tint
 {
     std::size_t i;
     tint()                      = default;
@@ -197,23 +197,21 @@ struct vec
 int main()
 {
     {  // storage
-        using std::experimental::fcv_detail::empty_storage;
-        using std::experimental::fcv_detail::trivial_storage;
-        using std::experimental::fcv_detail::non_trivial_storage;
-        using std::experimental::fcv_detail::storage;
+        using std::experimental::fcv_detail::storage::_t;
+        using std::experimental::fcv_detail::storage::non_trivial;
+        using std::experimental::fcv_detail::storage::trivial;
+        using std::experimental::fcv_detail::storage::zero_sized;
 
-        static_assert(std::is_same<storage<int, 0>, empty_storage<int>>{}, "");
-        static_assert(
-            std::is_same<storage<int, 10>, trivial_storage<int, 10>>{}, "");
-        static_assert(
-            std::is_same<storage<std::unique_ptr<int>, 10>,
-                         non_trivial_storage<std::unique_ptr<int>, 10>>{},
-            "");
+        static_assert(std::is_same<_t<int, 0>, zero_sized<int>>{});
+        static_assert(std::is_same<_t<int, 10>, trivial<int, 10>>{});
+        static_assert(std::is_same<_t<std::unique_ptr<int>, 10>,
+                                   non_trivial<std::unique_ptr<int>, 10>>{},
+                      "");
 
-        constexpr storage<int, 10> s({1, 2, 3, 4});
+        constexpr _t<int, 10> s({1, 2, 3, 4});
         static_assert(s.size() == 4);
 
-        constexpr storage<const int, 10> s2({1, 2, 3, 4});
+        constexpr _t<const int, 10> s2({1, 2, 3, 4});
         static_assert(s2.size() == 4);
     }
 
@@ -472,8 +470,7 @@ int main()
         FCV_ASSERT(b.size() == std::size_t{0});
         b = std::move(a);
         FCV_ASSERT(b.size() == std::size_t{3});
-        [[gsl::suppress("misc-use-after-move")]]
-        {
+        [[gsl::suppress("misc-use-after-move")]] {
             FCV_ASSERT(a.size() == std::size_t{3});
         }
     }
@@ -484,8 +481,7 @@ int main()
         FCV_ASSERT(a.size() == std::size_t{3});
         vector<MoveOnly, 3> b(std::move(a));
         FCV_ASSERT(b.size() == std::size_t{3});
-        [[gsl::suppress("misc-use-after-move")]]
-        {
+        [[gsl::suppress("misc-use-after-move")]] {
             FCV_ASSERT(a.size() == std::size_t{3});
         }
     }
@@ -870,8 +866,7 @@ for (; j < 105; ++j)
     FCV_ASSERT(v[j] == 0);
 }
 }
-[[gsl::suppress("cppcoreguidelines-pro-bounds-pointer-arithmetic")]]
-{
+[[gsl::suppress("cppcoreguidelines-pro-bounds-pointer-arithmetic")]] {
     vector<int, 120> v(100);
     size_t sz                    = v.size();
     int a[]                      = {1, 2, 3, 4, 5};
