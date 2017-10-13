@@ -1406,12 +1406,50 @@ namespace std
         }
 
         template <typename T, size_t Capacity>
+        constexpr bool operator<(
+            fixed_capacity_vector<T, Capacity> const& a,
+            fixed_capacity_vector<T, Capacity> const& b) noexcept
+        {
+            return fcv_detail::cmp(a.begin(), a.end(), b.begin(), b.end(),
+                                   less<>{});
+        }
+
+        template <typename T, size_t Capacity>
         constexpr bool operator!=(
             fixed_capacity_vector<T, Capacity> const& a,
             fixed_capacity_vector<T, Capacity> const& b) noexcept
         {
             return not(a == b);
         }
+
+        template <typename T, size_t Capacity>
+        constexpr bool operator<=(
+            fixed_capacity_vector<T, Capacity> const& a,
+            fixed_capacity_vector<T, Capacity> const& b) noexcept
+        {
+            return fcv_detail::cmp(a.begin(), a.end(), b.begin(), b.end(),
+                                   less_equal<>{});
+        }
+
+        template <typename T, size_t Capacity>
+        constexpr bool operator>(
+            fixed_capacity_vector<T, Capacity> const& a,
+            fixed_capacity_vector<T, Capacity> const& b) noexcept
+        {
+            return fcv_detail::cmp(a.begin(), a.end(), b.begin(), b.end(),
+                                   greater<>{});
+        }
+
+        template <typename T, size_t Capacity>
+        constexpr bool operator>=(
+            fixed_capacity_vector<T, Capacity> const& a,
+            fixed_capacity_vector<T, Capacity> const& b) noexcept
+        {
+            return fcv_detail::cmp(a.begin(), a.end(), b.begin(), b.end(),
+                                   greater_equal<>{});
+        }
+
+
 
     }  // namespace experimental
 }  // namespace std
