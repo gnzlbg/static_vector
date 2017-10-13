@@ -13,17 +13,17 @@
 # 1. Introduction
 
 This paper proposes a dynamically-resizable `vector` with fixed capacity and
-contiguous embedded storage. That is, the elements of the vector are stored within
-the vector object itself. This container is a modernized version of  
-[`boost::container::static_vector<T, Capacity>`][boost_static_vector] that takes 
-advantage of C++17.
+contiguous embedded storage. That is, the elements of the vector are stored
+within the vector object itself. This container is a modernized version of  
+[`boost::container::static_vector<T, Capacity>`][boost_static_vector] [0] that
+takes advantage of C++17.
 
-Its API is almost a 1:1 map of `std::vector<T, A>`'s API. It is a contiguous sequence
-random-access container (with contiguous storage), non-amortized `O(1)` insertion and removal of
-elements at the end, and worst case `O(size())` insertion and removal otherwise. Like
-`std::vector`, the elements are initialized on insertion and destroyed on
-removal. It models `ContiguousContainer` and its iterators model
-the `ContiguousIterator` concept.
+Its API is almost a 1:1 map of `std::vector<T, A>`'s API. It is a contiguous
+sequence random-access container (with contiguous storage), non-amortized `O(1)`
+insertion and removal of elements at the end, and worst case `O(size())`
+insertion and removal otherwise. Like `std::vector`, the elements are
+initialized on insertion and destroyed on removal. It models
+`ContiguousContainer` and its iterators model the `ContiguousIterator` concept.
 
 # 2. Motivation
 
@@ -39,7 +39,9 @@ This container is useful when:
 
 # 3. Design
 
-In this section Frequently Asked Questions are answered, an overview of existing implementations is given, and the rationale behind the proposed design is provided.
+In this section Frequently Asked Questions are answered, an overview of existing
+implementations is given, and the rationale behind the proposed design is
+provided.
 
 ## 3.1 FAQ
 
@@ -97,14 +99,14 @@ alias of a `std::vector` with a specific allocator).
 Yes, we can, but no, it does not result in a zero-cost abstraction.
 
 The paper
-[PR0274: Clump – A Vector-like Contiguous Sequence Container with Embedded Storage][clump]
+[PR0274: Clump – A Vector-like Contiguous Sequence Container with Embedded Storage][clump] [10]
 proposes a new type, `small_vector<T, N, Allocator>`, which is essentially a
 `std::vector<T, Allocator>` that performs a Small Vector Optimization for up to
 `N` elements, and then, depending on the `Allocator`, might fall-back to heap allocations,
 or do something else (like `throw`, `assert`, `terminate`, introduce undefined behavior...). 
 
-This small vector type is part of [Boost][boostsmallvector], [LLVM][llvmsmallvector], 
-[EASTL][eastl], and [Folly][folly]. Most of these libraries special case `small_vector`
+This small vector type is part of [Boost][boostsmallvector] [4], [LLVM][llvmsmallvector] [9], 
+[EASTL][eastl] [6], and [Folly][folly] [8]. Most of these libraries special case `small_vector`
 for the case in which _only_ embedded storage is desired. This result in a type with
 slightly different but noticeable semantics (in the spirit of `vector<bool>`). The
 only library that offers it as a completely different type is Boost.Container.
@@ -147,7 +149,7 @@ The types `fixed_capacity_vector` and `small_vector` have different algorithmic
 complexity and exception-safety guarantees. They solve different problems and
 should be different types. 
 
-### 3.1.4 Can we reuse [P0494R0][contiguous_container] - `contiguous_container` proposal?
+### 3.1.4 Can we reuse [P0494R0][contiguous_container] [11] - `contiguous_container` proposal?
 
 The author has not tried but it might be possible to reuse this proposal to implement 
 `fixed_capacity_vector` on top of it by defining a new `Storage` type. Note however, that
@@ -163,18 +165,18 @@ specified.
 There are at least 3 widely used implementations of `fixed_capacity_vector`.
 
 This proposal is strongly inspired by Boost.Container, which offers
-[`boost::container::static_vector<T, Capacity>` (1.59)][boost_static_vector],
+[`boost::container::static_vector<T, Capacity>` (1.59)][boost_static_vector] [0],
 and, as a different type, also offers `boost::container::small_vector<T, N, Allocator>`
 as well.
 
-The other two libraries that implement `fixed_capacity_vector` are [Folly][folly] and
-[EASTL][eastl]. Both of these libraries implement it as a special case of
+The other two libraries that implement `fixed_capacity_vector` are [Folly][folly] [8] and
+[EASTL][eastl] [6]. Both of these libraries implement it as a special case of
 `small_vector` (which in both of these libraries has 4 template parameters).
 
 EASTL `small_vector` is called `fixed_vector<T, N,
 hasAllocator, OverflowAllocator>` and uses a boolean template parameter to
 indicate if the only storage mode available is embedded storage. The
-[design documents of EASTL][eastldesign] seem to predate this special casing
+[design documents of EASTL][eastldesign] [7] seem to predate this special casing
 since they actually argue against it:
 
 >- special casing complicates the implementation of `small_vector`,
@@ -208,7 +210,7 @@ A prototype implementation of this proposal is provided for standardization
 purposes: [`http://github.com/gnzlbg/embedded_vector`][fixed_capacity_vector].
 
 The main drawback of introducing a new type is, as the
-[design document of the EASTL][eastldesign] points out, increased code size.
+[design document of the EASTL][eastldesign] [7] points out, increased code size.
 Since this container type is opt-in, only those users that need it will pay
 this cost. Common techniques to reduce code size where explored in the 
 prototype implementation (e.g. implementing `Capacity`/`value_type` agnostic 
@@ -1660,17 +1662,19 @@ proposal, which was invaluable and reshaped it in fundamental ways.
 
 # 6. References
 
-- [Boost.Container::static_vector][boost_static_vector]: http://www.boost.org/doc/libs/1_59_0/doc/html/boost/container/static_vector.html .
+- [0] [Boost.Container::static_vector][boost_static_vector]: http://www.boost.org/doc/libs/1_59_0/doc/html/boost/container/static_vector.html .
   - Discussions in the Boost developers mailing list:
-    - [Interest in StaticVector - fixed capacity vector](https:>>groups.google.com>d>topic>boost-developers-archive>4n1QuJyKTTk>discussion):  https://groups.google.com/d/topic/boost-developers-archive/4n1QuJyKTTk/discussion .
-    - [Stack-based vector container](https:>>groups.google.com>d>topic>boost-developers-archive>9BEXjV8ZMeQ>discussion): https://groups.google.com/d/topic/boost-developers-archive/9BEXjV8ZMeQ/discussion.
-    - [static_vector: fixed capacity vector update](https:>>groups.google.com>d>topic>boost-developers-archive>d5_Kp-nmW6c>discussion).
-- [Boost.Container::small_vector][boostsmallvector]: http://www.boost.org/doc/libs/master/doc/html/boost/container/small_vector.html.
-- [Howard Hinnant's stack_alloc][stack_alloc]:  https://howardhinnant.github.io/stack_alloc.html .
-- [EASTL fixed_vector][eastl]: https://github.com/questor/eastl/blob/master/fixed_vector.h#L71 .
-- [EASTL design][eastldesign]: https://github.com/questor/eastl/blob/master/doc/EASTL%20Design.html#L284 .
-- [Folly small_vector][folly]: https://github.com/facebook/folly/blob/master/folly/docs/small_vector.md .
-- [LLVM small_vector][llvmsmallvector]: http://llvm.org/docs/doxygen/html/classllvm_1_1SmallVector.html .
+    - [1] [Interest in StaticVector - fixed capacity vector](https:>>groups.google.com>d>topic>boost-developers-archive>4n1QuJyKTTk>discussion):  https://groups.google.com/d/topic/boost-developers-archive/4n1QuJyKTTk/discussion .
+    - [2] [Stack-based vector container](https:>>groups.google.com>d>topic>boost-developers-archive>9BEXjV8ZMeQ>discussion): https://groups.google.com/d/topic/boost-developers-archive/9BEXjV8ZMeQ/discussion.
+    - [3] [static_vector: fixed capacity vector update](https:>>groups.google.com>d>topic>boost-developers-archive>d5_Kp-nmW6c>discussion).
+- [4] [Boost.Container::small_vector][boostsmallvector]: http://www.boost.org/doc/libs/master/doc/html/boost/container/small_vector.html.
+- [5] [Howard Hinnant's stack_alloc][stack_alloc]:  https://howardhinnant.github.io/stack_alloc.html .
+- [6] [EASTL fixed_vector][eastl]: https://github.com/questor/eastl/blob/master/fixed_vector.h#L71 .
+- [7] [EASTL design][eastldesign]: https://github.com/questor/eastl/blob/master/doc/EASTL%20Design.html#L284 .
+- [8] [Folly small_vector][folly]: https://github.com/facebook/folly/blob/master/folly/docs/small_vector.md .
+- [9] [LLVM small_vector][llvmsmallvector]: http://llvm.org/docs/doxygen/html/classllvm_1_1SmallVector.html .
+- [10] [PR0274: Clump – A Vector-like Contiguous Sequence Container with Embedded Storage][clump]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0274r0.pdf
+- [11] [P0494R0: `contiguous_container` proposal][contiguous_container]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0494r0.pdf
 
 <!-- Links -->
 [stack_alloc]: https://howardhinnant.github.io/stack_alloc.html
