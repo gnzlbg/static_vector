@@ -611,8 +611,8 @@ constexpr iterator erase(const_iterator first, const_iterator last)
 ---
 
 Note (not part of the specification): the erasure methods have no preconditions,
-so they have wide contracts and are conditionally `noexcept`. The precondition
-`new_size > 0` is always satisfied because sizes are unsigned integers. 
+so they have wide contracts and are conditionally `noexcept`. The "precondition"
+`new_size >= 0` is always satisfied because sizes are represented with unsigned integers. 
 
 ---
 
