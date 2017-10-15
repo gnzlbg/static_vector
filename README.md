@@ -238,15 +238,15 @@ still be different to that of `std::vector`.
 
 The following names have been considered: 
 
-- `fixed_capacity_vector`: this clearly indicates what this container is all about. 
-- `embedded_vector<T, Capacity>`: since the elements are "embedded" within the vector object itself. 
-   Sadly, the name `embedded` is overloaded, e.g., embedded systems, and while in this domain this container
-   is very useful, it is not the only domain in which it is useful. 
+- `fixed_capacity_vector`: clearly indicates that the capacity is fixed.
+- `static_capacity_vector`: clearly indicates that the capacity is fixed at compile time.
 - `static_vector` (Boost.Container): due to "static" / compile-time allocation of the elements. The term 
    `static` is, however, overloaded in C++ (e.g. `static` memory?).
+- `embedded_vector<T, Capacity>`: since the elements are "embedded" within the vector object itself. 
+   Sadly, the name `embedded` is overloaded, e.g., embedded systems. 
 - `inline_vector`: the elements are stored "inline" within the vector object itself. The term `inline` is,
    however, already overloaded in C++ (e.g. `inline` functions => ODR, inlining, `inline` variables).
-- `stack_vector`: to denote that the elements can be stored on the stack, which is confusing since the
+- `stack_vector`: to denote that the elements can be stored on the stack. Is confusing since the
   elements can be on the stack, the heap, or the static memory segment. It also has a resemblance with 
   `std::stack`.
 
