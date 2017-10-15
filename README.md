@@ -119,8 +119,8 @@ implementing `fixed_capacity_vector` as a `std::vector` with a custom allocator.
 ## <a id="STORAGE"></a>4.1 Storage/Memory Layout
 
 The container models `ContiguousContainer`. The elements of the vector are
-contiguously stored and properly aligned within the vector object itself, but
-the exact location is unspecified:
+contiguously stored and properly aligned within the vector object itself. The
+exact location of the contiguous elements within the vector is not specified:
 
 ```c++
 fixed_capacity_vector<int, 3> a = {1, 2, 3};
