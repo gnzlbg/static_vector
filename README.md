@@ -159,11 +159,11 @@ implementation can use an array for `fixed_capacity_vector`'s storage without
 altering the guarantees of `fixed_capacity_vector`'s methods in an observable
 way.
 
-For example, `fixed_capacity_vector(N)` constructor guarantees "exactly `N`
-calls to `value_type`'s default constructor". Strictly speaking,
-`fixed_capacity_vector`'s constructor for trivial types will construct an array
-of `Capacity` length. However, because `is_trivial<T>` is true, the number of
-constructor or destructor calls is not observable.
+For example, `fixed_capacity_vector(N)` constructor guarantees a complexity
+"Linear in `N`". Strictly speaking, `fixed_capacity_vector`'s constructor for
+trivial types will construct an array of `Capacity` length. However, because
+`is_trivial_v<T>` is `true`, the number of constructor or destructor calls is not
+observable.
 
 ## <a id="EXCEPTION"></a>4.4 Exception Safety
 
@@ -216,23 +216,12 @@ precondition violation that results in undefined behavior. Throwing
 The iterator invalidation rules are different than those for `std::vector`,
 since:
 
-- moving a `fixed_capacity_vector` invalidates all iterators (see note below),
+- moving a `fixed_capacity_vector` invalidates all iterators,
 - swapping two `fixed_capacity_vector`s invalidates all iterators, and 
 - inserting elements at the end of an `fixed_capacity_vector` never invalidates iterators.
 
 The following functions can potentially invalidate the iterators of `fixed_capacity_vector`s: 
 `resize(n)`, `resize(n, v)`, `pop_back`, `erase`, and `swap`.
-
-Note: this proposal specifies that move assignment operations invalidate all
-iterators, but this isn't necessarily the case. A `fixed_capacity_vector` is
-move-assigned element-wise to another vector by calling the move assignment
-operator on its elements. The elements are left in a "valid but unspecified
-state", that is, iterators pointing to the elements of the vector that has been
-move-assigned from still do point to valid objects. Arguably, for many types,
-including those for which move assignment performs a copy, invalidating the
-iterators of the original vector might seem extremely restrictive. However, even
-if we decide to not invalidate iterators on move assignment, the semantics will
-still be different to that of `std::vector`.
 
 ## <a id="NAMING"></a>4.6 Naming
 
@@ -683,7 +672,6 @@ proposal, which was invaluable and reshaped it in fundamental ways.
 - [5] [P0494R0: `contiguous_container` proposal][contiguous_container]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0494r0.pdf
 - [6] [P0597R0: `std::constexpr_vector<T>`][constexpr_vector_1]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0597r0.html
 - [7] [P0639R0: Changing attack vector of the `constexpr_vector`][constexpr_vector_2]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0639r0.html .
-
 - [8] [PR0274: Clump – A Vector-like Contiguous Sequence Container with Embedded Storage][clump]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0274r0.pdf
 - [9] [Boost.Container::small_vector][boostsmallvector]: http://www.boost.org/doc/libs/master/doc/html/boost/container/small_vector.html.
 - [10] [LLVM small_vector][llvmsmallvector]: http://llvm.org/docs/doxygen/html/classllvm_1_1SmallVector.html .
