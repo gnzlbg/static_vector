@@ -4,11 +4,11 @@
 
 **Document number**: none.
 
-**Audience**: LEWG/LWG.
+**Date**: 2017-10-15.
 
-**Date**: none.
+**Project**: Programming Language C++, Library Working Group (LWG/LEWG).
 
-**Author**: Gonzalo Brito Gadeschi.
+**Reply-to**: Gonzalo Brito Gadeschi <gonzalo.gadeschi at rwth-aachen dot de>.
 
 # Table of contents
 
@@ -26,7 +26,8 @@
   - [4.5 Size and capacity](#SIZE)
   - [4.6 Element and data access](#ACCESS)
   - [4.7 Modifiers](#MODIFIERS)
-  - [4.8 Zero sized `fixed_capacity_vector`](#ZERO_SIZED)
+  - [4.8 Specialized algorithms](#SPEC_ALG)
+  - [4.9 Zero sized `fixed_capacity_vector`](#ZERO_SIZED)
 - [5. Acknowledgments](#ACKNOWLEDGEMENTS)
 - [6. References](#REFERENCES)
 
@@ -45,7 +46,7 @@ insertion and removal otherwise. Like `std::vector`, the elements are
 initialized on insertion and destroyed on removal. It models
 `ContiguousContainer` and its iterators model the `ContiguousIterator` concept.
 
-# <a id="MOTIVATION"></a>2. Motivation
+# <a id="MOTIVATION"></a>2. Motivation and Scope
 
 This container is useful when:
 
@@ -53,11 +54,12 @@ This container is useful when:
   where only a stack and the static memory segment are available,
 - memory allocation imposes an unacceptable performance penalty, e.g., with respect to latency, 
 - allocation of objects with complex lifetimes in the _static_-memory segment is required,
-- non-default constructible objects must be stored such that `std::array` is not an option,
+- `std::array` is not an option, e.g., if non-default constructible objects must be stored,
 - a dynamic resizable array is required within `constexpr` functions, 
-- full control over the storage location of the vector elements is required.
+- the storage location of the vector elements is required to be within the
+  vector object itself (e.g. to support `memcopy` for serialization purposes).
 
-# <a id="DESIGN"></a>3. Design
+# <a id="DESIGN"></a>3. Design Decisions
 
 In this section Frequently Asked Questions are answered, an overview of existing
 implementations is given, and the rationale behind the proposed design is
