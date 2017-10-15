@@ -690,7 +690,7 @@ proposal, which was invaluable and reshaped it in fundamental ways.
 - [11] [EASTL design][eastldesign]: https://github.com/questor/eastl/blob/master/doc/EASTL%20Design.html#L284 .
 - [12] [Interest in StaticVector - fixed capacity vector](https:>>groups.google.com>d>topic>boost-developers-archive>4n1QuJyKTTk>discussion):  https://groups.google.com/d/topic/boost-developers-archive/4n1QuJyKTTk/discussion .
 - [13] [Stack-based vector container](https:>>groups.google.com>d>topic>boost-developers-archive>9BEXjV8ZMeQ>discussion): https://groups.google.com/d/topic/boost-developers-archive/9BEXjV8ZMeQ/discussion.
-- [14] [static_vector: fixed capacity vector update](https:>>groups.google.com>d>topic>boost-developers-archive>d5_Kp-nmW6c>discussion).
+- [14] [static_vector: fixed capacity vector update](https:>>groups.google.com>d>topic>boost-developers-archive>d5_Kp-nmW6c>discussion): https://groups.google.com/d/topic/boost-developers-archive/d5_Kp-nmW6c/discussion.
 
 <!-- Links -->
 [stack_alloc]: https://howardhinnant.github.io/stack_alloc.html
