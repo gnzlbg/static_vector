@@ -26,6 +26,7 @@
   - [4.5 Size and capacity](#SIZE)
   - [4.6 Element and data access](#ACCESS)
   - [4.7 Modifiers](#MODIFIERS)
+  - [4.8 Zero sized `fixed_capacity_vector`](#ZERO_SIZED)
 - [5. Acknowledgments](#ACKNOWLEDGEMENTS)
 - [6. References](#REFERENCES)
 
@@ -1001,6 +1002,17 @@ constexpr void swap(fixed_capacity_vector<T, Capacity>& a,
 > - _Complexity_: Linear in the number of elements exchanged.
 
 ---
+
+## <a id="ZERO_SIZED"></a>4.8 Zero sized `fixed_capacity_vector`
+
+- 1. `fixed_capacity_vector` shall provide support for the special case `Capacity == 0`.
+
+- 2. In the case that `Capacity == 0`, `begin() == end() == unique value`. The return value of `data()` is unspecified.
+
+- 3. The effect of calling `front()` or `back()` for a zero-sized array is undefined.
+
+- 4. Non-member function `swap(fixed_capacity_vector, fixed_capacity_vector`)
+  shall have a non-throwing exception specification.
 
 # <a id="ACKNOWLEDGEMENTS"></a>5. Acknowledgments
 
