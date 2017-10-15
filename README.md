@@ -109,11 +109,9 @@ This proposal follows [`boost::container::static_vector<T,Capacity>`]{} closely
  and specifies the semantics that `fixed_capacity_vector` ought to have as if it
  were a standalone type. As a library component this delivers immediate value.
 
-Having the concise semantics of this type specified should be helpful for those
-that want to generalize the `Allocator` interface to allow implementing
-`fixed_capacity_vector` as a `std::vector` with a custom allocator. And for
-those that want to simplify the standard library specification or implementation
-by special casing this type from some other type (e.g., `small_vector`).
+I hope that having the concise semantics of this type specified will also be
+helpful for those that want to generalize the `Allocator` interface to allow
+implementing `fixed_capacity_vector` as a `std::vector` with a custom allocator.
 
 ## <a id="STORAGE"></a>4.1 Storage/Memory Layout
 
