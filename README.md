@@ -19,11 +19,10 @@
   - [4.1 Storage/Memory Layout](#STORAGE)
   - [4.2 Move semantics](#MOVE)
   - [4.3 `constexpr` support](#CONSTEXPR)
-  - [4.4 Explicit instantiability](#EXPICIT)
-  - [4.5 Exception safety](#EXCEPTION)
-  - [4.6 Iterator invalidation](#ITERATOR)
-  - [4.7 Naming](#NAMING)
-  - [4.8 Potential extensions](#EXTENSIONS)
+  - [4.4 Exception safety](#EXCEPTION)
+  - [4.5 Iterator invalidation](#ITERATOR)
+  - [4.6 Naming](#NAMING)
+  - [4.7 Potential extensions](#EXTENSIONS)
 - [5. Technical Specification](#TECHNICAL_SPECIFICATION)
   - [5.1 Overview](#OVERVIEW)
   - [5.2 Construction](#CONSTRUCTION)
@@ -120,22 +119,14 @@ implementing `fixed_capacity_vector` as a `std::vector` with a custom allocator.
 
 The container models `ContiguousContainer`. The elements of the vector are
 contiguously stored and properly aligned within the vector object itself. The
-exact location of the contiguous elements within the vector is not specified:
-
-```c++
-fixed_capacity_vector<int, 3> a = {1, 2, 3};
-(int*)(a)[1]; // undefined behavior
-```
-
-If the `Capacity` is zero the container has zero size:
+exact location of the contiguous elements within the vector is not specified. If
+the `Capacity` is zero the container has zero size:
 
 ```c++
 static_assert(sizeof(fixed_capacity_vector<int, 3>) == 0);
 ```
 
-This optimization is easily implementable and it felt right to do it. It enables
-the EBO to trigger which can be useful when putting a `fixed_capacity_vector` in
-a variant to e.g. implement `small_vector`.
+This optimization is easily implementable, enables the EBO, and felt right.
 
 ## <a id="MOVE"></a>4.2 Move semantics
 
@@ -151,44 +142,34 @@ the elements of `a` have been moved element-wise into `b`, the elements of `a`
 are left in an initialized but unspecified state (have been moved from state), 
 the size of `a` is not altered, and `a.size() == b.size()`.
 
-Note that this behavior differs from `std::vector<T, Allocator>`, in particular
-for the similar case in which `std::propagate_on_container_move_assignment<Allocator>{}`
-is `false`. In this situation the state of `std::vector` is initialized but unspecified,
-which prevents users from portably relying on `size() == 0` or `size() == N`, and raises
-questions like "Should users call `clear` after moving from a `std::vector`?" (whose 
-answer is _yes_, in particular if `propagate_on_container_move_assignment<Allocator>` 
-is `false`).
+Note: this behavior differs from `std::vector<T, Allocator>`, in particular for
+the similar case in which
+`std::propagate_on_container_move_assignment<Allocator>{}` is `false`. In this
+situation the state of `std::vector` is initialized but unspecified.
 
 ## <a id="CONSTEXPR"></a>4.3 `constexpr` support
 
-The whole API of `fixed_capacity_vector<T, Capacity>` is `constexpr` and usable
-inside `constexpr` fucntions if `is_trivial<T>` is true.
+The API of `fixed_capacity_vector<T, Capacity>` is `constexpr`. If
+`is_trivial_v<T>` is `true`, `fixed_capacity_vector`s can be seamlessly used
+from `constexpr` code. This allows using `fixed_capacity_vector` as a
+`constexpr_vector` to, e.g., implement other constexpr containers.
 
-Implementing this is easy and felt right to add it. Implementations can achieve
-this by using a C array for `fixed_capacity_vector`'s storage without altering
-the guarantees of `fixed_capacity_vector`'s methods in an observable way.
+The implementation cost of this is very low for trivial types: the
+implementation can use an array for `fixed_capacity_vector`'s storage without
+altering the guarantees of `fixed_capacity_vector`'s methods in an observable
+way.
 
-For example, `fixed_capacity_vector(N)` constructor guarantees "exactly `N` calls to 
-`value_type`'s default constructor". Strictly speaking, `fixed_capacity_vector`'s constructor
-for trivial types will construct a C array of `Capacity` length. However, because
-`is_trivial<T>` is true, the number of constructor or destructor calls is not
-observable.
+For example, `fixed_capacity_vector(N)` constructor guarantees "exactly `N`
+calls to `value_type`'s default constructor". Strictly speaking,
+`fixed_capacity_vector`'s constructor for trivial types will construct an array
+of `Capacity` length. However, because `is_trivial<T>` is true, the number of
+constructor or destructor calls is not observable.
 
-## <a id="EXPLICIT"></a>4.4 Explicit instantiatiability
-
-It would be nice if the class `fixed_capacity_vector<T, Capacity>` could be
-explicitly instantiated for all combinations of `value_type` and `Capacity` if
-`value_type` models `Destructible<T>`. Currently this property has no wording
-but is implemented in the prototype.
-
-## <a id="EXCEPTION"></a>4.5 Exception Safety
-
-### 4.5.1 What could possibly go wrong?
+## <a id="EXCEPTION"></a>4.4 Exception Safety
 
 The only operations that can actually fail within `fixed_capacity_vector<T, Capacity>` are:
 
-  1. `value_type` special member functions and `swap` can only fail due
-     to throwing constructors/assignment/destructors/swap of `value_type`. 
+  1. `value_type`'s constructors/assignment/destructors/swap can potentially throw,
 
   2. Mutating operations exceeding the capacity (`push_back`, `insert`,
      `emplace`, `pop_back` when `empty()`, `fixed_capacity_vector(T, size)`,
@@ -198,66 +179,39 @@ The only operations that can actually fail within `fixed_capacity_vector<T, Capa
      2.1 `front`/`back`/`pop_back` when empty, operator[] (unchecked random-access). 
      2.2  `at` (checked random-access) which can throw `out_of_range` exception.
 
-### 4.5.2 Rationale
-
-Three points influence the design of `fixed_capacity_vector` with respect to its
-exception-safety guarantees:
-
-1. Making it a zero-cost abstraction.
-2. Making it safe to use.
-3. Making it easy to learn and use. 
-
-The best way to make `fixed_capacity_vector` easy to learn is to make it as
-similar to `std::vector` as possible. However,`std::vector` allocates memory
-using an `Allocator`, whose allocation functions can throw, e.g., a
-`std::bad_alloc` exception, e.g., on Out Of Memory.
+When `value_type`'s operations are invoked, the exception safety guarantees of
+`fixed_capacity_vector` depend on whether these operations can throw. This is
+detected with `noexcept`.
 
 Since its `Capacity` is fixed at compile-time, `fixed_capacity_vector` never
-dynamically allocates memory.
+dynamically allocates memory, the answer to the following question determines
+the exception safety for all other operations:
 
-The main question then becomes, what should `fixed_capacity_vector` do when its
-`Capacity` is exceeded?
+> What should `fixed_capacity_vector` do when its `Capacity` is exceeded?
 
-Two main choices were identified:
+Two main answers were explored in the prototype implementation:
 
-1. Make it throw an exception. 
-2. Make not exceeding the `Capacity` of an `fixed_capacity_vector` a
-   precondition on its mutating methods (and thus exceeding it
-   undefined-behavior).
+1. Throw an exception.
+2. Make this a precondition violation. 
 
-Throwing an exception makes the interface slightly more similar to that of
-`std::vector` but it raises the question: which exception should it throw? It
+Throwing an exception is appealing because it makes the interface slightly more
+similar to that of `std::vector`. However, which exception should be thrown? It
 cannot be `std::bad_alloc`, because nothing is being allocated. It could throw
-either `std::out_of_bounds` or `std::logic_error`, but if exceeding the capacity
-can be a logic error, that means that we can instead make it a precondition on
-the mutating methods.
+either `std::out_of_bounds` or `std::logic_error` but in any case the interface
+does not end up being equal to that of `std::vector`.
 
-Making exceeding the capacity a precondition has some advantages:
+The alternative is to make not exceeding the capacity a precondition on the
+vector's methods. This approach allows implementations to provide good run-time
+diagnostics if they so desired, e.g., on debug builds by means of an assertion,
+and makes implementation that avoid run-time checks conforming as well. Since
+the mutating methods have a precondition, they have narrow contracts, and are
+not conditionally `noexcept`.
 
-- It allows implementations to trivially provide a run-time diagnostic on debug
-  builds by, e.g., means of an assertion.
+This proposal chooses this path and makes exceeding the vector's capacity a
+precondition violation that results in undefined behavior. Throwing
+`checked_xxx` methods can be provided in a backwards compatible way. 
 
-- It allows the methods to be conditionally marked `noexcept(true)` when
-  `value_type` is `std::is_nothrow_default_constructible/copy_assignable>...`
-
-- It makes `fixed_capacity_vector` a zero-cost abstraction by allowing the user
-  to avoid unnecessary checks (e.g. hoisting checks out of a loop).
-
-These advantages come at the expense of safety. It is possible to have both
-by making the methods checked by default, but offering `unchecked_xxx`
-alternatives that omit the checks which increases the API surface.
-
-Given this design space, this proposal opts for making not exceeding the
-`Capacity` of an `fixed_capacity_vector` a precondition. It still allows some
-safety by allowing implementations to make the operations checked in the debug
-builds of their standard libraries, while providing very strong exception safety
-guarantees (and conditional `noexcept(true)`), which makes
-`fixed_capacity_vector` a true zero-cost abstraction.
-
-Since the mutating methods have a precondition, they have narrow contracts, and
-are not conditionally `noexcept`. 
-
-## <a id="ITERATOR"></a>4.6 Iterator invalidation
+## <a id="ITERATOR"></a>4.5 Iterator invalidation
 
 The iterator invalidation rules are different than those for `std::vector`,
 since:
@@ -285,9 +239,9 @@ iterators of the original vector might seem extremely restrictive. However, even
 if we decide to not invalidate iterators on move assignment, the semantics will
 still be different to that of `std::vector`.
 
-## <a id="NAMING"></a>4.7 Naming
+## <a id="NAMING"></a>4.6 Naming
 
-Following names have been considered: 
+The following names have been considered: 
 
 - `fixed_capacity_vector`: this clearly indicates what this container is all about. 
 - `embedded_vector<T, Capacity>`: since the elements are "embedded" within the vector object itself. 
@@ -301,41 +255,18 @@ Following names have been considered:
   elements can be on the stack, the heap, or the static memory segment. It also has a resemblance with 
   `std::stack`.
 
-## <a id="EXTENSIONS"></a>4.8 Future extensions 
+## <a id="EXTENSIONS"></a>4.7 Future extensions 
 
-### 4.8.1 Interoperability of embedded vectors with different capacities
+The following points could be improved in a backwards compatible way:
 
-A source of pain when using embedded vectors on API is that the vector `Capacity`
-is part of its type. 
+- hiding the concrete vector type on interfaces: e.g. by adding
+  `any_vector_ref<T>`/`any_vector<T>` types that are able to type-erase any
+  vector-like container
+- default-initialization of the vector elements (as opposed to
+  value-initialization): e.g. by using a tagged constructor with a
+  `default_initialized_t` tag.
 
-An `any_vector_ref<T>` / `any_vector<T>` types with reference and value
-semantics could type-erase vector-like containers allowing to solve this problem
-for the whole zoo of vector types (`fixed_capacity_vector`s,
-`boost::container::vector`, `std::vector`, `small_vector`, LLVM's small vector,
-etc).
-
-### 4.8.2 Default initialization
-
-The size-modifying operations of the `fixed_capacity_vector` that do not require a value
-also have the following analogous counterparts that perform default
-initialization instead of value initialization:
-
-```c++
-struct default_initialized_t {};
-inline constexpr default_initialized_t default_initialized{};
-
-template <typename Value, std::size_t Capacity>
-struct fixed_capacity_vector {
-    // ...
-    constexpr fixed_capacity_vector(default_initialized_t, size_type n);
-    constexpr void resize(default_initialized_t, size_type sz);
-    constexpr void resize_unchecked(default_initialized_t, size_type sz);
-};
-```
-
-### 4.8.3  `with_size` / `with_capacity` constructors
-
-Consider:
+The complexity introduced by initializer lists and braced initialization:
 
 ```c++
 using vec_t = fixed_capacity_vector<std::size_t, N>;
@@ -345,11 +276,9 @@ vec_t v2(2, 1);  // two-elements: 1, 1
 vec_t v3{2, 1};  // two-elements: 2, 1
 ```
 
-This problem introduced by initializer list and braced initialization, present
-in the interface of `fixed_capacity_vector` and `std::vector`, can be avoided by
-using a tagged-constructor of the form `fixed_capacity_vector(with_size_t,
-std::size_t N, T const& t = T())` to indicate that constructing a vector with
-`N` elements is inteded. 
+ can be avoided by using a tagged-constructor of the form
+`fixed_capacity_vector(with_size_t, std::size_t N, T const& t = T())` to
+indicate that constructing a vector with `N` elements is intended.
 
 # <a id="TECHNICAL_SPECIFICATION"></a>5. Technical specification
 
