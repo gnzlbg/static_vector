@@ -578,7 +578,7 @@ constexpr void push_back(value_type&& x);
 > there are no effects. Otherwise, if an exception is thrown by the move
 > constructor of a non-CopyInsertable `value_type`, the effects are unspecified.
 >
-> _Complexity_: Linear in the number of elements inserted plus the distance
+> - _Complexity_: Linear in the number of elements inserted plus the distance
 > from the insertion point to the end of the vector.
 
 ---
