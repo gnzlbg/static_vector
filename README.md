@@ -1,6 +1,6 @@
 # fixed_capacity_vector<T>
 
-> A dynamically-resizable vector with fixed capacity and embedded storage (revision -1)
+> A dynamically-resizable vector with fixed capacity and embedded storage (revision 0)
 
 **Document number**: none.
 
@@ -49,7 +49,7 @@ Its API closely resembles that of `std::vector<T, A>`. It is a contiguous
 container with `O(1)` insertion and removal of elements at the end
 (non-amortized) and worst case `O(size())` insertion and removal otherwise. Like
 `std::vector`, the elements are initialized on insertion and destroyed on
-removal. For trivial `value_type`s, the vector is fully usable inside constexpr
+removal. For trivial `value_type`s, the vector is fully usable inside `constexpr`
 functions.
 
 # <a id="MOTIVATION"></a>2. Motivation and Scope
@@ -61,7 +61,7 @@ The `fixed_capacity_vector` container is useful when:
 - memory allocation imposes an unacceptable performance penalty, e.g., with respect to latency, 
 - allocation of objects with complex lifetimes in the _static_-memory segment is required,
 - `std::array` is not an option, e.g., if non-default constructible objects must be stored,
-- a dynamic resizable array is required within `constexpr` functions, 
+- a dynamically-resizable array is required within `constexpr` functions, 
 - the storage location of the vector elements is required to be within the
   vector object itself (e.g. to support `memcopy` for serialization purposes).
 
@@ -70,16 +70,20 @@ The `fixed_capacity_vector` container is useful when:
 There are at least 3 widely used implementations of
 `fixed_capacity_vector`:
 [Boost.Container][boost_static_vector] [1], [EASTL][eastl] [2],
-and [Folly][folly] [3].
+and [Folly][folly] [3]. The main difference between these is that while
+`Boost.Container` implement its as a standalone type with its own guarantees,
+both EASTL and Folly implement it by adding an extra template parameter to their
+`small_vector` implementations.
 
-[Howard Hinnant's `stack_alloc`][stack_alloc] [4] can be used to implement an
-"unreliable" version of `fixed_capacity_vector` on top of `std::vector`.
+A `fixed_capacity_vector` can also be poorly emulated by using a custom
+allocator, like for example [Howard Hinnant's `stack_alloc`][stack_alloc] [4],
+on top of `std::vector`.
 
-There are also many proposal targeting a similar
-purpose: [P0494R0][contiguous_container] [5] and more recently [P0597R0:
-std::constexpr_vector<T>][constexpr_vector_1] [6]. There are also more general
-proposals that plan to subsume these types of containers behind the allocator
-interface.
+Some recent proposals like [P0494R0][contiguous_container] [5] and [P0597R0:
+std::constexpr_vector<T>][constexpr_vector_1] [6] share a similar purpose with
+this proposal. The main difference being that this proposal proposes
+standardizing standard practice. There are also more general proposals that plan
+to subsume these types of containers behind the allocator interface.
 
 This proposal closely
 follows [`boost::container::static_vector`][boost_static_vector] [1]. A
@@ -781,7 +785,7 @@ fundamental ways.
 
 <!-- Links -->
 [stack_alloc]: https://howardhinnant.github.io/stack_alloc.html
-[embedded_vector]: http://github.com/gnzlbg/embedded_vector
+[fixed_capacity_vector]: http://github.com/gnzlbg/fixed_capacity_vector
 [boost_static_vector]: http://www.boost.org/doc/libs/1_59_0/doc/html/boost/container/static_vector.html
 [travis-shield]: https://img.shields.io/travis/gnzlbg/embedded_vector.svg?style=flat-square
 [travis]: https://travis-ci.org/gnzlbg/embedded_vector
