@@ -540,11 +540,6 @@ Notes (not part of the specification): `resize` has as precondition: `new_size <
 
 ## <a id="ACCESS"></a>5.5 Element and data access
 
-- 1. The checked and unchecked element access functions: `at`, `front`, `back`,
-  and `operator[]`, are `constexpr` if `is_trivial<value_type>`.
-
-For the data access:
-
 ```c++
 constexpr       T* data()       noexcept;
 constexpr const T* data() const noexcept;
