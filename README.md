@@ -268,10 +268,10 @@ All these extensions are generally useful and not part of this proposal.
 
 ---
 
-Note to editor: This enhancement is a pure header-only addition to the C++ standard library as
-the `<experimental/fixed_capacity_vector>` header. It belongs in the "Sequence
-containers" (26.3) part of the "Containers library" (26) as "Class template
-`fixed_capacity_vector`".
+Note to editor: This enhancement is a pure header-only addition to the C++
+standard library as the `<fixed_capacity_vector>` header. It belongs in the
+"Sequence containers" (26.3) part of the "Containers library" (26) as "Class
+template `fixed_capacity_vector`".
 
 ---
 
