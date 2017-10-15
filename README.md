@@ -105,9 +105,12 @@ methods are identically-named to those of `std::vector` yet they have subtly
 different effects, exception-safety, iterator invalidation, and complexity
 guarantees than those of `std::vector`.
 
-This proposal follows [`boost::container::static_vector<T,Capacity>`]{} closely
- and specifies the semantics that `fixed_capacity_vector` ought to have as if it
- were a standalone type. As a library component this delivers immediate value.
+This proposal
+ follows
+ [`boost::container::static_vector<T,Capacity>`][boost_static_vector] [1]
+ closely and specifies the semantics that `fixed_capacity_vector` ought to have
+ as if it were a standalone type. As a library component this delivers immediate
+ value.
 
 I hope that having the concise semantics of this type specified will also be
 helpful for those that want to generalize the `Allocator` interface to allow
