@@ -70,20 +70,20 @@ The `fixed_capacity_vector` container is useful when:
 There are at least 3 widely used implementations of
 `fixed_capacity_vector`:
 [Boost.Container][boost_static_vector] [1], [EASTL][eastl] [2],
-and [Folly][folly] [3]. The main difference between these is that while
-`Boost.Container` implement its as a standalone type with its own guarantees,
-both EASTL and Folly implement it by adding an extra template parameter to their
-`small_vector` implementations.
+and [Folly][folly] [3]. The main difference between these is that
+`Boost.Container` implements `fixed_capacity_vector` as a standalone type with
+its own guarantees, while both EASTL and Folly implement it by adding an extra
+template parameter to their `small_vector` types.
 
 A `fixed_capacity_vector` can also be poorly emulated by using a custom
 allocator, like for example [Howard Hinnant's `stack_alloc`][stack_alloc] [4],
 on top of `std::vector`.
 
 Some recent proposals like [P0494R0][contiguous_container] [5] and [P0597R0:
-std::constexpr_vector<T>][constexpr_vector_1] [6] share a similar purpose with
-this proposal. The main difference being that this proposal proposes
-standardizing standard practice. There are also more general proposals that plan
-to subsume these types of containers behind the allocator interface.
+`std::constexpr_vector<T>`][constexpr_vector_1] [6] share a similar purpose with
+this proposal. The main difference is that this proposal proposes standardizing
+standard practice. There are also more general proposals that plan to subsume
+these types of containers behind the allocator interface.
 
 This proposal closely
 follows [`boost::container::static_vector`][boost_static_vector] [1]. A
@@ -772,7 +772,7 @@ fundamental ways.
 - [3] [Folly small_vector][folly]: https://github.com/facebook/folly/blob/master/folly/docs/small_vector.md .
 - [4] [Howard Hinnant's stack_alloc][stack_alloc]:  https://howardhinnant.github.io/stack_alloc.html .
 - [5] [P0494R0: `contiguous_container` proposal][contiguous_container]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0494r0.pdf
-- [6] [P0597R0: ``std::constexpr_vector<T>``][constexpr_vector_1]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0597r0.html
+- [6] [P0597R0: `std::constexpr_vector<T>`][constexpr_vector_1]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0597r0.html
 - [7] [P0639R0: Changing attack vector of the `constexpr_vector`][constexpr_vector_2]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0639r0.html .
 
 - [8] [PR0274: Clump – A Vector-like Contiguous Sequence Container with Embedded Storage][clump]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0274r0.pdf
