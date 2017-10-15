@@ -793,7 +793,7 @@ static constexpr size_type max_size() noexcept;
 > - _Note_: returns `capacity()`.
 
 ```c++
-constexpr void resize(size_type sz);  // (1)
+constexpr void resize(size_type sz);
 ```
 
 > - _Effects_: If `sz < size()`, erases the last `size() - sz` elements from the
@@ -804,17 +804,10 @@ constexpr void resize(size_type sz);  // (1)
 > - _Requires_: `value_type` shall be `MoveInsertable` and `DefaultInsertable` into `*this`.
 >
 > - _Note_: `constexpr `if `is_trivial<value_type>`.
-
-Notes (not part of the specification):
-
-
-> - _Exception safety_: `noexcept` never: narrow contract.
->
-> - _Precondition_: `new_size <= capacity()`.
 
 
 ```c++
-constexpr void resize(size_type sz, const value_type& c); // (2)
+constexpr void resize(size_type sz, const value_type& c);
 ```
 
 > - _Effects_: If `sz < size()`, erases the last `size() - sz` elements from the
@@ -826,11 +819,11 @@ constexpr void resize(size_type sz, const value_type& c); // (2)
 >
 > - _Note_: `constexpr `if `is_trivial<value_type>`.
 
-Notes (not part of the specification):
+---
 
-> - _Exception safety_: `noexcept` never: narrow contract.
->
-> - _Precondition_: `new_size <= capacity()`.
+Notes (not part of the specification): `resize` has as precondition: `new_size <= capacity()`. Hence it has a narrow contract, and is never `noexcept(true)`.
+
+--
 
 ## <a id="ACCESS"></a>4.6 Element and data access
 
@@ -880,12 +873,14 @@ constexpr void push_back(value_type&& x);
 > _Complexity_: Linear in the number of elements inserted plus the distance
 > from the insertion point to the end of the vector.
 
-Notes (not part of the specification):
+---
 
-> - _Pre-condition_: `new_size < Capacity`.
->
-> - _Invariant_: the relative order of the elements before and after the
->   insertion point remains unchanged.
+Notes (not part of the specification): The insertion functions have as
+precondition `new_size < Capacity`. Hence, they all have narrow contracts and
+are never `noexcept(true)`. Also, the relative order of the elements before and
+after the insertion point remains unchanged.
+
+---
 
 
 ```c++
@@ -903,17 +898,18 @@ constexpr iterator erase(const_iterator first, const_iterator last)
 >   `value_type` is called the number of times equal to the number of elements
 >   in the vector after the erased elements.
 >
-> - Throws: Nothing unless an exception is thrown by the assignment operator or
+> - _Throws_: Nothing unless an exception is thrown by the assignment operator or
 >   move assignment operator of `value_type`.
 
-Notes (not part of the specification):
+---
 
-> - _Pre-condition_: `new size > 0` is always true because size is an unsigned
->   integer, so these functions have no preconditions and wide contracts.
->
-> - _Invariant_: the relative order of the elements before and after the erased
->   element range remains unchanged.
+Notes (not part of the specification): the erasure methods have no
+preconditions, so they have wide contracts and are conditionally `noexcept`.
+Note that the precondition `new_size > 0` is always satisfied because sizes are
+unsigned integers. Also, the relative order of the elements before and after the
+erased element range remains unchanged.
 
+---
 
 ```c++
 constexpr void swap(fixed_capacity_vector x)
