@@ -108,7 +108,7 @@ This proposal
  follows
  [`boost::container::static_vector<T,Capacity>`][boost_static_vector] [1]
  closely and specifies the semantics that `fixed_capacity_vector` ought to have
- as if it were a standalone type. As a library component this delivers immediate
+ as a standalone type. As a library component this delivers immediate
  value.
 
 I hope that having the concise semantics of this type specified will also be
@@ -222,11 +222,6 @@ since:
 
 The following functions can potentially invalidate the iterators of `fixed_capacity_vector`s: 
 `resize(n)`, `resize(n, v)`, `pop_back`, `erase`, and `swap`.
-
-The following functions from the "possible future extensions" can potentially
-invalidate the iterators of `fixed_capacity_vector`s: `resize_default_initialized(n)`,
-`resize_unchecked(n)`, `resize_unchecked(n, v)`, and
-`resize_default_initialized_unchecked(n)`.
 
 Note: this proposal specifies that move assignment operations invalidate all
 iterators, but this isn't necessarily the case. A `fixed_capacity_vector` is
