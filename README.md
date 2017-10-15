@@ -79,16 +79,12 @@ A `fixed_capacity_vector` can also be poorly emulated by using a custom
 allocator, like for example [Howard Hinnant's `stack_alloc`][stack_alloc] [4],
 on top of `std::vector`.
 
-Some recent proposals like [P0494R0][contiguous_container] [5] and [P0597R0:
-`std::constexpr_vector<T>`][constexpr_vector_1] [6] share a similar purpose with
-this proposal. The main difference is that this proposal proposes standardizing
-standard practice. There are also more general proposals that plan to subsume
-these types of containers behind the allocator interface.
-
-This proposal closely
-follows [`boost::container::static_vector`][boost_static_vector] [1]. A
-prototype implementation of this proposal is provided for standardization
-purposes:
+This proposal shares a similar purpose with [P0494R0][contiguous_container] [5]
+and [P0597R0: `std::constexpr_vector<T>`][constexpr_vector_1] [6]. The main
+difference is that this proposal proposes standardizing existing practice by
+closely following [`boost::container::static_vector`][boost_static_vector] [1].
+A prototype implementation of this proposal for standardization
+purposes is provided here:
 [`http://github.com/gnzlbg/fixed_capacity_vector`][fixed_capacity_vector].
 
 # <a id="DESIGN"></a>4. Design Decisions
