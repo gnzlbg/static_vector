@@ -273,6 +273,8 @@ vec_t v2(2, 1);  // two-elements: 1, 1
 vec_t v3{2, 1};  // two-elements: 2, 1
 ```
 
+All these extensions are generally useful and not part of this proposal.
+
 # <a id="TECHNICAL_SPECIFICATION"></a>5. Technical specification
 
 ---
