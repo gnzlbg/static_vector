@@ -89,19 +89,18 @@ purposes is provided here:
 
 # <a id="DESIGN"></a>4. Design Decisions
 
-The most fundamental question that we must answer is: 
+The most fundamental question that must be answered is:
 
-> Should we "special case" `fixed_capacity_vector` or make it its own standalone type?
+> Should `fixed_capacity_vector` be a standalone type or a special case of some other type?
 
-There are many ways to special case it:
+The [EASTL][eastl] [2] and [Folly][folly] [3] special case `small_vector`, e.g.,
+using a 4th template parameter, to make it become a `fixed_capacity_vector`. The
+paper [P0639R0: Changing attack vector of the
+`constexpr_vector`][constexpr_vector_2] [7] proposes improving the `Allocator`
+concepts to allow `fixed_capacity_vector`, among others, to be implemented as a
+special case of `std::vector` with a particular allocator.
 
-- follow the [EASTL][eastl] [2] and [Folly][folly] [3] and special case a
-  `small_vector` type to become a `fixed_capacity_vector`
-- follow
-  [P0639R0: Changing attack vector of the `constexpr_vector`][constexpr_vector_2] [7] and
-  improve the `Allocator` interface 
-  
-but all of them run into the same fundamental issue: `fixed_capacity_vector`
+Both approaches run into the same fundamental issue: `fixed_capacity_vector`
 methods are identically-named to those of `std::vector` yet they have subtly
 different effects, exception-safety, iterator invalidation, and complexity
 guarantees than those of `std::vector`.
