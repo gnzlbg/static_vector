@@ -534,7 +534,7 @@ constexpr void resize(size_type sz, const value_type& c);
 
 ---
 
-Notes (not part of the specification): `resize` has as precondition: `new_size <= capacity()`. Hence it has a narrow contract, and is never `noexcept(true)`.
+Note (not part of the specification): `resize` has as precondition: `new_size <= capacity()`. Hence it has a narrow contract, and is never `noexcept(true)`.
 
 ---
 
@@ -583,10 +583,9 @@ constexpr void push_back(value_type&& x);
 
 ---
 
-Notes (not part of the specification): The insertion functions have as
+Note (not part of the specification): The insertion functions have as
 precondition `new_size < Capacity`. Hence, they all have narrow contracts and
-are never `noexcept(true)`. Also, the relative order of the elements before and
-after the insertion point remains unchanged.
+are never `noexcept(true)`. 
 
 ---
 
@@ -611,11 +610,9 @@ constexpr iterator erase(const_iterator first, const_iterator last)
 
 ---
 
-Notes (not part of the specification): the erasure methods have no
-preconditions, so they have wide contracts and are conditionally `noexcept`.
-Note that the precondition `new_size > 0` is always satisfied because sizes are
-unsigned integers. Also, the relative order of the elements before and after the
-erased element range remains unchanged.
+Note (not part of the specification): the erasure methods have no preconditions,
+so they have wide contracts and are conditionally `noexcept`. The precondition
+`new_size > 0` is always satisfied because sizes are unsigned integers. 
 
 ---
 
