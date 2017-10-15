@@ -577,23 +577,30 @@ containers" (26.3) part of the "Containers library" (26) as "Class template
 
 ### <a id="OVERVIEW"></a>4.1 Class template `fixed_capacity_vector` overview
 
-- 1. A `fixed_capacity_vector` is a sequence container that supports contiguous
-  iterators. In addition, it supports (amortized) constant time insert and erase
-  operations at the end; insert and erase in the middle take linear time. It's
-  capacity is a constant-expr and storage management is handled automatically.
-  The elements of a `fixed_capacity_vector` are stored contiguously within the
-  vector object itself, meaning that that if `v` is a `fixed_capacity_vector<T,
-  Capacity>` then it obeys the identity `&v[n] == &v[0] + n` for all `0 <= n <=
-  v.size()`.
+- 1. A `fixed_capacity_vector` is a contiguous container that supports constant
+  time insert and erase operations at the end; insert and erase in the middle
+  take linear time. Its capacity is part of its type and its elements are stored
+  within the vector object itself, meaning that that if `v` is a
+  `fixed_capacity_vector<T, Capacity>` then it obeys the identity `&v[n] ==
+  &v[0] + n` for all `0 <= n <= v.size()`.
 
 - 2. A `fixed_capacity_vector` satisfies all of the requirements of a container
   and of a reversible container (given in two tables in 26.2), of a sequence
   container, including the optional sequence container requirements (26.2.3),
   and of a contiguous container (26.2.1). The exceptions are the `push_front`,
-  `pop_front`, and `emplace_front` member functions, which are not provided.
+  `pop_front`, and `emplace_front` member functions, which are not provided, and
+  `swap`, which has linear complexity instead of constant complexity.
   Descriptions are provided here only for operations on `fixed_capacity_vector`
   that are not described in one of these tables or for operations where there is
   additional semantic information.
+
+---
+
+Note (not part of the specification): An incomplete type `T` cannot be used when
+instantiating the vector, as opposed to `std::vector`.
+
+---
+
 
 ```c++
 namespace std {
@@ -609,8 +616,8 @@ using reference = value_type&;
 using const_reference = const value_type&;
 using size_type =  /*smallest unsigned integer type that can represent C (Capacity)*/;
 using difference_type = std::make_signed_t<size_type>;
-using iterator = implementation-defined;
-using const_iterator = implementation-defined;
+using iterator = implementation-defined;  // see [container.requirements]
+using const_iterator = implementation-defined; // see [container.requirements]
 using reverse_iterator = reverse_iterator<iterator>;
 using const_reverse_iterator = reverse_iterator<const_iterator>;
 
@@ -696,8 +703,8 @@ constexpr iterator erase(const_iterator first, const_iterator last)
 
 constexpr void clear() noexcept(is_nothrow_destructible<value_type>{});
 
-constexpr void swap(fixed_capacity_vector&)
-  noexcept(noexcept(swap(declval<value_type&>(), declval<value_type&>()))));
+constexpr void swap(fixed_capacity_vector x)
+  noexcept(noexcept(is_nothrow_swappable_v<value_type>));
 };
 
 template <typename T, std::size_t Capacity>
@@ -713,24 +720,15 @@ constexpr bool operator>(const fixed_capacity_vector<T, Capacity>& a, const fixe
 template <typename T, std::size_t Capacity>
 constexpr bool operator>=(const fixed_capacity_vector<T, Capacity>& a, const fixed_capacity_vector<T, Capacity>& b) noexcept(...);
 
-// 4.7, modifiers:
+// 4.8, specialized algorithms:
 template <typename T, std::size_t Capacity>
-constexpr void swap(fixed_capacity_vector<T, Capacity>&, fixed_capacity_vector<T, Capacity>&)
-  noexcept(is_nothrow_swappable<T>{});
+constexpr void swap(fixed_capacity_vector<T, Capacity>& x, fixed_capacity_vector<T, Capacity>& y)
+  noexcept(noexcept(x.swap(y)));
   
 }  // namespace std
 ```
 
-- 3. An incomplete type `T` may be used when instantiating vector. `T` shall be
-complete before any member of the resulting specialization of vector is
-referenced.
-
-- 4. If `capacity() == 0`, then `sizeof(fixed_capacity_vector) == 0`. If `sizeof(T) == 0 and capacity() > 0`, then `sizeof(fixed_capacity_vector) == sizeof(unsigned char)`.
-
-
 ## <a id="CONSTRUCTION"></a>4.2 `fixed_capacity_vector` constructors
-
----
 
 ```c++
 constexpr fixed_capacity_vector() noexcept;
@@ -739,14 +737,6 @@ constexpr fixed_capacity_vector() noexcept;
 > - _Effects_: constructs an empty `fixed_capacity_vector`.
 >
 > - _Complexity_: Constant.
-
-Notes (not part of the specification):
-
-> - _Exception safety_: `noexcept` always, wide contract.
->
-> - _Constexpr_: always.
-
----
 
 ```c++
 constexpr explicit fixed_capacity_vector(size_type n);
@@ -757,20 +747,6 @@ constexpr explicit fixed_capacity_vector(size_type n);
 > - _Requires_: `value_type` shall be `DefaultInsertable` into `*this`.
 >
 > - _Complexity_: Linear in `n`.
->
-> - _Note_: `constexpr` if `is_trivial<value_type>`.
-
-Notes (not part of the specification):
-
-> - _Complexity_: implementable as exactly `n` calls to `value_type`'s default
->     constructor
->
-> - _Exception safety_:
->   - `noexcept`: never, narrow contract.
->   - strong guarantee: all constructed elements shall be destroyed on failure,
->   - re-throws if `value_type`'s default constructor throws.
-
----
 
 ```c++
 constexpr fixed_capacity_vector(size_type n, const value_type& value);
@@ -781,19 +757,6 @@ constexpr fixed_capacity_vector(size_type n, const value_type& value);
 > - _Requires_: `value_type` shall be `CopyInsertable` into `*this`.
 >
 > - _Complexity_: Linear in `n`.
->
-> - _Note_: `constexpr` if `is_trivial<value_type>`.
-
-Notes (not part of the specification):
-
-> - _Complexity_: implementable as exactly `n` calls to `value_type`'s copy constructor
->
-> - _Exception safety_: 
->   - `noexcept`: never, narrow contract.
->   - strong guarantee: all constructed elements shall be destroyed on failure,
->   - re-throws if `value_type`'s copy constructor throws,
-
----
 
 ```c++ 
 template<class InputIterator>
@@ -805,20 +768,6 @@ constexpr fixed_capacity_vector(InputIterator first, InputIterator last);
 > - _Requires_: `value_type` shall be `EmplaceConstructible` into `*this` from `*first`.
 >
 > - _Complexity_: Initializes `distance(first, last)` `value_type`s. 
->
-> - _Note_: `constexpr` if `is_trivial<value_type>`.
-
-Notes (not part of the specification):
-
-> - _Exception safety_: 
->   - `noexcept`: never, narrow contract.
->   - strong guarantee: if [first, last) span a `ForwardRange`, the range is not modified and
->     all constructed elements shall be destroyed on failure,
->   - basic guarantee: if [first, last) span an `InputRange`, all constructed 
->     elements shall be destroyed on failure, but the `InputRange` will be modified
->   - re-throws if `value_type`'s copy or move constructors throws,
-
----
 
 ## <a id="DESTRUCTION"></a>4.4 Destruction
 
@@ -864,10 +813,7 @@ constexpr void resize(size_type sz);  // (1)
 Notes (not part of the specification):
 
 
-> - _Exception safety_:
->   - `noexcept` never: narrow contract.
->   - basic guarantee: all constructed elements shall be destroyed on failure,
->   - rethrows if `value_type`'s default or copy constructors throws,
+> - _Exception safety_: `noexcept` never: narrow contract.
 >
 > - _Precondition_: `new_size <= capacity()`.
 
@@ -888,18 +834,14 @@ constexpr void resize(size_type sz, const value_type& c); // (2)
 
 Notes (not part of the specification):
 
-> - _Exception safety_:
->   - `noexcept` never: narrow contract.
->   - basic guarantee: all constructed elements shall be destroyed on failure,
->   - rethrows if `value_type`'s default or copy constructors throws,
+> - _Exception safety_: `noexcept` never: narrow contract.
 >
 > - _Precondition_: `new_size <= capacity()`.
 
----
-
 ## <a id="ACCESS"></a>4.6 Element and data access
 
-- The checked and unchecked element access functions: `at`, `front`, `back`, and `operator[]`, are `constexpr` if `is_trivial<value_type>`.
+- 1. The checked and unchecked element access functions: `at`, `front`, `back`,
+  and `operator[]`, are `constexpr` if `is_trivial<value_type>`.
 
 For the data access:
 
@@ -912,8 +854,6 @@ constexpr const T* data() const noexcept;
 >    For a non-empty vector, `data() == addressof(front())`.
 >
 > - _Complexity_: Constant time.
-
----
 
 ## <a id="MODIFIERS"></a>4.7 Modifiers
 
@@ -947,8 +887,6 @@ constexpr void push_back(value_type&& x);
 >
 > _Complexity_: Linear in the number of elements inserted plus the distance
 > from the insertion point to the end of the vector.
->
-> - _Note_: `constexpr` if `is_trivial<value_type>`.
 
 Notes (not part of the specification):
 
@@ -990,20 +928,32 @@ Notes (not part of the specification):
 ---
 
 ```c++
-template <typename T, std::size_t Capacity>
-constexpr void swap(fixed_capacity_vector<T, Capacity>& a, 
-                    fixed_capacity_vector<T, Capacity>& b)
-  noexcept(noexcept(swap(declval<value_type&>(), declval<value_type&>()))));
+constexpr void swap(fixed_capacity_vector x)
+  noexcept(noexcept(is_nothrow_swappable_v<value_type>));
 ```
 
-> - _Effects_: Exchanges the contents of `a` with `b`. All iterators
->   pointing to the elements of `a` and `b` are invalidated.
+> - _Effects_: Exchanges the contents of `*this` with `x`. All iterators
+>   pointing to the elements of `*this` and `x` are invalidated.
 >
-> - _Complexity_: Linear in the number of elements exchanged.
+> - _Complexity_: Linear in the number of elements  in `*this` and `x`.
 
----
+## <a id="SPEC_ALG"></a>4.8 `fixed_capacity_vector` specialized algorithms
 
-## <a id="ZERO_SIZED"></a>4.8 Zero sized `fixed_capacity_vector`
+```c++
+template <typename T, std::size_t Capacity>
+constexpr void swap(fixed_capacity_vector<T, Capacity>& x, 
+                    fixed_capacity_vector<T, Capacity>& y)
+  noexcept(noexcept(x.swap(y)));
+```
+
+> - _Remarks_: This function shall not participate in overload resolution unless
+>   `Capacity == 0` or `is_swappable_v<T>` is `true`.
+>
+> - _Effects_: As if by `x.swap(y)`.
+>
+> - _Complexity_: Linear in the number of elements in `x` and `y`.
+
+## <a id="ZERO_SIZED"></a>4.9 Zero sized `fixed_capacity_vector`
 
 - 1. `fixed_capacity_vector` shall provide support for the special case `Capacity == 0`.
 
