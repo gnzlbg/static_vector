@@ -823,7 +823,7 @@ constexpr void resize(size_type sz, const value_type& c);
 
 Notes (not part of the specification): `resize` has as precondition: `new_size <= capacity()`. Hence it has a narrow contract, and is never `noexcept(true)`.
 
---
+---
 
 ## <a id="ACCESS"></a>4.6 Element and data access
 
