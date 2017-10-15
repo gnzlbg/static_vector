@@ -782,20 +782,15 @@ constexpr fixed_capacity_vector(InputIterator first, InputIterator last);
 static constexpr size_type capacity() noexcept;
 ```
 
-
 > - _Returns_: the total number of elements that the vector can hold.
 > 
 > - _Complexity_: constant.
-
----
 
 ```c++
 static constexpr size_type max_size() noexcept;
 ```
 
 > - _Note_: returns `capacity()`.
-
----
 
 ```c++
 constexpr void resize(size_type sz);  // (1)
@@ -817,7 +812,6 @@ Notes (not part of the specification):
 >
 > - _Precondition_: `new_size <= capacity()`.
 
----
 
 ```c++
 constexpr void resize(size_type sz, const value_type& c); // (2)
@@ -857,8 +851,6 @@ constexpr const T* data() const noexcept;
 
 ## <a id="MODIFIERS"></a>4.7 Modifiers
 
----
-
 ```c++
 constexpr iterator insert(const_iterator position, const value_type& x);
 constexpr iterator insert(const_iterator position, value_type&& x);
@@ -895,7 +887,6 @@ Notes (not part of the specification):
 > - _Invariant_: the relative order of the elements before and after the
 >   insertion point remains unchanged.
 
----
 
 ```c++
 constexpr void pop_back();
@@ -914,8 +905,6 @@ constexpr iterator erase(const_iterator first, const_iterator last)
 >
 > - Throws: Nothing unless an exception is thrown by the assignment operator or
 >   move assignment operator of `value_type`.
->
-> - _Note_: `constexpr` if `is_trivial<value_type>`.
 
 Notes (not part of the specification):
 
@@ -925,7 +914,6 @@ Notes (not part of the specification):
 > - _Invariant_: the relative order of the elements before and after the erased
 >   element range remains unchanged.
 
----
 
 ```c++
 constexpr void swap(fixed_capacity_vector x)
