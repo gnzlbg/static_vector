@@ -254,26 +254,24 @@ The following names have been considered:
 
 The following extensions could be added in a backwards compatible way:
 
-- hiding the concrete vector type on interfaces: e.g. by adding
-  `any_vector_ref<T>`/`any_vector<T>` types that are able to type-erase any
-  vector-like container
+- utilities for hiding the concrete type of vector-like containers (e.g.
+  `any_vector_ref<T>`/`any_vector<T>`).
+ 
 - default-initialization of the vector elements (as opposed to
   value-initialization): e.g. by using a tagged constructor with a
   `default_initialized_t` tag.
 
-The complexity introduced by initializer lists and braced initialization:
+- tagged-constructor f the form `fixed_capacity_vector(with_size_t, std::size_t
+N, T const& t = T())` to avoid the complexity introduced by initializer lists
+and braced initialization:
 
 ```c++
-using vec_t = fixed_capacity_vector<std::size_t, N>;
+using vec_t = fixed_capacity_vector<std::size_t, Capacity>;
 vec_t v0(2);  // two-elements: 0, 0
 vec_t v1{2};  // one-element: 2
 vec_t v2(2, 1);  // two-elements: 1, 1
 vec_t v3{2, 1};  // two-elements: 2, 1
 ```
-
- can be avoided by using a tagged-constructor of the form
-`fixed_capacity_vector(with_size_t, std::size_t N, T const& t = T())` to
-indicate that constructing a vector with `N` elements is intended.
 
 # <a id="TECHNICAL_SPECIFICATION"></a>5. Technical specification
 
