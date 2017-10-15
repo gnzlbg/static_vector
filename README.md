@@ -670,12 +670,9 @@ have been used extensively while prototyping this proposal, such that its
 author, Howard Hinnant, has had a significant indirect impact on the result of
 this proposal as well. The following people provided valuable feedback that
 influenced some aspects of this proposal: Walter Brown, Zach Laine, Rein
-Halbersma, and Andrzej Krzemieński (who provided an example that shows that
-using tags is better than using static member functions for "special
-constructors" like the `default_initialized_t` constructor). But I want to
-wholeheartedly acknowledge Casey Carter for taking the time to do a very
-detailed analysis of the whole proposal, which was invaluable and reshaped it in
-fundamental ways.
+Halbersma, and Andrzej Krzemieński. But I want to wholeheartedly acknowledge
+Casey Carter for taking the time to do a very detailed analysis of the whole
+proposal, which was invaluable and reshaped it in fundamental ways.
 
 # <a id="REFERENCES"></a>7. References
 
