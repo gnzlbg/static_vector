@@ -252,7 +252,7 @@ The following names have been considered:
 
 ## <a id="EXTENSIONS"></a>4.7 Future extensions 
 
-The following points could be improved in a backwards compatible way:
+The following extensions could be added in a backwards compatible way:
 
 - hiding the concrete vector type on interfaces: e.g. by adding
   `any_vector_ref<T>`/`any_vector<T>` types that are able to type-erase any
