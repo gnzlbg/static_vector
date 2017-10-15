@@ -14,16 +14,22 @@
 
 - [1. Introduction](#INTRODUCTION)
 - [2. Motivation](#MOTIVATION)
-- [3. Design](#DESIGN)
-  - [3.1 FAQ](#FAQ)
-  - [3.2 Existing practice](#PRACTICE)
-  - [3.3 Proposed design and rationale](#RATIONALE)
-- [4. Technical Specification](#TECHNICAL_SPECIFICATION)
-  - [4.1 Overview](#OVERVIEW)
-  - [4.2 Construction](#CONSTRUCTION)
-  - [4.3 Assignment](#ASSIGNMENT)
-  - [4.4 Destruction](#DESTRUCTION)
-  - [4.5 Size and capacity](#SIZE)
+- [3. Existing practice](#EXISTING_PRACTICE)
+- [4. Design](#DESIGN)
+  - [4.1 Storage/Memory Layout](#STORAGE)
+  - [4.2 Move semantics](#MOVE)
+  - [4.3 `constexpr` support](#CONSTEXPR)
+  - [4.4 Explicit instantiability](#EXPICIT)
+  - [4.5 Exception safety](#EXCEPTION)
+  - [4.6 Iterator invalidation](#ITERATOR)
+  - [4.7 Naming](#NAMING)
+  - [4.8 Potential extensions](#EXTENSIONS)
+- [5. Technical Specification](#TECHNICAL_SPECIFICATION)
+  - [5.1 Overview](#OVERVIEW)
+  - [5.2 Construction](#CONSTRUCTION)
+  - [5.3 Assignment](#ASSIGNMENT)
+  - [5.4 Destruction](#DESTRUCTION)
+  - [5.5 Size and capacity](#SIZE)
   - [4.6 Element and data access](#ACCESS)
   - [4.7 Modifiers](#MODIFIERS)
   - [4.8 Specialized algorithms](#SPEC_ALG)
@@ -64,21 +70,24 @@ The `fixed_capacity_vector` container is useful when:
 
 There are at least 3 widely used implementations of
 `fixed_capacity_vector`:
-[Boost.Container][boost_static_vector] [1], [EASTL][eastl] [8],
-and [Folly][folly] [9].
+[Boost.Container][boost_static_vector] [1], [EASTL][eastl] [2],
+and [Folly][folly] [3].
 
-[Howard Hinnant's `stack_alloc`][stack_alloc] can be used to implement an "unreliable" version of `fixed_capacity_vector` on top of `std::vector`
+[Howard Hinnant's `stack_alloc`][stack_alloc] [4] can be used to implement an
+"unreliable" version of `fixed_capacity_vector` on top of `std::vector`
 
 
 There are also many proposal targeting a similar
-purpose: [P0494R0][contiguous_container] [12] and more recently [P0597R0:
-std::constexpr_vector<T>][constexpr_vector_1] [2]. There are also more general
+purpose: [P0494R0][contiguous_container] [5] and more recently [P0597R0:
+std::constexpr_vector<T>][constexpr_vector_1] [6]. There are also more general
 proposals that plan to subsume these types of containers behind the allocator
 interface.
 
-This proposal closely follows `boost::container::static_vector`. A prototype
-implementation of this proposal is provided for standardization
-purposes: [`http://github.com/gnzlbg/embedded_vector`][fixed_capacity_vector].
+This proposal closely
+follows [`boost::container::static_vector`][boost_static_vector] [1]. A
+prototype implementation of this proposal is provided for standardization
+purposes:
+[`http://github.com/gnzlbg/fixed_capacity_vector`][fixed_capacity_vector].
 
 # # <a id="DESIGN"></a>4. Design Decisions
 
@@ -88,11 +97,11 @@ The most fundamental question that we must answer is:
 
 There are many ways to special case it:
 
-- follow
-  [P0639R0: Changing attack vector of the `constexpr_vector`][constexpr_vector_2] and
-  improve the `Allocator` interface 
-- follow the [EASTL][eastl] [8] and [Folly][folly] [9] and special case a
+- follow the [EASTL][eastl] [2] and [Folly][folly] [3] and special case a
   `small_vector` type to become a `fixed_capacity_vector`
+- follow
+  [P0639R0: Changing attack vector of the `constexpr_vector`][constexpr_vector_2] [7] and
+  improve the `Allocator` interface 
   
 but all of them run into the same fundamental issue: `fixed_capacity_vector`
 methods are identically-named to those of `std::vector` yet they have subtly
@@ -109,7 +118,7 @@ that want to generalize the `Allocator` interface to allow implementing
 those that want to simplify the standard library specification or implementation
 by special casing this type from some other type (e.g., `small_vector`).
 
-## 3.1 Storage/Memory Layout
+## <a id="STORAGE"></a>4.1 Storage/Memory Layout
 
 The container models `ContiguousContainer`. The elements of the vector are
 contiguously stored and properly aligned within the vector object itself, but
@@ -120,13 +129,17 @@ fixed_capacity_vector<int, 3> a = {1, 2, 3};
 (int*)(a)[1]; // undefined behavior
 ```
 
-If the `Capacity` is zero the container has zero size.
+If the `Capacity` is zero the container has zero size:
 
 ```c++
 static_assert(sizeof(fixed_capacity_vector<int, 3>) == 0);
 ```
 
-## 3.2 Move semantics
+This optimization is easily implementable and it felt right to do it. It enables
+the EBO to trigger which can be useful when putting a `fixed_capacity_vector` in
+a variant to e.g. implement `small_vector`.
+
+## <a id="MOVE"></a>4.2 Move semantics
 
 The move semantics of `fixed_capacity_vector<T, Capacity>` are equal to those of 
 `std::array<T, Size>`. That is, after
@@ -148,13 +161,14 @@ questions like "Should users call `clear` after moving from a `std::vector`?" (w
 answer is _yes_, in particular if `propagate_on_container_move_assignment<Allocator>` 
 is `false`).
 
-## 3.3 Constexpr-support
+## <a id="CONSTEXPR"></a>4.3 Constexpr-support
 
-The whole API of `fixed_capacity_vector<T, Capacity>` is `constexpr` if `is_trivial<T>`
-is true.
+The whole API of `fixed_capacity_vector<T, Capacity>` is `constexpr` and usable
+inside `constexpr` fucntions if `is_trivial<T>` is true.
 
-Implementations can achieve this by using a C array for `fixed_capacity_vector`'s storage
-without altering the guarantees of `fixed_capacity_vector`'s methods in an observable way.
+Implementing this is easy and felt right to add it. Implementations can achieve
+this by using a C array for `fixed_capacity_vector`'s storage without altering
+the guarantees of `fixed_capacity_vector`'s methods in an observable way.
 
 For example, `fixed_capacity_vector(N)` constructor guarantees "exactly `N` calls to 
 `value_type`'s default constructor". Strictly speaking, `fixed_capacity_vector`'s constructor
@@ -162,23 +176,16 @@ for trivial types will construct a C array of `Capacity` length. However, becaus
 `is_trivial<T>` is true, the number of constructor or destructor calls is not
 observable.
 
-This introduces an additional implementation cost which the author believes is
-worth it because similarly to `std::array`, `fixed_capacity_vector`s of trivial types 
-are incredibly common. 
+## <a id="EXPLICIT"></a>4.4 Explicit instantiatiability
 
-Note: this type of `constexpr` support does not require any core language changes.
-This design could, however, be both simplified and extended if 1) placement `new`,
-2) explicit destructor calls, and 3) `reinterpret_cast`, would be `constexpr`. This
-paper does not propose any of these changes.
+It would be nice if the class `fixed_capacity_vector<T, Capacity>` could be
+explicitly instantiated for all combinations of `value_type` and `Capacity` if
+`value_type` models `Destructible<T>`. Currently this property has no wording
+but is implemented in the prototype.
 
-## 3.4 Explicit instantiatiability
+## <a id="EXCEPTION"></a>4.5 Exception Safety
 
-The class `fixed_capacity_vector<T, Capacity>` can be explicitly instantiated for
-all combinations of `value_type` and `Capacity` if `value_type` models `Destructible<T>`.
-
-## 3.5 Exception Safety
-
-### 3.5.1 What could possibly go wrong?
+### 4.5.1 What could possibly go wrong?
 
 The only operations that can actually fail within `fixed_capacity_vector<T, Capacity>` are:
 
@@ -193,7 +200,7 @@ The only operations that can actually fail within `fixed_capacity_vector<T, Capa
      2.1 `front`/`back`/`pop_back` when empty, operator[] (unchecked random-access). 
      2.2  `at` (checked random-access) which can throw `out_of_range` exception.
 
-### 3.5.2 Rationale
+### 4.5.2 Rationale
 
 Three points influence the design of `fixed_capacity_vector` with respect to its
 exception-safety guarantees:
@@ -252,7 +259,7 @@ guarantees (and conditional `noexcept(true)`), which makes
 Since the mutating methods have a precondition, they have narrow contracts, and
 are not conditionally `noexcept`. 
 
-## 3.6 Iterator invalidation
+## <a id="ITERATOR"></a>4.6 Iterator invalidation
 
 The iterator invalidation rules are different than those for `std::vector`,
 since:
@@ -280,7 +287,7 @@ iterators of the original vector might seem extremely restrictive. However, even
 if we decide to not invalidate iterators on move assignment, the semantics will
 still be different to that of `std::vector`.
 
-### 3.7  Naming
+## <a id="NAMING"></a>4.7 Naming
 
 Following names have been considered: 
 
@@ -296,18 +303,20 @@ Following names have been considered:
   elements can be on the stack, the heap, or the static memory segment. It also has a resemblance with 
   `std::stack`.
 
-### 3.8 Future extensions 
+## <a id="EXTENSIONS"></a>4.8 Future extensions 
 
-#### 3.3.10.1 Interoperability of embedded vectors with different capacities
+### 4.8.1 Interoperability of embedded vectors with different capacities
 
 A source of pain when using embedded vectors on API is that the vector `Capacity`
 is part of its type. 
 
 An `any_vector_ref<T>` / `any_vector<T>` types with reference and value
 semantics could type-erase vector-like containers allowing to solve this problem
-for the whole zoo of vector types (`fixed_capacity_vector`s, `boost::container::vector`, `std::vector`, `small_vector`, LLVM's small vector, etc). 
+for the whole zoo of vector types (`fixed_capacity_vector`s,
+`boost::container::vector`, `std::vector`, `small_vector`, LLVM's small vector,
+etc).
 
-#### 3.3.10.2 Default initialization
+### 4.8.2 Default initialization
 
 The size-modifying operations of the `fixed_capacity_vector` that do not require a value
 also have the following analogous counterparts that perform default
@@ -326,7 +335,7 @@ struct fixed_capacity_vector {
 };
 ```
 
-#### 3.3.10.4  `with_size` / `with_capacity` constructors
+### 4.8.3  `with_size` / `with_capacity` constructors
 
 Consider:
 
@@ -338,20 +347,11 @@ vec_t v2(2, 1);  // two-elements: 1, 1
 vec_t v3{2, 1};  // two-elements: 2, 1
 ```
 
-A way to avoid this problem introduced by initializer list and braced
-initialization, present in the interface of `fixed_capacity_vector` and
-`std::vector`, would be to use a tagged-constructor of the form
-`fixed_capacity_vector(with_size_t, std::size_t N, T const& t = T())` to
-indicate that constructing a vector with `N` elements is inteded. For
-`std::vector`, a similar constructor using a `with_capacity_t` and maybe
-combinations thereof might make sense. This proposal does not propose any of
-these, but this is a problem that should definetely be solved in STL2, and if it
-solved, it should be solved for `fixed_capacity_vector` as well.
-
-Note: a static member member function, e.g.,
-`fixed_capacity_vector::with_size(N, T)` is a worse solution than using a
-tagged-constructor because copy elision not work when the returned value is
-perfect-forwarded to the destination object.
+This problem introduced by initializer list and braced initialization, present
+in the interface of `fixed_capacity_vector` and `std::vector`, can be avoided by
+using a tagged-constructor of the form `fixed_capacity_vector(with_size_t,
+std::size_t N, T const& t = T())` to indicate that constructing a vector with
+`N` elements is inteded. 
 
 # <a id="TECHNICAL_SPECIFICATION"></a>5. Technical specification
 
@@ -364,9 +364,9 @@ containers" (26.3) part of the "Containers library" (26) as "Class template
 
 ---
 
-## 4. Class template `fixed_capacity_vector`
+## 5. Class template `fixed_capacity_vector`
 
-### <a id="OVERVIEW"></a>4.1 Class template `fixed_capacity_vector` overview
+### <a id="OVERVIEW"></a>5.1 Class template `fixed_capacity_vector` overview
 
 - 1. A `fixed_capacity_vector` is a contiguous container that supports constant
   time insert and erase operations at the end; insert and erase in the middle
@@ -405,14 +405,14 @@ using pointer = T*;
 using const_pointer = T const*; 
 using reference = value_type&;
 using const_reference = const value_type&;
-using size_type =  /*4.9 smallest unsigned integer type that can represent C (Capacity)*/;
+using size_type =  /*5.9 smallest unsigned integer type that can represent C (Capacity)*/;
 using difference_type = std::make_signed_t<size_type>;
 using iterator = implementation-defined;  // see [container.requirements]
 using const_iterator = implementation-defined; // see [container.requirements]
 using reverse_iterator = reverse_iterator<iterator>;
 using const_reverse_iterator = reverse_iterator<const_iterator>;
 
-// 4.2, copy/move construction:
+// 5.2, copy/move construction:
 constexpr fixed_capacity_vector() noexcept;
 constexpr explicit fixed_capacity_vector(size_type n);
 constexpr fixed_capacity_vector(size_type n, const value_type& value);
@@ -424,7 +424,7 @@ constexpr fixed_capacity_vector(fixed_capacity_vector && other)
   noexcept(is_nothrow_move_constructible<value_type>{});
 constexpr fixed_capacity_vector(initializer_list<value_type> il);
 
-// 4.3, copy/move assignment:
+// 5.3, copy/move assignment:
 constexpr fixed_capacity_vector& operator=(fixed_capacity_vector const& other)
   noexcept(is_nothrow_copy_assignable<value_type>{});
 constexpr fixed_capacity_vector& operator=(fixed_capacity_vector && other);
@@ -434,7 +434,7 @@ constexpr void assign(InputIterator first, InputIterator last);
 constexpr void assign(size_type n, const value_type& u);
 constexpr void assign(initializer_list<value_type> il);
 
-// 4.4, destruction
+// 5.4, destruction
 /* constexpr ~fixed_capacity_vector(); */ // implicitly generated
 
 // iterators
@@ -451,7 +451,7 @@ constexpr const_iterator         cend()    const noexcept;
 constexpr const_reverse_iterator crbegin()       noexcept;
 constexpr const_reverse_iterator crend()   const noexcept;
 
-// 4.5, size/capacity:
+// 5.5, size/capacity:
 constexpr bool empty() const noexcept;
 constexpr size_type size()     const noexcept;
 static constexpr size_type max_size() noexcept;
@@ -459,7 +459,7 @@ static constexpr size_type capacity() noexcept;
 constexpr void resize(size_type sz);
 constexpr void resize(size_type sz, const value_type& c)
 
-// 4.6, element and data access:
+// 5.6, element and data access:
 constexpr reference       operator[](size_type n) noexcept; 
 constexpr const_reference operator[](size_type n) const noexcept;
 constexpr const_reference at(size_type n) const;
@@ -471,7 +471,7 @@ constexpr const_reference back() const noexcept;
 constexpr       T* data()       noexcept;
 constexpr const T* data() const noexcept;
 
-// 4.7, modifiers:
+// 5.7, modifiers:
 constexpr iterator insert(const_iterator position, const value_type& x);
 constexpr iterator insert(const_iterator position, value_type&& x);
 constexpr iterator insert(const_iterator position, size_type n, const value_type& x);
@@ -511,7 +511,7 @@ constexpr bool operator>(const fixed_capacity_vector<T, Capacity>& a, const fixe
 template <typename T, std::size_t Capacity>
 constexpr bool operator>=(const fixed_capacity_vector<T, Capacity>& a, const fixed_capacity_vector<T, Capacity>& b) noexcept(...);
 
-// 4.8, specialized algorithms:
+// 5.8, specialized algorithms:
 template <typename T, std::size_t Capacity>
 constexpr void swap(fixed_capacity_vector<T, Capacity>& x, fixed_capacity_vector<T, Capacity>& y)
   noexcept(noexcept(x.swap(y)));
@@ -519,7 +519,7 @@ constexpr void swap(fixed_capacity_vector<T, Capacity>& x, fixed_capacity_vector
 }  // namespace std
 ```
 
-## <a id="CONSTRUCTION"></a>4.2 `fixed_capacity_vector` constructors
+## <a id="CONSTRUCTION"></a>5.2 `fixed_capacity_vector` constructors
 
 ```c++
 constexpr fixed_capacity_vector() noexcept;
@@ -560,13 +560,13 @@ constexpr fixed_capacity_vector(InputIterator first, InputIterator last);
 >
 > - _Complexity_: Initializes `distance(first, last)` `value_type`s. 
 
-## <a id="DESTRUCTION"></a>4.4 Destruction
+## <a id="DESTRUCTION"></a>5.3 Destruction
 
 - 1. The destructor shall be implicitly generated and constexpr if
 `is_trivial<value_type>` is true.
 
 
-## <a id="SIZE"></a>4.5 Size and capacity
+## <a id="SIZE"></a>5.4 Size and capacity
 
 
 ```c++
@@ -616,7 +616,7 @@ Notes (not part of the specification): `resize` has as precondition: `new_size <
 
 ---
 
-## <a id="ACCESS"></a>4.6 Element and data access
+## <a id="ACCESS"></a>5.5 Element and data access
 
 - 1. The checked and unchecked element access functions: `at`, `front`, `back`,
   and `operator[]`, are `constexpr` if `is_trivial<value_type>`.
@@ -633,7 +633,7 @@ constexpr const T* data() const noexcept;
 >
 > - _Complexity_: Constant time.
 
-## <a id="MODIFIERS"></a>4.7 Modifiers
+## <a id="MODIFIERS"></a>5.6 Modifiers
 
 ```c++
 constexpr iterator insert(const_iterator position, const value_type& x);
@@ -712,7 +712,7 @@ constexpr void swap(fixed_capacity_vector x)
 >
 > - _Complexity_: Linear in the number of elements  in `*this` and `x`.
 
-## <a id="SPEC_ALG"></a>4.8 `fixed_capacity_vector` specialized algorithms
+## <a id="SPEC_ALG"></a>5.7 `fixed_capacity_vector` specialized algorithms
 
 ```c++
 template <typename T, std::size_t Capacity>
@@ -728,7 +728,7 @@ constexpr void swap(fixed_capacity_vector<T, Capacity>& x,
 >
 > - _Complexity_: Linear in the number of elements in `x` and `y`.
 
-## <a id="ZERO_SIZED"></a>4.9 Zero sized `fixed_capacity_vector`
+## <a id="ZERO_SIZED"></a>5.8 Zero sized `fixed_capacity_vector`
 
 - 1. `fixed_capacity_vector` shall provide support for the special case `Capacity == 0`.
 
@@ -739,12 +739,12 @@ constexpr void swap(fixed_capacity_vector<T, Capacity>& x,
 - 4. Non-member function `swap(fixed_capacity_vector, fixed_capacity_vector`)
   shall have a non-throwing exception specification.
 
-## <a id="SIZE_TYPE"></a>4.10 Size type
+## <a id="SIZE_TYPE"></a>5.9 Size type
 
 - 1. The `fixed_capacity_vector<T, Capacity>::size_type` is the smallest
   unsigned integer type that can represent `Capacity`.
 
-# <a id="ACKNOWLEDGEMENTS"></a>5. Acknowledgments
+# <a id="ACKNOWLEDGEMENTS"></a>6. Acknowledgments
 
 The following people have significantly contributed to the development of this
 proposal. This proposal is based on Boost.Container's
@@ -763,18 +763,24 @@ wholeheartedly acknowledge Casey Carter for taking the time to do a very
 detailed analysis of the whole proposal, which was invaluable and reshaped it in
 fundamental ways.
 
-# <a id="REFERENCES"></a>6. References
+# <a id="REFERENCES"></a>7. References
 
 - [1] [Boost.Container::static_vector][boost_static_vector]: http://www.boost.org/doc/libs/1_59_0/doc/html/boost/container/static_vector.html .
-- [2] [P0597R0: std::constexpr_vector<T>][constexpr_vector_1]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0597r0.html
-- [3] [P0639R0: Changing attack vector of the `constexpr_vector`][constexpr_vector_2]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0639r0.html
+- [2] [EASTL fixed_vector][eastl]: https://github.com/questor/eastl/blob/master/fixed_vector.h#L71 .
+- [3] [Folly small_vector][folly]: https://github.com/facebook/folly/blob/master/folly/docs/small_vector.md .
 - [4] [Howard Hinnant's stack_alloc][stack_alloc]:  https://howardhinnant.github.io/stack_alloc.html .
+- [5] [P0494R0: `contiguous_container` proposal][contiguous_container]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0494r0.pdf
+- [6] [P0597R0: std::constexpr_vector<T>][constexpr_vector_1]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0597r0.html
+- [7] [P0639R0: Changing attack vector of the `constexpr_vector`][constexpr_vector_2]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0639r0.html .
+
+
+
+
 
 - [5] [PR0274: Clump – A Vector-like Contiguous Sequence Container with Embedded Storage][clump]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0274r0.pdf
 - [6] [Boost.Container::small_vector][boostsmallvector]: http://www.boost.org/doc/libs/master/doc/html/boost/container/small_vector.html.
 - [7] [LLVM small_vector][llvmsmallvector]: http://llvm.org/docs/doxygen/html/classllvm_1_1SmallVector.html .
-- [8] [EASTL fixed_vector][eastl]: https://github.com/questor/eastl/blob/master/fixed_vector.h#L71 .
-- [9] [Folly small_vector][folly]: https://github.com/facebook/folly/blob/master/folly/docs/small_vector.md .
+
 
 - [8] [EASTL design][eastldesign]: https://github.com/questor/eastl/blob/master/doc/EASTL%20Design.html#L284 .
 
@@ -782,12 +788,9 @@ fundamental ways.
     - [2] [Interest in StaticVector - fixed capacity vector](https:>>groups.google.com>d>topic>boost-developers-archive>4n1QuJyKTTk>discussion):  https://groups.google.com/d/topic/boost-developers-archive/4n1QuJyKTTk/discussion .
     - [3] [Stack-based vector container](https:>>groups.google.com>d>topic>boost-developers-archive>9BEXjV8ZMeQ>discussion): https://groups.google.com/d/topic/boost-developers-archive/9BEXjV8ZMeQ/discussion.
     - [4] [static_vector: fixed capacity vector update](https:>>groups.google.com>d>topic>boost-developers-archive>d5_Kp-nmW6c>discussion).
-- [6] [Howard Hinnant's stack_alloc][stack_alloc]:  https://howardhinnant.github.io/stack_alloc.html .
 
 
 
-
-- [12] [P0494R0: `contiguous_container` proposal][contiguous_container]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0494r0.pdf
 
 <!-- Links -->
 [stack_alloc]: https://howardhinnant.github.io/stack_alloc.html
