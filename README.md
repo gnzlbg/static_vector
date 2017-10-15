@@ -27,16 +27,15 @@
 - [5. Technical Specification](#TECHNICAL_SPECIFICATION)
   - [5.1 Overview](#OVERVIEW)
   - [5.2 Construction](#CONSTRUCTION)
-  - [5.3 Assignment](#ASSIGNMENT)
-  - [5.4 Destruction](#DESTRUCTION)
-  - [5.5 Size and capacity](#SIZE)
-  - [4.6 Element and data access](#ACCESS)
-  - [4.7 Modifiers](#MODIFIERS)
-  - [4.8 Specialized algorithms](#SPEC_ALG)
-  - [4.9 Zero sized `fixed_capacity_vector`](#ZERO_SIZED)
-  - [4.10 Size type](#SIZE_TYPE)
-- [5. Acknowledgments](#ACKNOWLEDGEMENTS)
-- [6. References](#REFERENCES)
+  - [5.3 Destruction](#DESTRUCTION)
+  - [5.4 Size and capacity](#SIZE)
+  - [5.5 Element and data access](#ACCESS)
+  - [5.6 Modifiers](#MODIFIERS)
+  - [5.7 Specialized algorithms](#SPEC_ALG)
+  - [5.8 Zero sized `fixed_capacity_vector`](#ZERO_SIZED)
+  - [5.9 Size type](#SIZE_TYPE)
+- [6. Acknowledgments](#ACKNOWLEDGEMENTS)
+- [7. References](#REFERENCES)
 
 # <a id="INTRODUCTION"></a>1. Introduction
 
@@ -66,7 +65,7 @@ The `fixed_capacity_vector` container is useful when:
 - the storage location of the vector elements is required to be within the
   vector object itself (e.g. to support `memcopy` for serialization purposes).
 
-# <a id="EXISTING_PRACTICE"></a>3 Existing practice
+# <a id="EXISTING_PRACTICE"></a>3. Existing practice
 
 There are at least 3 widely used implementations of
 `fixed_capacity_vector`:
@@ -74,8 +73,7 @@ There are at least 3 widely used implementations of
 and [Folly][folly] [3].
 
 [Howard Hinnant's `stack_alloc`][stack_alloc] [4] can be used to implement an
-"unreliable" version of `fixed_capacity_vector` on top of `std::vector`
-
+"unreliable" version of `fixed_capacity_vector` on top of `std::vector`.
 
 There are also many proposal targeting a similar
 purpose: [P0494R0][contiguous_container] [5] and more recently [P0597R0:
@@ -89,7 +87,7 @@ prototype implementation of this proposal is provided for standardization
 purposes:
 [`http://github.com/gnzlbg/fixed_capacity_vector`][fixed_capacity_vector].
 
-# # <a id="DESIGN"></a>4. Design Decisions
+# <a id="DESIGN"></a>4. Design Decisions
 
 The most fundamental question that we must answer is: 
 
@@ -161,7 +159,7 @@ questions like "Should users call `clear` after moving from a `std::vector`?" (w
 answer is _yes_, in particular if `propagate_on_container_move_assignment<Allocator>` 
 is `false`).
 
-## <a id="CONSTEXPR"></a>4.3 Constexpr-support
+## <a id="CONSTEXPR"></a>4.3 `constexpr` support
 
 The whole API of `fixed_capacity_vector<T, Capacity>` is `constexpr` and usable
 inside `constexpr` fucntions if `is_trivial<T>` is true.
@@ -770,7 +768,7 @@ fundamental ways.
 - [3] [Folly small_vector][folly]: https://github.com/facebook/folly/blob/master/folly/docs/small_vector.md .
 - [4] [Howard Hinnant's stack_alloc][stack_alloc]:  https://howardhinnant.github.io/stack_alloc.html .
 - [5] [P0494R0: `contiguous_container` proposal][contiguous_container]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0494r0.pdf
-- [6] [P0597R0: std::constexpr_vector<T>][constexpr_vector_1]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0597r0.html
+- [6] [P0597R0: ``std::constexpr_vector<T>``][constexpr_vector_1]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0597r0.html
 - [7] [P0639R0: Changing attack vector of the `constexpr_vector`][constexpr_vector_2]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0639r0.html .
 
 - [8] [PR0274: Clump – A Vector-like Contiguous Sequence Container with Embedded Storage][clump]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0274r0.pdf
@@ -798,5 +796,5 @@ fundamental ways.
 [boostsmallvector]: http://www.boost.org/doc/libs/master/doc/html/boost/container/small_vector.html
 [llvmsmallvector]: http://llvm.org/docs/doxygen/html/classllvm_1_1SmallVector.html
 [contiguous_container]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2016/p0494r0.pdf
-[P0597R0: std::constexpr_vector<T>][constexpr_vector_1]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0597r0.html
-[P0639R0: Changing attack vector of the `constexpr_vector`][constexpr_vector_2]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0639r0.html
+[constexpr_vector_1]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0597r0.html
+[constexpr_vector_2]: http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0639r0.html
