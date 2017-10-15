@@ -80,11 +80,11 @@ on top of `std::vector`.
 
 This proposal shares a similar purpose with [P0494R0][contiguous_container] [5]
 and [P0597R0: `std::constexpr_vector<T>`][constexpr_vector_1] [6]. The main
-difference is that this proposal proposes standardizing existing practice by
-closely following [`boost::container::static_vector`][boost_static_vector] [1].
-A prototype implementation of this proposal for standardization
-purposes is provided here:
-[`http://github.com/gnzlbg/fixed_capacity_vector`][fixed_capacity_vector].
+difference is that this proposal closely
+follows [`boost::container::static_vector`][boost_static_vector] [1] and
+proposes to standardize existing practice. A prototype implementation of this
+proposal for standardization purposes is provided
+here: [`http://github.com/gnzlbg/fixed_capacity_vector`][fixed_capacity_vector].
 
 # <a id="DESIGN"></a>4. Design Decisions
 
@@ -102,7 +102,7 @@ special case of `std::vector` with a particular allocator.
 Both approaches run into the same fundamental issue: `fixed_capacity_vector`
 methods are identically-named to those of `std::vector` yet they have subtly
 different effects, exception-safety, iterator invalidation, and complexity
-guarantees than those of `std::vector`.
+guarantees.
 
 This proposal
  follows
