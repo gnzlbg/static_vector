@@ -15,7 +15,7 @@
 - [1. Introduction](#INTRODUCTION)
 - [2. Motivation](#MOTIVATION)
 - [3. Existing practice](#EXISTING_PRACTICE)
-- [4. Design](#DESIGN)
+- [4. Design Decisions](#DESIGN)
   - [4.1 Storage/Memory Layout](#STORAGE)
   - [4.2 Move semantics](#MOVE)
   - [4.3 `constexpr` support](#CONSTEXPR)
@@ -97,7 +97,7 @@ using a 4th template parameter, to make it become a `fixed_capacity_vector`. The
 paper [P0639R0: Changing attack vector of the
 `constexpr_vector`][constexpr_vector_2] [7] proposes improving the `Allocator`
 concepts to allow `fixed_capacity_vector`, among others, to be implemented as a
-special case of `std::vector` with a particular allocator.
+special case of `std::vector` with a custom allocator.
 
 Both approaches run into the same fundamental issue: `fixed_capacity_vector`
 methods are identically-named to those of `std::vector` yet they have subtly
