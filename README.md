@@ -398,10 +398,8 @@ constexpr void push_back(const value_type& x);
 constexpr void push_back(value_type&& x);
 
 constexpr void pop_back();
-constexpr iterator erase(const_iterator position)
-  noexcept(is_nothrow_destructible<value_type>{} and is_nothrow_swappable<value_type>{});
-constexpr iterator erase(const_iterator first, const_iterator last)
-  noexcept(is_nothrow_destructible<value_type>{} and is_nothrow_swappable<value_type>{});
+constexpr iterator erase(const_iterator position);
+constexpr iterator erase(const_iterator first, const_iterator last);
 
 constexpr void clear() noexcept(is_nothrow_destructible<value_type>{});
 
@@ -569,22 +567,23 @@ constexpr void push_back(value_type&& x);
 >
 > - _Complexity_: Linear in the number of elements inserted plus the distance
 > from the insertion point to the end of the vector.
+> 
+> - _Throws_: Nothing unless an exception is thrown by the assignment operator or
+> move assignment operator of `value_type`.
 
 ---
 
 Note (not part of the specification): The insertion functions have as
-precondition `new_size < Capacity`. Hence, they all have narrow contracts and
-are never `noexcept(true)`. 
+precondition `new_size <= Capacity`. Hence, they all have narrow contracts and
+are never `noexcept(true)`.
 
 ---
 
 
 ```c++
 constexpr void pop_back();
-constexpr iterator erase(const_iterator position)
-  noexcept(is_nothrow_destructible<value_type>{} and is_nothrow_swappable<value_type>{});
-constexpr iterator erase(const_iterator first, const_iterator last)
-  noexcept(is_nothrow_destructible<value_type>{} and is_nothrow_swappable<value_type>{});
+constexpr iterator erase(const_iterator position);
+constexpr iterator erase(const_iterator first, const_iterator last);
 ```
 
 > - _Effects_: Invalidates iterators and references at or after the point of the erase.
@@ -599,9 +598,9 @@ constexpr iterator erase(const_iterator first, const_iterator last)
 
 ---
 
-Note (not part of the specification): the erasure methods have no preconditions,
-so they have wide contracts and are conditionally `noexcept`. The "precondition"
-`new_size >= 0` is always satisfied because sizes are represented with unsigned integers. 
+Note (not part of the specification): the erasure methods have as precondition
+`new_size >= 0` (always satisfied) and `new_size <= Capacity`, hence they have
+narrow contracts.
 
 ---
 
