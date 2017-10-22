@@ -2,11 +2,13 @@
 
 > A dynamically-resizable vector with fixed capacity and embedded storage (revision 0)
 
-**Document number**: none.
+**Document number**: P0843.
 
 **Date**: 2017-10-15.
 
-**Project**: Programming Language C++, Library Working Group (LWG/LEWG).
+**Project**: Programming Language C++, Library Working Group.
+
+**Audience**: LWG/LEWG.
 
 **Reply-to**: Gonzalo Brito Gadeschi <gonzalo.gadeschi at rwth-aachen dot de>.
 
