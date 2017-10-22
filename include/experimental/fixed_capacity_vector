@@ -62,6 +62,7 @@
 #include <limits>       // for numeric_limits
 #include <stdexcept>    // for length_error
 #include <type_traits>  // for aligned_storage and all meta-functions
+#include <stdio.h>      // for assertion diagnostics
 
 /// Unreachable code
 #define FCV_UNREACHABLE __builtin_unreachable()
