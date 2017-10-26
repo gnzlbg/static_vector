@@ -125,7 +125,7 @@ exact location of the contiguous elements within the vector is not specified. If
 the `Capacity` is zero the container has zero size:
 
 ```c++
-static_assert(sizeof(fixed_capacity_vector<int, 0>) == 0);
+static_assert(sizeof(fixed_capacity_vector<int, 0>) == 1);
 ```
 
 This optimization is easily implementable, enables the EBO, and felt right.
