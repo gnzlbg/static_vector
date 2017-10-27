@@ -178,9 +178,9 @@ The only operations that can actually fail within `fixed_capacity_vector<T, Capa
      `emplace`, `pop_back` when `empty()`, `fixed_capacity_vector(T, size)`,
      `fixed_capacity_vector(begin, end)`...).
 
-  2. Out-of-bounds unchecked access:
-     2.1 `front`/`back`/`pop_back` when empty, operator[] (unchecked random-access). 
-     2.2  `at` (checked random-access) which can throw `out_of_range` exception.
+  3. Out-of-bounds unchecked access:
+     - 3.1 `front`/`back`/`pop_back` when empty, operator[] (unchecked random-access). 
+     - 3.2  `at` (checked random-access) which can throw `out_of_range` exception.
 
 When `value_type`'s operations are invoked, the exception safety guarantees of
 `fixed_capacity_vector` depend on whether these operations can throw. This is
