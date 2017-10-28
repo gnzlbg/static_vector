@@ -373,14 +373,14 @@ constexpr void resize(size_type sz);
 constexpr void resize(size_type sz, const value_type& c)
 
 // 5.6, element and data access:
-constexpr reference       operator[](size_type n) noexcept; 
-constexpr const_reference operator[](size_type n) const noexcept;
+constexpr reference       operator[](size_type n); 
+constexpr const_reference operator[](size_type n) const;
 constexpr const_reference at(size_type n) const;
 constexpr reference       at(size_type n);
-constexpr reference       front() noexcept;
-constexpr const_reference front() const noexcept;
-constexpr reference       back() noexcept;
-constexpr const_reference back() const noexcept;
+constexpr reference       front();
+constexpr const_reference front() const;
+constexpr reference       back();
+constexpr const_reference back() const;
 constexpr       T* data()       noexcept;
 constexpr const T* data() const noexcept;
 
