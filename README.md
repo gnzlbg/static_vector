@@ -2,7 +2,7 @@
 
 > A dynamically-resizable vector with fixed capacity and embedded storage (revision 0)
 
-**Document number**: P0843.
+**Document number**: P0843r1.
 
 **Date**: 2017-10-15.
 
@@ -33,8 +33,6 @@
   - [5.5 Element and data access](#ACCESS)
   - [5.6 Modifiers](#MODIFIERS)
   - [5.7 Specialized algorithms](#SPEC_ALG)
-  - [5.8 Zero sized `fixed_capacity_vector`](#ZERO_SIZED)
-  - [5.9 Size type](#SIZE_TYPE)
 - [6. Acknowledgments](#ACKNOWLEDGEMENTS)
 - [7. References](#REFERENCES)
 
@@ -43,7 +41,7 @@
 This paper proposes a modernized version
 of [`boost::container::static_vector<T,Capacity>`][boost_static_vector] [1].
 That is, a dynamically-resizable `vector` with compile-time fixed capacity and
-contiguous embedded storage in which the vector elements are stored within the
+contiguous embedded storage in which the elements are stored within the
 vector object itself.
 
 Its API closely resembles that of `std::vector<T, A>`. It is a contiguous
@@ -63,8 +61,8 @@ The `fixed_capacity_vector` container is useful when:
 - allocation of objects with complex lifetimes in the _static_-memory segment is required,
 - `std::array` is not an option, e.g., if non-default constructible objects must be stored,
 - a dynamically-resizable array is required within `constexpr` functions, 
-- the storage location of the vector elements is required to be within the
-  vector object itself (e.g. to support `memcopy` for serialization purposes).
+- the storage location of the `fixed_capacity_vector` elements is required to be within the
+  `fixed_capacity_vector` object itself (e.g. to support `memcopy` for serialization purposes).
 
 # <a id="EXISTING_PRACTICE"></a>3. Existing practice
 
@@ -119,9 +117,9 @@ implementing `fixed_capacity_vector` as a `std::vector` with a custom allocator.
 
 ## <a id="STORAGE"></a>4.1 Storage/Memory Layout
 
-The container models `ContiguousContainer`. The elements of the vector are
-contiguously stored and properly aligned within the vector object itself. The
-exact location of the contiguous elements within the vector is not specified. If
+The container models `ContiguousContainer`. The elements of the `fixed_capacity_vector` are
+contiguously stored and properly aligned within the `fixed_capacity_vector` object itself. The
+exact location of the contiguous elements within the `fixed_capacity_vector` is not specified. If
 the `Capacity` is zero the container has zero size:
 
 ```c++
@@ -146,7 +144,7 @@ the size of `a` is not altered, and `a.size() == b.size()`.
 
 Note: this behavior differs from `std::vector<T, Allocator>`, in particular for
 the similar case in which
-`std::propagate_on_container_move_assignment<Allocator>{}` is `false`. In this
+`std::allocator_traits<Allocator>::propagate_on_container_move_assignment` is `false`. In this
 situation the state of `std::vector` is initialized but unspecified.
 
 ## <a id="CONSTEXPR"></a>4.3 `constexpr` support
@@ -156,25 +154,28 @@ The API of `fixed_capacity_vector<T, Capacity>` is `constexpr`. If
 from `constexpr` code. This allows using `fixed_capacity_vector` as a
 `constexpr_vector` to, e.g., implement other constexpr containers.
 
-The implementation cost of this is very low for trivial types: the
-implementation can use an array for `fixed_capacity_vector`'s storage without
-altering the guarantees of `fixed_capacity_vector`'s methods in an observable
-way.
+The implementation cost of this is small: the prototye implementation
+specializes the storage for trivial types to use a C array with 
+value-initialized elements and a defaulted destructor.
 
-For example, `fixed_capacity_vector(N)` constructor guarantees a complexity
-"Linear in `N`". Strictly speaking, `fixed_capacity_vector`'s constructor for
-trivial types will construct an array of `Capacity` length. However, because
-`is_trivial_v<T>` is `true`, the number of constructor or destructor calls is not
-observable.
+This changes the algorithmic complexity of `fixed_capacity_vector` 
+constructors for trivial-types from "Linear in `N`" to "Constant 
+in `Capacity`. When the value-initialization takes place at run-time, 
+this difference in behavior might be signficiant: 
+`fixed_capacity_vector<non_trivial_type, 38721943228473>(4)` will only
+initialize 4 elements but 
+`fixed_capacity_vector<trivial_type, 38721943228473>(4)`
+must value-initialize the `38721943228473 - 4` excess elements to be a
+valid `constexpr` constructor. 
 
 ## <a id="EXCEPTION"></a>4.4 Exception Safety
 
-The only operations that can actually fail within `fixed_capacity_vector<T, Capacity>` are:
+The only operations that can actually fail within `fixed_capacity_vector<value_type, Capacity>` are:
 
   1. `value_type`'s constructors/assignment/destructors/swap can potentially throw,
 
   2. Mutating operations exceeding the capacity (`push_back`, `insert`,
-     `emplace`, `pop_back` when `empty()`, `fixed_capacity_vector(T, size)`,
+     `emplace`, `fixed_capacity_vector(value_type, size)`,
      `fixed_capacity_vector(begin, end)`...).
 
   3. Out-of-bounds unchecked access:
@@ -203,13 +204,13 @@ either `std::out_of_bounds` or `std::logic_error` but in any case the interface
 does not end up being equal to that of `std::vector`.
 
 The alternative is to make not exceeding the capacity a precondition on the
-vector's methods. This approach allows implementations to provide good run-time
+`fixed_capacity_vector`'s methods. This approach allows implementations to provide good run-time
 diagnostics if they so desired, e.g., on debug builds by means of an assertion,
 and makes implementation that avoid run-time checks conforming as well. Since
 the mutating methods have a precondition, they have narrow contracts, and are
 not conditionally `noexcept`.
 
-This proposal chooses this path and makes exceeding the vector's capacity a
+This proposal chooses this path and makes exceeding the `fixed_capacity_vector`'s capacity a
 precondition violation that results in undefined behavior. Throwing
 `checked_xxx` methods can be provided in a backwards compatible way. 
 
@@ -229,13 +230,14 @@ The following functions can potentially invalidate the iterators of `fixed_capac
 
 The following names have been considered: 
 
+- `bounded_vector`: clearly indicates that the the size of the vector is bounded. 
 - `fixed_capacity_vector`: clearly indicates that the capacity is fixed.
-- `static_capacity_vector`: clearly indicates that the capacity is fixed at compile time.
+- `static_capacity_vector`: clearly indicates that the capacity is fixed at compile time (static is overloaded).
 - `static_vector` (Boost.Container): due to "static" / compile-time allocation of the elements. The term 
    `static` is, however, overloaded in C++ (e.g. `static` memory?).
-- `embedded_vector<T, Capacity>`: since the elements are "embedded" within the vector object itself. 
+- `embedded_vector<T, Capacity>`: since the elements are "embedded" within the `fixed_capacity_vector` object itself. 
    Sadly, the name `embedded` is overloaded, e.g., embedded systems. 
-- `inline_vector`: the elements are stored "inline" within the vector object itself. The term `inline` is,
+- `inline_vector`: the elements are stored "inline" within the `fixed_capacity_vector` object itself. The term `inline` is,
    however, already overloaded in C++ (e.g. `inline` functions => ODR, inlining, `inline` variables).
 - `stack_vector`: to denote that the elements can be stored on the stack. Is confusing since the
   elements can be on the stack, the heap, or the static memory segment. It also has a resemblance with 
@@ -252,7 +254,7 @@ The following extensions could be added in a backwards compatible way:
   value-initialization): e.g. by using a tagged constructor with a
   `default_initialized_t` tag.
 
-- tagged-constructor f the form `fixed_capacity_vector(with_size_t, std::size_t
+- tagged-constructor of the form `fixed_capacity_vector(with_size_t, std::size_t
 N, T const& t = T())` to avoid the complexity introduced by initializer lists
 and braced initialization:
 
@@ -272,7 +274,7 @@ All these extensions are generally useful and not part of this proposal.
 
 Note to editor: This enhancement is a pure header-only addition to the C++
 standard library as the `<fixed_capacity_vector>` header. It belongs in the
-"Sequence containers" (26.3) part of the "Containers library" (26) as "Class
+"Sequence containers" (`\ref{sequences}`) part of the "Containers library" (`\ref{containers}`) as "Class
 template `fixed_capacity_vector`".
 
 ---
@@ -284,65 +286,59 @@ template `fixed_capacity_vector`".
 - 1. A `fixed_capacity_vector` is a contiguous container that supports constant
   time insert and erase operations at the end; insert and erase in the middle
   take linear time. Its capacity is part of its type and its elements are stored
-  within the vector object itself, meaning that that if `v` is a
-  `fixed_capacity_vector<T, Capacity>` then it obeys the identity `&v[n] ==
+  within the `fixed_capacity_vector` object itself, meaning that that if `v` is a
+  `fixed_capacity_vector<T, N>` then it obeys the identity `&v[n] ==
   &v[0] + n` for all `0 <= n <= v.size()`.
 
 - 2. A `fixed_capacity_vector` satisfies all of the requirements of a container
-  and of a reversible container (given in two tables in 26.2), of a sequence
-  container, including the optional sequence container requirements (26.2.3),
-  and of a contiguous container (26.2.1). The exceptions are the `push_front`,
+  and of a reversible container (given in two tables in `\ref{container.requirements}`), of a sequence
+  container, including the optional sequence container requirements (`\ref{sequence.reqmts}`),
+  and of a contiguous container (`\ref{container.requirements.general}`). The exceptions are the `push_front`,
   `pop_front`, and `emplace_front` member functions, which are not provided, and
   `swap`, which has linear complexity instead of constant complexity.
   Descriptions are provided here only for operations on `fixed_capacity_vector`
   that are not described in one of these tables or for operations where there is
   additional semantic information.
 
----
-
-Note (not part of the specification): An incomplete type `T` cannot be used when
-instantiating the vector, as opposed to `std::vector`.
-
----
-
+Note: An incomplete type `T` cannot be used to instantiate a `fixed_capacity_vector`.
 
 ```c++
 namespace std {
 
-template<typename T, std::size_t C /* Capacity */>
+template <typename T, size_t N>
 class fixed_capacity_vector {
 public:
 // types:
 using value_type = T;
 using pointer = T*;
-using const_pointer = T const*; 
+using const_pointer = const T*; 
 using reference = value_type&;
 using const_reference = const value_type&;
-using size_type =  /*5.9 smallest unsigned integer type that can represent C (Capacity)*/;
-using difference_type = std::make_signed_t<size_type>;
+using size_type =  size_t;
+using difference_type = make_signed_t<size_type>;
 using iterator = implementation-defined;  // see [container.requirements]
 using const_iterator = implementation-defined; // see [container.requirements]
-using reverse_iterator = reverse_iterator<iterator>;
-using const_reverse_iterator = reverse_iterator<const_iterator>;
+using reverse_iterator = std::reverse_iterator<iterator>;
+using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
 // 5.2, copy/move construction:
 constexpr fixed_capacity_vector() noexcept;
 constexpr explicit fixed_capacity_vector(size_type n);
 constexpr fixed_capacity_vector(size_type n, const value_type& value);
-template<class InputIterator>
+template <class InputIterator>
 constexpr fixed_capacity_vector(InputIterator first, InputIterator last);
-constexpr fixed_capacity_vector(fixed_capacity_vector const& other)
-  noexcept(is_nothrow_copy_constructible<value_type>{});
-constexpr fixed_capacity_vector(fixed_capacity_vector && other)
-  noexcept(is_nothrow_move_constructible<value_type>{});
+constexpr fixed_capacity_vector(const fixed_capacity_vector& other)
+  noexcept(is_nothrow_copy_constructible_v<value_type>);
+constexpr fixed_capacity_vector(fixed_capacity_vector&& other)
+  noexcept(is_nothrow_move_constructible_v<value_type>);
 constexpr fixed_capacity_vector(initializer_list<value_type> il);
 
 // 5.3, copy/move assignment:
-constexpr fixed_capacity_vector& operator=(fixed_capacity_vector const& other)
-  noexcept(is_nothrow_copy_assignable<value_type>{});
-constexpr fixed_capacity_vector& operator=(fixed_capacity_vector && other);
-  noexcept(is_nothrow_move_assignable<value_type>{});
-template<class InputIterator>
+constexpr fixed_capacity_vector& operator=(const fixed_capacity_vector& other)
+  noexcept(is_nothrow_copy_assignable_v<value_type>);
+constexpr fixed_capacity_vector& operator=(fixed_capacity_vector&& other);
+  noexcept(is_nothrow_move_assignable_v<value_type>);
+template <class InputIterator>
 constexpr void assign(InputIterator first, InputIterator last);
 constexpr void assign(size_type n, const value_type& u);
 constexpr void assign(initializer_list<value_type> il);
@@ -366,11 +362,11 @@ constexpr const_reverse_iterator crend()   const noexcept;
 
 // 5.5, size/capacity:
 constexpr bool empty() const noexcept;
-constexpr size_type size()     const noexcept;
+constexpr size_type size() const noexcept;
 static constexpr size_type max_size() noexcept;
 static constexpr size_type capacity() noexcept;
 constexpr void resize(size_type sz);
-constexpr void resize(size_type sz, const value_type& c)
+constexpr void resize(size_type sz, const value_type& c);
 
 // 5.6, element and data access:
 constexpr reference       operator[](size_type n); 
@@ -388,13 +384,13 @@ constexpr const T* data() const noexcept;
 constexpr iterator insert(const_iterator position, const value_type& x);
 constexpr iterator insert(const_iterator position, value_type&& x);
 constexpr iterator insert(const_iterator position, size_type n, const value_type& x);
-template<class InputIterator>
+template <class InputIterator>
   constexpr iterator insert(const_iterator position, InputIterator first, InputIterator last);
 constexpr iterator insert(const_iterator position, initializer_list<value_type> il);
 
-template<class... Args>
-  constexpr iterator emplace(const_iterator position, Args&&...args)
-template<class... Args>
+template <class... Args>
+  constexpr iterator emplace(const_iterator position, Args&&... args);
+template <class... Args>
   constexpr reference emplace_back(Args&&... args);
 constexpr void push_back(const value_type& x);
 constexpr void push_back(value_type&& x);
@@ -403,28 +399,28 @@ constexpr void pop_back();
 constexpr iterator erase(const_iterator position);
 constexpr iterator erase(const_iterator first, const_iterator last);
 
-constexpr void clear() noexcept(is_nothrow_destructible<value_type>{});
+constexpr void clear() noexcept;
 
-constexpr void swap(fixed_capacity_vector x)
-  noexcept(noexcept(is_nothrow_swappable_v<value_type>));
+constexpr void swap(fixed_capacity_vector& x)
+  noexcept(is_nothrow_swappable_v<value_type>);
 };
 
-template <typename T, std::size_t Capacity>
-constexpr bool operator==(const fixed_capacity_vector<T, Capacity>& a, const fixed_capacity_vector<T, Capacity>& b) noexcept(...);
-template <typename T, std::size_t Capacity>
-constexpr bool operator!=(const fixed_capacity_vector<T, Capacity>& a, const fixed_capacity_vector<T, Capacity>& b) noexcept(...);
-template <typename T, std::size_t Capacity>
-constexpr bool operator<(const fixed_capacity_vector<T, Capacity>& a, const fixed_capacity_vector<T, Capacity>& b) noexcept(...);
-template <typename T, std::size_t Capacity>
-constexpr bool operator<=(const fixed_capacity_vector<T, Capacity>& a, const fixed_capacity_vector<T, Capacity>& b) noexcept(...);
-template <typename T, std::size_t Capacity>
-constexpr bool operator>(const fixed_capacity_vector<T, Capacity>& a, const fixed_capacity_vector<T, Capacity>& b) noexcept(...);
-template <typename T, std::size_t Capacity>
-constexpr bool operator>=(const fixed_capacity_vector<T, Capacity>& a, const fixed_capacity_vector<T, Capacity>& b) noexcept(...);
+template <typename T, size_t N>
+constexpr bool operator==(const fixed_capacity_vector<T, N>& a, const fixed_capacity_vector<T, N>& b);
+template <typename T, size_t N>
+constexpr bool operator!=(const fixed_capacity_vector<T, N>& a, const fixed_capacity_vector<T, N>& b);
+template <typename T, size_t N>
+constexpr bool operator<(const fixed_capacity_vector<T, N>& a, const fixed_capacity_vector<T, N>& b);
+template <typename T, size_t N>
+constexpr bool operator<=(const fixed_capacity_vector<T, N>& a, const fixed_capacity_vector<T, N>& b);
+template <typename T, size_t N>
+constexpr bool operator>(const fixed_capacity_vector<T, N>& a, const fixed_capacity_vector<T, N>& b);
+template <typename T, size_t N>
+constexpr bool operator>=(const fixed_capacity_vector<T, N>& a, const fixed_capacity_vector<T, N>& b);
 
 // 5.8, specialized algorithms:
-template <typename T, std::size_t Capacity>
-constexpr void swap(fixed_capacity_vector<T, Capacity>& x, fixed_capacity_vector<T, Capacity>& y)
+template <typename T, size_t N>
+constexpr void swap(fixed_capacity_vector<T, N>& x, fixed_capacity_vector<T, N>& y)
   noexcept(noexcept(x.swap(y)));
   
 }  // namespace std
@@ -446,7 +442,7 @@ constexpr explicit fixed_capacity_vector(size_type n);
 
 > - _Effects_: constructs a `fixed_capacity_vector` with `n` default-inserted elements.
 >
-> - _Requires_: `value_type` shall be `DefaultInsertable` into `*this`.
+> - _Requires_: `value_type` shall be `DefaultInsertable` into `*this` and `n <= capacity()`.
 >
 > - _Complexity_: Linear in `n`.
 
@@ -456,76 +452,57 @@ constexpr fixed_capacity_vector(size_type n, const value_type& value);
 
 > - _Effects_: Constructs a `fixed_capacity_vector` with `n` copies of `value`.
 >
-> - _Requires_: `value_type` shall be `CopyInsertable` into `*this`.
+> - _Requires_: `value_type` shall be `CopyInsertable` into `*this` and `n <= capacity()`.
 >
 > - _Complexity_: Linear in `n`.
 
 ```c++ 
-template<class InputIterator>
+template <class InputIterator>
 constexpr fixed_capacity_vector(InputIterator first, InputIterator last);
 ```
 
 > - _Effects_: Constructs a `fixed_capacity_vector` equal to the range `[first, last)`
 >
-> - _Requires_: `value_type` shall be `EmplaceConstructible` into `*this` from `*first`.
+> - _Requires_: `value_type` shall be `EmplaceConstructible` into `*this` from `*first` and `distance(first, last) <= capacity()`.
 >
 > - _Complexity_: Initializes `distance(first, last)` `value_type`s. 
 
 ## <a id="DESTRUCTION"></a>5.3 Destruction
 
-- 1. The destructor shall be implicitly generated and constexpr if
-`is_trivial<value_type>` is true.
+```c++
+~fixed_capacity_vector();
+```
 
+> _Effects_: Destroys the contents of the `fixed_capacity_vector`.
+>
+> _Remarks_: This destructor shall be trivial if `is_trivial_v<T>` is `true`.
 
 ## <a id="SIZE"></a>5.4 Size and capacity
 
 
 ```c++
 static constexpr size_type capacity() noexcept;
-```
-
-> - _Returns_: the total number of elements that the vector can hold.
-> 
-> - _Complexity_: constant.
-
-```c++
 static constexpr size_type max_size() noexcept;
-```
 
-> - _Note_: returns `capacity()`.
+```
+> - _Effects_: equivalent to `return N;`.
+```
 
 ```c++
 constexpr void resize(size_type sz);
-```
-
-> - _Effects_: If `sz < size()`, erases the last `size() - sz` elements from the
->   sequence. If `sz >= size()` and `sz <= capacity()`, appends `sz - size()`
->   copies of `c` to the sequence. The effect of calling resize if `sz >
->   capacity()` is undefined.
->
-> - _Requires_: `value_type` shall be `MoveInsertable` and `DefaultInsertable` into `*this`.
->
-> - _Note_: `constexpr `if `is_trivial<value_type>`.
-
-
-```c++
 constexpr void resize(size_type sz, const value_type& c);
 ```
 
+> - _Requires_: `sz` shall be less than or equal to `N`. `T` shall be:
+>   - `DefaultInsertable` into `*this` for the first overload, or
+>   - `CopyInsertable` into `*this` for the second overload.
+>
 > - _Effects_: If `sz < size()`, erases the last `size() - sz` elements from the
->   sequence. If `sz >= size()` and `sz <= capacity()`, appends `sz - size()`
->   copies of `c` to the sequence. The effect of calling resize if `sz >
->   capacity()` is undefined.
+>   sequence. Otherwise, appends `sz - size()` elements to the sequence which are:
+>   - value-initialized for the first overload, or
+>   - copies of `c` for the second overload.
 >
-> - _Requires_: `value_type` shall be `MoveInsertable` and `DefaultInsertable` into `*this`.
->
-> - _Note_: `constexpr `if `is_trivial<value_type>`.
-
----
-
-Note (not part of the specification): `resize` has as precondition: `new_size <= capacity()`. Hence it has a narrow contract, and is never `noexcept(true)`.
-
----
+> *Remarks:* These functions shall be `constexpr` if `is_trivial_v<value_type>` is `true`.
 
 ## <a id="ACCESS"></a>5.5 Element and data access
 
@@ -535,7 +512,7 @@ constexpr const T* data() const noexcept;
 ```
 
 > - _Returns_: A pointer such that `[data(), data() + size())` is a valid range.
->    For a non-empty vector, `data() == addressof(front())`.
+>    For a non-empty `fixed_capacity_vector`, `data() == addressof(front())`.
 >
 > - _Complexity_: Constant time.
 
@@ -549,16 +526,17 @@ template <typename InputIterator>
   constexpr iterator insert(const_iterator position, InputIterator first, InputIterator last);
 constexpr iterator insert(const_iterator position, initializer_list<value_type> il);
 
-template<class... Args>
+template <class... Args>
 constexpr reference emplace_back(Args&&... args);
-template<class... Args>
-constexpr iterator emplace_back(const_iterator position, Args&&... args);
+template <class... Args>
+constexpr iterator emplace(const_iterator position, Args&&... args);
 constexpr void push_back(const value_type& x);
 constexpr void push_back(value_type&& x);
 ```
 
-> - _Remarks_: If the new size is greater than the `capacity()` the behavior is
-> undefined. All the iterators and references before the insertion point remain
+> - _Requires_: The number of elements to be inserted shall be at most `C - size()`.
+>
+> - _Remarks_: All the iterators and references before the insertion point remain
 > valid. If an exception is thrown other than by the copy constructor, move
 > constructor, assignment operator, or move assignment operator of `value_type`
 > or by any `InputIterator` operation there are no effects. If an exception is
@@ -568,15 +546,14 @@ constexpr void push_back(value_type&& x);
 > constructor of a non-CopyInsertable `value_type`, the effects are unspecified.
 >
 > - _Complexity_: Linear in the number of elements inserted plus the distance
-> from the insertion point to the end of the vector.
+> from the insertion point to the end of the `fixed_capacity_vector`.
 > 
-> - _Throws_: Nothing unless an exception is thrown by the assignment operator or
-> move assignment operator of `value_type`.
+> - _Throws_: Any exception thrown by anassignment operator of `value_type`.
 
 ---
 
 Note (not part of the specification): The insertion functions have as
-precondition `new_size <= Capacity`. Hence, they all have narrow contracts and
+precondition `new_size <= capacity()`. Hence, they all have narrow contracts and
 are never `noexcept(true)`.
 
 ---
@@ -593,22 +570,21 @@ constexpr iterator erase(const_iterator first, const_iterator last);
 > - _Complexity_: The destructor of `value_type` is called the number of times
 >   equal to the number of the elements erased, but the assignment operator of
 >   `value_type` is called the number of times equal to the number of elements
->   in the vector after the erased elements.
+>   in the `fixed_capacity_vector` after the erased elements.
 >
-> - _Throws_: Nothing unless an exception is thrown by the assignment operator or
->   move assignment operator of `value_type`.
+> - _Throws_: Any exception thrown by anassignment operator of `value_type`.
 
 ---
 
 Note (not part of the specification): the erasure methods have as precondition
-`new_size >= 0` (always satisfied) and `new_size <= Capacity`, hence they have
+`new_size >= 0` (always satisfied) and `new_size <= capacity()`, hence they have
 narrow contracts.
 
 ---
 
 ```c++
 constexpr void swap(fixed_capacity_vector x)
-  noexcept(noexcept(is_nothrow_swappable_v<value_type>));
+  noexcept(is_nothrow_swappable_v<value_type>);
 ```
 
 > - _Effects_: Exchanges the contents of `*this` with `x`. All iterators
@@ -619,34 +595,17 @@ constexpr void swap(fixed_capacity_vector x)
 ## <a id="SPEC_ALG"></a>5.7 `fixed_capacity_vector` specialized algorithms
 
 ```c++
-template <typename T, std::size_t Capacity>
-constexpr void swap(fixed_capacity_vector<T, Capacity>& x, 
-                    fixed_capacity_vector<T, Capacity>& y)
+template <typename T, size_t N>
+constexpr void swap(fixed_capacity_vector<T, N>& x, 
+                    fixed_capacity_vector<T, N>& y)
   noexcept(noexcept(x.swap(y)));
 ```
 
-> - _Remarks_: This function shall not participate in overload resolution unless
->   `Capacity == 0` or `is_swappable_v<T>` is `true`.
+> - _Remarks_: This function shall not participate in overload resolution unless `is_swappable_v<T>` is `true`.
 >
 > - _Effects_: As if by `x.swap(y)`.
 >
 > - _Complexity_: Linear in the number of elements in `x` and `y`.
-
-## <a id="ZERO_SIZED"></a>5.8 Zero sized `fixed_capacity_vector`
-
-- 1. `fixed_capacity_vector` shall provide support for the special case `Capacity == 0`.
-
-- 2. In the case that `Capacity == 0`, `begin() == end() == unique value`. The return value of `data()` is unspecified.
-
-- 3. The effect of calling `front()` or `back()` for a zero-sized array is undefined.
-
-- 4. Non-member function `swap(fixed_capacity_vector, fixed_capacity_vector`)
-  shall have a non-throwing exception specification.
-
-## <a id="SIZE_TYPE"></a>5.9 Size type
-
-- 1. The `fixed_capacity_vector<T, Capacity>::size_type` is the smallest
-  unsigned integer type that can represent `Capacity`.
 
 # <a id="ACKNOWLEDGEMENTS"></a>6. Acknowledgments
 
