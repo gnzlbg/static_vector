@@ -150,7 +150,8 @@ situation the state of `std::vector` is initialized but unspecified.
 ## <a id="CONSTEXPR"></a>4.3 `constexpr` support
 
 The API of `fixed_capacity_vector<T, Capacity>` is `constexpr`. If
-`is_trivial_v<T>` is `true`, `fixed_capacity_vector`s can be seamlessly used
+`is_trivially_copyable_v<T> && is_default_constructible_v<T>` is `true`, 
+`fixed_capacity_vector`s can be seamlessly used
 from `constexpr` code. This allows using `fixed_capacity_vector` as a
 `constexpr_vector` to, e.g., implement other constexpr containers.
 
@@ -167,6 +168,15 @@ initialize 4 elements but
 `fixed_capacity_vector<trivial_type, 38721943228473>(4)`
 must value-initialize the `38721943228473 - 4` excess elements to be a
 valid `constexpr` constructor. 
+
+Very large `fixed_capacity_vector`'s are not the 
+target use case of this container class and will have, in general, worse
+performance than, e.g., `std::vector` (e.g. due to moves being `O(N)`). 
+
+Future improvements to `constexpr` (e.g. being able to properly use 
+`std::aligned_storage` in constexpr contexts) allow improving 
+the performance of `fixed_capacity_vector` in a backwards 
+compatible way.
 
 ## <a id="EXCEPTION"></a>4.4 Exception Safety
 
@@ -344,7 +354,7 @@ constexpr void assign(size_type n, const value_type& u);
 constexpr void assign(initializer_list<value_type> il);
 
 // 5.4, destruction
-/* constexpr ~fixed_capacity_vector(); */ // implicitly generated
+~fixed_capacity_vector();
 
 // iterators
 constexpr iterator               begin()         noexcept;
@@ -475,7 +485,7 @@ constexpr fixed_capacity_vector(InputIterator first, InputIterator last);
 
 > _Effects_: Destroys the contents of the `fixed_capacity_vector`.
 >
-> _Remarks_: This destructor shall be trivial if `is_trivial_v<T>` is `true`.
+> _Remarks_: This destructor shall be trivial if `is_trivially_copyable_v<T> && is_default_constructible_v<T>` is `true`.
 
 ## <a id="SIZE"></a>5.4 Size and capacity
 
@@ -502,7 +512,7 @@ constexpr void resize(size_type sz, const value_type& c);
 >   - value-initialized for the first overload, or
 >   - copies of `c` for the second overload.
 >
-> *Remarks:* These functions shall be `constexpr` if `is_trivial_v<value_type>` is `true`.
+> *Remarks:* These functions shall be `constexpr` if `is_trivially_copyable_v<value_type> && is_default_constructible_v<value_type>` is `true`.
 
 ## <a id="ACCESS"></a>5.5 Element and data access
 
