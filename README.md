@@ -240,6 +240,7 @@ The following functions can potentially invalidate the iterators of `fixed_capac
 
 The following names have been considered: 
 
+- `array_vector`: a vector whose storage is backed up by a raw array.
 - `bounded_vector`: clearly indicates that the the size of the vector is bounded. 
 - `fixed_capacity_vector`: clearly indicates that the capacity is fixed.
 - `static_capacity_vector`: clearly indicates that the capacity is fixed at compile time (static is overloaded).
