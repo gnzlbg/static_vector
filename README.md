@@ -1,6 +1,6 @@
 # fixed_capacity_vector<T>
 
-> A dynamically-resizable vector with fixed capacity and embedded storage (revision 0)
+> A dynamically-resizable vector with fixed capacity and embedded storage (revision 1)
 
 **Document number**: P0843r1.
 
@@ -50,6 +50,8 @@ container with `O(1)` insertion and removal of elements at the end
 `std::vector`, the elements are initialized on insertion and destroyed on
 removal. For trivial `value_type`s, the vector is fully usable inside `constexpr`
 functions.
+
+> The name `fixed_capacity_vector` is a temporary placeholder. Better names are discussed in [4.6 Naming](#NAMING).
 
 # <a id="MOTIVATION"></a>2. Motivation and Scope
 
@@ -253,6 +255,8 @@ The following names have been considered:
 - `stack_vector`: to denote that the elements can be stored on the stack. Is confusing since the
   elements can be on the stack, the heap, or the static memory segment. It also has a resemblance with 
   `std::stack`.
+  
+@LEWG/LWG: Could you have a poll about these names and let me know which one you prefer?
 
 ## <a id="EXTENSIONS"></a>4.7 Future extensions 
 
