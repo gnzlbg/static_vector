@@ -4,11 +4,11 @@
 
 **Document number**: P0843r1.
 
-**Date**: 2017-10-15.
+**Date**: 2018-02-6.
 
 **Project**: Programming Language C++, Library Working Group.
 
-**Audience**: LWG/LEWG.
+**Audience**: LEWG.
 
 **Reply-to**: Gonzalo Brito Gadeschi <gonzalo.gadeschi at rwth-aachen dot de>.
 
