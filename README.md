@@ -1,14 +1,14 @@
 # static_vector<T>
 
-> A dynamically-resizable vector with fixed capacity and embedded storage (revision 1)
+> A dynamically-resizable vector with fixed capacity and embedded storage (revision 2)
 
-**Document number**: P0843r1.
+**Document number**: P0843r2.
 
-**Date**: 2018-02-6.
+**Date**: 2018-06-25.
 
 **Project**: Programming Language C++, Library Working Group.
 
-**Audience**: LEWG.
+**Audience**: LWG.
 
 **Reply-to**: Gonzalo Brito Gadeschi <gonzalo.gadeschi at rwth-aachen dot de>.
 
@@ -35,6 +35,18 @@
   - [5.7 Specialized algorithms](#SPEC_ALG)
 - [6. Acknowledgments](#ACKNOWLEDGEMENTS)
 - [7. References](#REFERENCES)
+
+### Changelog 
+
+#### Revision 2
+
+- Replace the placeholder name `fixed_capacity_vector` with `static_vector`
+- Remove `at` checked element access member function.
+- Add changelog section.
+
+#### Revision 1
+
+- Minor style changes and bugfixes.
 
 # <a id="INTRODUCTION"></a>1. Introduction
 
