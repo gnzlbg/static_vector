@@ -189,8 +189,7 @@ The only operations that can actually fail within `static_vector<value_type, Cap
      `static_vector(begin, end)`...).
 
   3. Out-of-bounds unchecked access:
-     - 3.1 `front`/`back`/`pop_back` when empty, operator[] (unchecked random-access). 
-     - 3.2  `at` (checked random-access) which can throw `out_of_range` exception.
+     - 3.1 `front`/`back`/`pop_back` when empty, `operator[]` (unchecked random-access). 
 
 When `value_type`'s operations are invoked, the exception safety guarantees of
 `static_vector` depend on whether these operations can throw. This is
@@ -389,8 +388,6 @@ constexpr void resize(size_type sz, const value_type& c);
 // 5.6, element and data access:
 constexpr reference       operator[](size_type n); 
 constexpr const_reference operator[](size_type n) const;
-constexpr const_reference at(size_type n) const;
-constexpr reference       at(size_type n);
 constexpr reference       front();
 constexpr const_reference front() const;
 constexpr reference       back();
