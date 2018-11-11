@@ -490,7 +490,9 @@ constexpr explicit static_vector(size_type n);
 
 > - _Effects_: constructs a `static_vector` with `n` default-inserted elements.
 >
-> - _Requires_: `value_type` shall be `DefaultInsertable` into `*this` and `n <= capacity()`.
+> - _Requires_: `value_type` shall be `DefaultInsertable` into `*this`.
+>
+> - _Expects_: `n <= capacity()`.
 >
 > - _Complexity_: Linear in `n`.
 
@@ -500,7 +502,9 @@ constexpr static_vector(size_type n, const value_type& value);
 
 > - _Effects_: Constructs a `static_vector` with `n` copies of `value`.
 >
-> - _Requires_: `value_type` shall be `CopyInsertable` into `*this` and `n <= capacity()`.
+> - _Requires_: `value_type` shall be `CopyInsertable` into `*this`.
+>
+> - _Expects_: `n <= capacity()`.
 >
 > - _Complexity_: Linear in `n`.
 
@@ -511,7 +515,10 @@ constexpr static_vector(InputIterator first, InputIterator last);
 
 > - _Effects_: Constructs a `static_vector` equal to the range `[first, last)`
 >
-> - _Requires_: `value_type` shall be `EmplaceConstructible` into `*this` from `*first` and `distance(first, last) <= capacity()`.
+> - _Requires_: `value_type` shall be `EmplaceConstructible` into `*this` from
+>   `*first`.
+>
+> - _Expects_: `distance(first, last) <= capacity()`.
 >
 > - _Complexity_: Initializes `distance(first, last)` `value_type`s. 
 
@@ -542,9 +549,11 @@ constexpr void resize(size_type sz);
 constexpr void resize(size_type sz, const value_type& c);
 ```
 
-> - _Requires_: `sz` shall be less than or equal to `N`. `T` shall be:
+> - _Requires_:  `T` shall be:
 >   - `DefaultInsertable` into `*this` for the first overload, or
 >   - `CopyInsertable` into `*this` for the second overload.
+>
+> - _Expects_: `sz <= N`. 
 >
 > - _Effects_: If `sz < size()`, erases the last `size() - sz` elements from the
 >   sequence. Otherwise, appends `sz - size()` elements to the sequence which are:
