@@ -641,7 +641,8 @@ constexpr void swap(static_vector& x)
 > - _Effects_: Exchanges the contents of `*this` with `x`. All iterators
 >   pointing to the elements of `*this` and `x` are invalidated.
 >
-> - _Complexity_: Linear in the number of elements  in `*this` and `x`.
+> - _Complexity_: `min(size(), x.size())` swaps and `max(size(), x.size()) -
+>   min(size(), x.size())` move constructions.
 
 ## <a id="SPEC_ALG"></a>5.7 `static_vector` specialized algorithms
 
@@ -656,7 +657,8 @@ constexpr void swap(static_vector<T, N>& x,
 >
 > - _Effects_: As if by `x.swap(y)`.
 >
-> - _Complexity_: Linear in the number of elements in `x` and `y`.
+> - _Complexity_: `min(size(), x.size())` swaps and `max(size(), x.size()) -
+>   min(size(), x.size())` move constructions.
 
 # <a id="ACKNOWLEDGEMENTS"></a>6. Acknowledgments
 
