@@ -546,21 +546,38 @@ static constexpr size_type max_size() noexcept
 
 ```c++
 constexpr void resize(size_type sz);
-constexpr void resize(size_type sz, const value_type& c);
 ```
 
-> - _Requires_:  `T` shall be:
->   - `DefaultInsertable` into `*this` for the first overload, or
->   - `CopyInsertable` into `*this` for the second overload.
+> - _Requires_:  `value_type` is  `DefaultInsertable` into `*this`. 
 >
 > - _Expects_: `sz <= N`. 
 >
 > - _Effects_: If `sz < size()`, erases the last `size() - sz` elements from the
->   sequence. Otherwise, appends `sz - size()` elements to the sequence which are:
->   - value-initialized for the first overload, or
->   - copies of `c` for the second overload.
+>   sequence. Otherwise, appends `sz - size()` elements to the sequence which
+>   are: - value-initialized for the first overload, or - copies of `c` for the
+>   second overload.
 >
-> *Remarks:* These functions shall be `constexpr` if `is_trivially_copyable_v<value_type> && is_default_constructible_v<value_type>` is `true`.
+> *Remarks:* These functions are `constexpr` if
+> `is_trivially_copyable_v<value_type> &&
+> is_default_constructible_v<value_type>` is `true`.
+
+
+```c++
+constexpr void resize(size_type sz, const value_type& c);
+```
+
+> - _Requires_: `value_type` is `CopyInsertable` into `*this`.
+>
+> - _Expects_: `sz <= N`. 
+>
+> - _Effects_: If `sz < size()`, erases the last `size() - sz` elements from the
+>   sequence. Otherwise, appends `sz - size()` elements to the sequence which
+>   are: - value-initialized for the first overload, or - copies of `c` for the
+>   second overload.
+>
+> *Remarks:* These functions shall be `constexpr` if
+> `is_trivially_copyable_v<value_type> &&
+> is_default_constructible_v<value_type>` is `true`.
 
 ## <a id="ACCESS"></a>5.5 Element and data access
 
