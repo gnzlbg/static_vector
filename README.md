@@ -632,7 +632,7 @@ narrow contracts.
 ---
 
 ```c++
-constexpr void swap(static_vector x)
+constexpr void swap(static_vector& x)
   noexcept(is_nothrow_swappable_v<value_type>);
 ```
 
