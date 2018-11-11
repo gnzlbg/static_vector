@@ -529,12 +529,12 @@ constexpr static_vector(InputIterator first, InputIterator last);
 
 
 ```c++
-static constexpr size_type capacity() noexcept;
-static constexpr size_type max_size() noexcept;
+static constexpr size_type capacity() noexcept
+static constexpr size_type max_size() noexcept
+```
 
-```
-> - _Effects_: equivalent to `return N;`.
-```
+> - _Returns_: `N`.
+
 
 ```c++
 constexpr void resize(size_type sz);
