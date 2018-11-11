@@ -449,7 +449,8 @@ constexpr iterator erase(const_iterator first, const_iterator last);
 constexpr void clear() noexcept;
 
 constexpr void swap(static_vector& x)
-  noexcept(is_nothrow_swappable_v<value_type>);
+  noexcept(is_nothrow_swappable_v<value_type> &&
+           is_nothrow_move_constructible_v<value_type>);
 };
 
 template <typename T, size_t N>
@@ -633,7 +634,8 @@ narrow contracts.
 
 ```c++
 constexpr void swap(static_vector& x)
-  noexcept(is_nothrow_swappable_v<value_type>);
+  noexcept(is_nothrow_swappable_v<value_type> &&
+           is_nothrow_move_constructible_v<value_type>);
 ```
 
 > - _Effects_: Exchanges the contents of `*this` with `x`. All iterators
