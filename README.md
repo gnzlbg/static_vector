@@ -653,7 +653,8 @@ constexpr void swap(static_vector<T, N>& x,
   noexcept(noexcept(x.swap(y)));
 ```
 
-> - _Remarks_: This function shall not participate in overload resolution unless `is_swappable_v<T>` is `true`.
+> - _Constraints_: This function shall not participate in overload resolution
+>   unless `is_swappable_v<T>` is `true`.
 >
 > - _Effects_: As if by `x.swap(y)`.
 >
