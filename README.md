@@ -597,7 +597,7 @@ constexpr void push_back(value_type&& x);
 > - _Complexity_: Linear in the number of elements inserted plus the distance
 > from the insertion point to the end of the `static_vector`.
 > 
-> - _Throws_: Any exception thrown by anassignment operator of `value_type`.
+> - _Throws_: Any exception thrown by an assignment operator of `value_type`.
 
 ---
 
