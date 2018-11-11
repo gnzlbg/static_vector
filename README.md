@@ -520,9 +520,10 @@ constexpr static_vector(InputIterator first, InputIterator last);
 ~static_vector();
 ```
 
-> _Effects_: Destroys the contents of the `static_vector`.
+> _Effects_: Destroys the `static_vector` and its elements.
 >
-> _Remarks_: This destructor shall be trivial if `is_trivially_copyable_v<T> && is_default_constructible_v<T>` is `true`.
+> _Requires_: This destructor is trivial if the destructor of `value_type` is
+> trivial.
 
 ## <a id="SIZE"></a>5.4 Size and capacity
 
