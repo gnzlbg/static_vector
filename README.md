@@ -582,7 +582,8 @@ constexpr void push_back(const value_type& x);
 constexpr void push_back(value_type&& x);
 ```
 
-> - _Requires_: The number of elements to be inserted shall be at most `C - size()`.
+> - _Expects_: The number of elements to be inserted shall be at most
+>   `capacity() - size()`.
 >
 > - _Remarks_: All the iterators and references before the insertion point remain
 > valid. If an exception is thrown other than by the copy constructor, move
