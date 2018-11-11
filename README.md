@@ -338,16 +338,18 @@ containers" (`\ref{sequences}`) part of the "Containers library"
   `static_vector<T, N>` then it obeys the identity `&v[n] == &v[0] + n` for all
   `0 <= n <= v.size()`.
 
-- 2. A `static_vector` satisfies all of the requirements of a container and of a
-  reversible container (given in two tables in `\ref{container.requirements}`),
-  of a sequence container, including the optional sequence container
-  requirements (`\ref{sequence.reqmts}`), and of a contiguous container
-  (`\ref{container.requirements.general}`). The exceptions are the `push_front`,
-  `pop_front`, and `emplace_front` member functions, which are not provided, and
-  `swap`, which has linear complexity instead of constant complexity.
-  Descriptions are provided here only for operations on `static_vector` that are
-  not described in one of these tables or for operations where there is
-  additional semantic information.
+- 2. A `static_vector` satisfies the container requirements
+  (`\ref{container.requirements}`) with the exception of the `swap` member
+  function, whose complexity is linear instead of constant. It satisfies the
+  sequence container requirements, including the optional sequence container
+  requirements (`\ref{sequence.reqmts}`), with the exception of the
+  `push_front`, `pop_front`, and `emplace_front` member functions, which are not
+  provided. It satisfies the reversible container
+  (`\ref{container.requirements}`) and contiguous container
+  (`\ref{container.requirements.general}`) requirements. Descriptions are
+  provided here only for operations on `static_vector` that are not described in
+  one of these tables or for operations where there is additional semantic
+  information.
 
 ```c++
 namespace std {
