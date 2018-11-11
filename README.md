@@ -349,8 +349,6 @@ containers" (`\ref{sequences}`) part of the "Containers library"
   not described in one of these tables or for operations where there is
   additional semantic information.
 
-Note: An incomplete type `T` cannot be used to instantiate a `static_vector`.
-
 ```c++
 namespace std {
 
