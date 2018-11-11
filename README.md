@@ -2,7 +2,7 @@
 
 > A dynamically-resizable vector with fixed capacity and embedded storage (revision 2)
 
-**Document number**: P0843r2.
+**Document number**: P0843r3.
 
 **Date**: 2018-06-25.
 
@@ -38,6 +38,10 @@
 
 ### Changelog 
 
+#### Revision 3
+
+- Propose standard wording.
+
 #### Revision 2
 
 - Replace the placeholder name `fixed_capacity_vector` with `static_vector`
@@ -50,41 +54,44 @@
 
 # <a id="INTRODUCTION"></a>1. Introduction
 
-This paper proposes a modernized version
-of [`boost::container::static_vector<T,Capacity>`][boost_static_vector] [1].
-That is, a dynamically-resizable `vector` with compile-time fixed capacity and
-contiguous embedded storage in which the elements are stored within the
-vector object itself.
+This paper proposes a modernized version of
+[`boost::container::static_vector<T,Capacity>`][boost_static_vector] [1]. That
+is, a dynamically-resizable `vector` with compile-time fixed capacity and
+contiguous embedded storage in which the elements are stored within the vector
+object itself.
 
 Its API closely resembles that of `std::vector<T, A>`. It is a contiguous
 container with `O(1)` insertion and removal of elements at the end
 (non-amortized) and worst case `O(size())` insertion and removal otherwise. Like
 `std::vector`, the elements are initialized on insertion and destroyed on
-removal. For trivial `value_type`s, the vector is fully usable inside `constexpr`
-functions.
+removal. For trivial `value_type`s, the vector is fully usable inside
+`constexpr` functions.
 
 # <a id="MOTIVATION"></a>2. Motivation and Scope
 
 The `static_vector` container is useful when:
 
-- memory allocation is not possible, e.g., embedded environments without a free store, 
-  where only a stack and the static memory segment are available,
-- memory allocation imposes an unacceptable performance penalty, e.g., with respect to latency, 
-- allocation of objects with complex lifetimes in the _static_-memory segment is required,
-- `std::array` is not an option, e.g., if non-default constructible objects must be stored,
+- memory allocation is not possible, e.g., embedded environments without a free
+  store, where only a stack and the static memory segment are available,
+- memory allocation imposes an unacceptable performance penalty, e.g., with
+  respect to latency,
+- allocation of objects with complex lifetimes in the _static_-memory segment is
+  required,
+- `std::array` is not an option, e.g., if non-default constructible objects must
+  be stored,
 - a dynamically-resizable array is required within `constexpr` functions, 
-- the storage location of the `static_vector` elements is required to be within the
-  `static_vector` object itself (e.g. to support `memcopy` for serialization purposes).
+- the storage location of the `static_vector` elements is required to be within
+  the `static_vector` object itself (e.g. to support `memcopy` for serialization
+  purposes).
 
 # <a id="EXISTING_PRACTICE"></a>3. Existing practice
 
-There are at least 3 widely used implementations of
-`static_vector`:
-[Boost.Container][boost_static_vector] [1], [EASTL][eastl] [2],
-and [Folly][folly] [3]. The main difference between these is that
-`Boost.Container` implements `static_vector` as a standalone type with
-its own guarantees, while both EASTL and Folly implement it by adding an extra
-template parameter to their `small_vector` types.
+There are at least 3 widely used implementations of `static_vector`:
+[Boost.Container][boost_static_vector] [1], [EASTL][eastl] [2], and
+[Folly][folly] [3]. The main difference between these is that `Boost.Container`
+implements `static_vector` as a standalone type with its own guarantees, while
+both EASTL and Folly implement it by adding an extra template parameter to their
+`small_vector` types.
 
 A `static_vector` can also be poorly emulated by using a custom
 allocator, like for example [Howard Hinnant's `stack_alloc`][stack_alloc] [4],
@@ -92,29 +99,29 @@ on top of `std::vector`.
 
 This proposal shares a similar purpose with [P0494R0][contiguous_container] [5]
 and [P0597R0: `std::constexpr_vector<T>`][constexpr_vector_1] [6]. The main
-difference is that this proposal closely
-follows [`boost::container::static_vector`][boost_static_vector] [1] and
-proposes to standardize existing practice. A prototype implementation of this
-proposal for standardization purposes is provided
-here: [`http://github.com/gnzlbg/fixed_capacity_vector`][fixed_capacity_vector].
+difference is that this proposal closely follows
+[`boost::container::static_vector`][boost_static_vector] [1] and proposes to
+standardize existing practice. A prototype implementation of this proposal for
+standardization purposes is provided here:
+[`http://github.com/gnzlbg/fixed_capacity_vector`][fixed_capacity_vector].
 
 # <a id="DESIGN"></a>4. Design Decisions
 
 The most fundamental question that must be answered is:
 
-> Should `static_vector` be a standalone type or a special case of some other type?
+> Should `static_vector` be a standalone type or a special case of some other
+> type?
 
 The [EASTL][eastl] [2] and [Folly][folly] [3] special case `small_vector`, e.g.,
-using a 4th template parameter, to make it become a `static_vector`. The
-paper [P0639R0: Changing attack vector of the
-`constexpr_vector`][constexpr_vector_2] [7] proposes improving the `Allocator`
-concepts to allow `static_vector`, among others, to be implemented as a
-special case of `std::vector` with a custom allocator.
+using a 4th template parameter, to make it become a `static_vector`. The paper
+[P0639R0: Changing attack vector of the `constexpr_vector`][constexpr_vector_2]
+[7] proposes improving the `Allocator` concepts to allow `static_vector`, among
+others, to be implemented as a special case of `std::vector` with a custom
+allocator.
 
-Both approaches run into the same fundamental issue: `static_vector`
-methods are identically-named to those of `std::vector` yet they have subtly
-different effects, exception-safety, iterator invalidation, and complexity
-guarantees.
+Both approaches run into the same fundamental issue: `static_vector` methods are
+identically-named to those of `std::vector` yet they have subtly different
+effects, exception-safety, iterator invalidation, and complexity guarantees.
 
 This proposal
  follows
@@ -129,10 +136,10 @@ implementing `static_vector` as a `std::vector` with a custom allocator.
 
 ## <a id="STORAGE"></a>4.1 Storage/Memory Layout
 
-The container models `ContiguousContainer`. The elements of the `static_vector` are
-contiguously stored and properly aligned within the `static_vector` object itself. The
-exact location of the contiguous elements within the `static_vector` is not specified. If
-the `Capacity` is zero the container has zero size:
+The container models `ContiguousContainer`. The elements of the `static_vector`
+are contiguously stored and properly aligned within the `static_vector` object
+itself. The exact location of the contiguous elements within the `static_vector`
+is not specified. If the `Capacity` is zero the container has zero size:
 
 ```c++
 static_assert(is_empty_v<static_vector<T, 0>>); // for all T
@@ -151,13 +158,14 @@ static_vector b(std::move(a));
 ```
 
 the elements of `a` have been moved element-wise into `b`, the elements of `a`
-are left in an initialized but unspecified state (have been moved from state), 
+are left in an initialized but unspecified state (have been moved from state),
 the size of `a` is not altered, and `a.size() == b.size()`.
 
 Note: this behavior differs from `std::vector<T, Allocator>`, in particular for
 the similar case in which
-`std::allocator_traits<Allocator>::propagate_on_container_move_assignment` is `false`. In this
-situation the state of `std::vector` is initialized but unspecified.
+`std::allocator_traits<Allocator>::propagate_on_container_move_assignment` is
+`false`. In this situation the state of `std::vector` is initialized but
+unspecified.
 
 ## <a id="CONSTEXPR"></a>4.3 `constexpr` support
 
@@ -192,16 +200,19 @@ compatible way.
 
 ## <a id="EXCEPTION"></a>4.4 Exception Safety
 
-The only operations that can actually fail within `static_vector<value_type, Capacity>` are:
+The only operations that can actually fail within `static_vector<value_type,
+Capacity>` are:
 
-  1. `value_type`'s constructors/assignment/destructors/swap can potentially throw,
+  1. `value_type`'s constructors/assignment/destructors/swap can potentially
+     throw,
 
   2. Mutating operations exceeding the capacity (`push_back`, `insert`,
      `emplace`, `static_vector(value_type, size)`,
      `static_vector(begin, end)`...).
 
   3. Out-of-bounds unchecked access:
-     - 3.1 `front`/`back`/`pop_back` when empty, `operator[]` (unchecked random-access). 
+     - 3.1 `front`/`back`/`pop_back` when empty, `operator[]` (unchecked
+       random-access).
 
 When `value_type`'s operations are invoked, the exception safety guarantees of
 `static_vector` depend on whether these operations can throw. This is
@@ -217,6 +228,7 @@ Two main answers were explored in the prototype implementation:
 
 1. Throw an exception.
 2. Make this a precondition violation. 
+3. Abort the program.
 
 Throwing an exception is appealing because it makes the interface slightly more
 similar to that of `std::vector`. However, which exception should be thrown? It
@@ -225,15 +237,16 @@ either `std::out_of_bounds` or `std::logic_error` but in any case the interface
 does not end up being equal to that of `std::vector`.
 
 The alternative is to make not exceeding the capacity a precondition on the
-`static_vector`'s methods. This approach allows implementations to provide good run-time
-diagnostics if they so desired, e.g., on debug builds by means of an assertion,
-and makes implementation that avoid run-time checks conforming as well. Since
-the mutating methods have a precondition, they have narrow contracts, and are
-not conditionally `noexcept`.
+`static_vector`'s methods. This approach allows implementations to provide good
+run-time diagnostics if they so desired, e.g., on debug builds by means of an
+assertion, and makes implementation that avoid run-time checks conforming as
+well. Since the mutating methods have a precondition, they have narrow
+contracts, and are not conditionally `noexcept`.
 
-This proposal chooses this path and makes exceeding the `static_vector`'s capacity a
-precondition violation that results in undefined behavior. Throwing
-`checked_xxx` methods can be provided in a backwards compatible way. 
+This proposal previously chooses this path and makes exceeding the
+`static_vector`'s capacity a precondition violation that results in undefined
+behavior. Throwing `checked_xxx` methods can be provided in a backwards
+compatible way.
 
 ## <a id="ITERATOR"></a>4.5 Iterator invalidation
 
@@ -242,28 +255,34 @@ since:
 
 - moving a `static_vector` invalidates all iterators,
 - swapping two `static_vector`s invalidates all iterators, and 
-- inserting elements at the end of an `static_vector` never invalidates iterators.
+- inserting elements at the end of an `static_vector` never invalidates
+  iterators.
 
-The following functions can potentially invalidate the iterators of `static_vector`s: 
-`resize(n)`, `resize(n, v)`, `pop_back`, `erase`, and `swap`.
+The following functions can potentially invalidate the iterators of
+`static_vector`s: `resize(n)`, `resize(n, v)`, `pop_back`, `erase`, and `swap`.
 
 ## <a id="NAMING"></a>4.6 Naming
 
-The `static_vector` name was chosen after considering the following names via a poll in LEWG: 
+The `static_vector` name was chosen after considering the following names via a
+poll in LEWG:
 
 - `array_vector`: a vector whose storage is backed up by a raw array.
 - `bounded_vector`: clearly indicates that the the size of the vector is bounded. 
 - `fixed_capacity_vector`: clearly indicates that the capacity is fixed.
 - `static_capacity_vector`: clearly indicates that the capacity is fixed at compile time (static is overloaded).
-- `static_vector` (Boost.Container): due to "static" / compile-time allocation of the elements. The term 
-   `static` is, however, overloaded in C++ (e.g. `static` memory?).
-- `embedded_vector<T, Capacity>`: since the elements are "embedded" within the `fixed_capacity_vector` object itself. 
-   Sadly, the name `embedded` is overloaded, e.g., embedded systems. 
-- `inline_vector`: the elements are stored "inline" within the `fixed_capacity_vector` object itself. The term `inline` is,
-   however, already overloaded in C++ (e.g. `inline` functions => ODR, inlining, `inline` variables).
-- `stack_vector`: to denote that the elements can be stored on the stack. Is confusing since the
-  elements can be on the stack, the heap, or the static memory segment. It also has a resemblance with 
-  `std::stack`.
+- `static_vector` (Boost.Container): due to "static" / compile-time allocation
+   of the elements. The term `static` is, however, overloaded in C++ (e.g.
+   `static` memory?).
+- `embedded_vector<T, Capacity>`: since the elements are "embedded" within the
+   `fixed_capacity_vector` object itself. Sadly, the name `embedded` is
+   overloaded, e.g., embedded systems.
+- `inline_vector`: the elements are stored "inline" within the
+   `fixed_capacity_vector` object itself. The term `inline` is, however, already
+   overloaded in C++ (e.g. `inline` functions => ODR, inlining, `inline`
+   variables).
+- `stack_vector`: to denote that the elements can be stored on the stack. Is
+  confusing since the elements can be on the stack, the heap, or the static
+  memory segment. It also has a resemblance with `std::stack`.
 - `limited_vector`
 - `vector_n`
 
@@ -302,9 +321,9 @@ All these extensions are generally useful and not part of this proposal.
 ---
 
 Note to editor: This enhancement is a pure header-only addition to the C++
-standard library as the `<static_vector>` header. It belongs in the
-"Sequence containers" (`\ref{sequences}`) part of the "Containers library" (`\ref{containers}`) as "Class
-template `static_vector`".
+standard library as the `<static_vector>` header. It belongs in the "Sequence
+containers" (`\ref{sequences}`) part of the "Containers library"
+(`\ref{containers}`) as "Class template `static_vector`".
 
 ---
 
@@ -312,21 +331,22 @@ template `static_vector`".
 
 ### <a id="OVERVIEW"></a>5.1 Class template `static_vector` overview
 
-- 1. A `static_vector` is a contiguous container that supports constant
-  time insert and erase operations at the end; insert and erase in the middle
-  take linear time. Its capacity is part of its type and its elements are stored
+- 1. A `static_vector` is a contiguous container that supports constant time
+  insert and erase operations at the end; insert and erase in the middle take
+  linear time. Its capacity is part of its type and its elements are stored
   within the `static_vector` object itself, meaning that that if `v` is a
-  `static_vector<T, N>` then it obeys the identity `&v[n] ==
-  &v[0] + n` for all `0 <= n <= v.size()`.
+  `static_vector<T, N>` then it obeys the identity `&v[n] == &v[0] + n` for all
+  `0 <= n <= v.size()`.
 
-- 2. A `static_vector` satisfies all of the requirements of a container
-  and of a reversible container (given in two tables in `\ref{container.requirements}`), of a sequence
-  container, including the optional sequence container requirements (`\ref{sequence.reqmts}`),
-  and of a contiguous container (`\ref{container.requirements.general}`). The exceptions are the `push_front`,
+- 2. A `static_vector` satisfies all of the requirements of a container and of a
+  reversible container (given in two tables in `\ref{container.requirements}`),
+  of a sequence container, including the optional sequence container
+  requirements (`\ref{sequence.reqmts}`), and of a contiguous container
+  (`\ref{container.requirements.general}`). The exceptions are the `push_front`,
   `pop_front`, and `emplace_front` member functions, which are not provided, and
   `swap`, which has linear complexity instead of constant complexity.
-  Descriptions are provided here only for operations on `static_vector`
-  that are not described in one of these tables or for operations where there is
+  Descriptions are provided here only for operations on `static_vector` that are
+  not described in one of these tables or for operations where there is
   additional semantic information.
 
 Note: An incomplete type `T` cannot be used to instantiate a `static_vector`.
