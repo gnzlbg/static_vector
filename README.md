@@ -576,8 +576,7 @@ constexpr void resize(size_type sz, const value_type& c);
 >   second overload.
 >
 > *Remarks:* These functions shall be `constexpr` if
-> `is_trivially_copyable_v<value_type> &&
-> is_default_constructible_v<value_type>` is `true`.
+> `is_trivially_copyable_v<value_type>` is `true`.
 
 ## <a id="ACCESS"></a>5.5 Element and data access
 
