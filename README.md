@@ -547,7 +547,7 @@ static constexpr size_type max_size() noexcept
 constexpr void resize(size_type sz);
 ```
 
-> - _Requires_:  `value_type` is  `DefaultInsertable` into `*this`. 
+> - _Requires_: `std::is_default_constructible<value_type>`. 
 >
 > - _Expects_: `sz <= N`. 
 >
@@ -565,7 +565,7 @@ constexpr void resize(size_type sz);
 constexpr void resize(size_type sz, const value_type& c);
 ```
 
-> - _Requires_: `value_type` is `CopyInsertable` into `*this`.
+> - _Requires_: `std::is_copy_constructible<value_type>`.
 >
 > - _Expects_: `sz <= N`. 
 >
