@@ -520,7 +520,7 @@ constexpr static_vector(InputIterator first, InputIterator last);
 >
 > - _Expects_: `distance(first, last) <= capacity()`.
 >
-> - _Complexity_: Initializes `distance(first, last)` `value_type`s. 
+> - _Complexity_: Linear in `distance(first, last)`.
 
 ## <a id="DESTRUCTION"></a>5.3 Destruction
 
