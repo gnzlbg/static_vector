@@ -490,7 +490,7 @@ constexpr explicit static_vector(size_type n);
 
 > - _Effects_: constructs a `static_vector` with `n` default-inserted elements.
 >
-> - _Requires_: `value_type` shall be `DefaultInsertable` into `*this`.
+> - _Requires_: `std::is_default_constructible<value_type>`.
 >
 > - _Expects_: `n <= capacity()`.
 >
@@ -502,7 +502,7 @@ constexpr static_vector(size_type n, const value_type& value);
 
 > - _Effects_: Constructs a `static_vector` with `n` copies of `value`.
 >
-> - _Requires_: `value_type` shall be `CopyInsertable` into `*this`.
+> - _Requires_: `std::is_copy_constructible<value_type>`
 >
 > - _Expects_: `n <= capacity()`.
 >
@@ -515,10 +515,9 @@ constexpr static_vector(InputIterator first, InputIterator last);
 
 > - _Effects_: Constructs a `static_vector` equal to the range `[first, last)`
 >
-> - _Requires_: `value_type` shall be `EmplaceConstructible` into `*this` from
->   `*first`.
+> - _Requires_: `std::is_constructible<value_type, decltype(*first)>`
 >
-> - _Expects_: `distance(first, last) <= capacity()`.
+> - _Expects_: `distance(first, last) <= capacity()`
 >
 > - _Complexity_: Linear in `distance(first, last)`.
 
