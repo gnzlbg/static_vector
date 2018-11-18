@@ -474,25 +474,43 @@ constexpr void swap(static_vector<T, N>& x, static_vector<T, N>& y)
 
 ## <a id="CONSTRUCTION"></a>5.2 `static_vector` constructors
 
+---
+
 ```c++
 constexpr static_vector() noexcept;
 ```
 
-> - _Effects_: constructs an empty `static_vector`.
+> - _Effects_: Constructs an empty `static_vector`.
 >
 > - _Complexity_: Constant.
+
+---
+
+```c++
+constexpr static_vector(static_vector&& other) noexcept;
+```
+
+> - _Effects_: Moves the elements of `other` into `*this`.
+>
+> - _Requires_: `std::is_move_constructivle<value_type>`
+>
+> - _Complexity_: Linear in `other.size()`.
+
+---
 
 ```c++
 constexpr explicit static_vector(size_type n);
 ```
 
-> - _Effects_: constructs a `static_vector` with `n` default-inserted elements.
+> - _Effects_: Constructs a `static_vector` with `n` default-inserted elements.
 >
 > - _Requires_: `std::is_default_constructible<value_type>`.
 >
 > - _Expects_: `n <= capacity()`.
 >
 > - _Complexity_: Linear in `n`.
+
+---
 
 ```c++
 constexpr static_vector(size_type n, const value_type& value);
@@ -505,6 +523,8 @@ constexpr static_vector(size_type n, const value_type& value);
 > - _Expects_: `n <= capacity()`.
 >
 > - _Complexity_: Linear in `n`.
+
+---
 
 ```c++ 
 template <class InputIterator>
