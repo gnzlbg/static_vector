@@ -666,7 +666,7 @@ constexpr iterator insert(const_iterator position, const value_type& x);
 > - _Effects_: Inserts `x` at `position` and invalidates all references to
 >   elements after `position`. 
 >
-> - _Expects_: `capacity() > size()`.
+> - _Expects_: `size() < capacity()`.
 >
 > - _Requires_: `std::is_copy_constructible<value_type>`.
 >
@@ -686,7 +686,7 @@ constexpr iterator insert(const_iterator position, size_type n, const value_type
 > - _Effects_: Inserts `n` copies of `x` at `position` and invalidates all
 >   references to elements after `position`.
 >
-> - _Expects_: `capacity() - size() >= n`.
+> - _Expects_: `n <= capacity() - size()`.
 >
 > - _Requires_: `std::is_copy_constructible<value_type>`.
 >
@@ -706,7 +706,7 @@ constexpr iterator insert(const_iterator position, value_type&& x);
 > - _Effects_: Inserts `x` at `position` and invalidates all references to
 >   elements after `position`.
 >
-> - _Expects_: `capacity() > size()`.
+> - _Expects_: `size() < capacity()`.
 >
 > - _Requires_: `std::is_move_constructible<value_type>`.
 >
@@ -767,7 +767,7 @@ constexpr iterator emplace(const_iterator position, Args&&... args);
 > - _Effects_: Inserts an element constructed from `args...` at `position` and
 >   invalidates all references to elements after `position`.
 >
-> - _Expects_: `capacity() > size()`.
+> - _Expects_: `size() < capacity()`.
 >
 > - _Requires_: `std::is_constructible<value_type, Args...>`.
 >
@@ -787,7 +787,7 @@ constexpr reference emplace_back(Args&&... args);
 
 > - _Effects_: Inserts an element constructed from `args...` at the end.
 >
-> - _Expects_: `capacity() > size()`.
+> - _Expects_: `size() < capacity()`.
 >
 > - _Requires_: `std::is_constructible<value_type, Args...>`.
 >
@@ -804,7 +804,7 @@ constexpr void push_back(const value_type& x);
 
 > - _Effects_: Inserts a copy of `x` at the end.
 >
-> - _Expects_: `capacity() > size()`.
+> - _Expects_: `size() < capacity()`.
 >
 > - _Requires_: `std::is_copy_constructible<value_type>`.
 >
@@ -821,7 +821,7 @@ constexpr void push_back(value_type&& x);
 
 > - _Effects_: Moves `x` to the end.
 >
-> - _Expects_: `capacity() > size()`.
+> - _Expects_: `size() < capacity()`.
 >
 > - _Requires_: `std::is_move_constructible<value_type>`.
 >
