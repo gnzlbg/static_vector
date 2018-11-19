@@ -611,6 +611,8 @@ constexpr void resize(size_type sz);
 > - _Requires_: `std::is_default_constructible<value_type>`. 
 >
 > - _Expects_: `sz <= capacity()`. 
+>
+> - _Complexity_: Linear in `sz`.
 
 ```c++
 constexpr void resize(size_type sz, const value_type& c);
@@ -622,6 +624,9 @@ constexpr void resize(size_type sz, const value_type& c);
 > - _Requires_: `std::is_copy_constructible<value_type>`.
 >
 > - _Expects_: `sz <= capacity()`. 
+>
+> - _Complexity_: Linear in `sz`.
+
 
 ## <a id="ACCESS"></a>5.5 Element and data access
 
