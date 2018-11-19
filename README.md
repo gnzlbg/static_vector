@@ -224,11 +224,12 @@ the exception safety for all other operations:
 
 > What should `static_vector` do when its `Capacity` is exceeded?
 
-Two main answers were explored in the prototype implementation:
+Three main answers were explored in the prototype implementation:
 
 1. Throw an exception.
-2. Make this a precondition violation. 
-3. Abort the program.
+2. Abort the process.
+3. Make this a precondition violation. 
+
 
 Throwing an exception is appealing because it makes the interface slightly more
 similar to that of `std::vector`. However, which exception should be thrown? It
@@ -236,12 +237,18 @@ cannot be `std::bad_alloc`, because nothing is being allocated. It could throw
 either `std::out_of_bounds` or `std::logic_error` but in any case the interface
 does not end up being equal to that of `std::vector`.
 
+Aborting the process avoids the perils of undefined behavior but comes at the
+cost of enforcing a particular "error handling" mechanism in the implementation,
+which would not allow extending it to use, e.g., Contracts, in the future.
+
 The alternative is to make not exceeding the capacity a precondition on the
 `static_vector`'s methods. This approach allows implementations to provide good
-run-time diagnostics if they so desired, e.g., on debug builds by means of an
+run-time diagnostics if they so desire, e.g., on debug builds by means of an
 assertion, and makes implementation that avoid run-time checks conforming as
 well. Since the mutating methods have a precondition, they have narrow
-contracts, and are not conditionally `noexcept`.
+contracts, and are not conditionally `noexcept`. This provides implementations
+that desire throwing an exception the freedom to do so, and it also provides the
+standard the freedom to improve these APIs by using contracts in the future.
 
 This proposal previously chooses this path and makes exceeding the
 `static_vector`'s capacity a precondition violation that results in undefined
