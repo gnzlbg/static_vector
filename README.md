@@ -657,10 +657,6 @@ contracts.
 Note to LWG: Because all modifiers have preconditions, they all have narrow
 contracts and are not unconditionally `noexcept`.
 
-
-Note to LWG: If the copy constructor or the copy assignment operator of
-`value_type` throws in any of the modifiers methods, there are no _Effects_.
-
 ---
 
 ```c++
@@ -668,14 +664,20 @@ constexpr iterator insert(const_iterator position, const value_type& x);
 ```
 
 > - _Effects_: Inserts `x` at `position` and invalidates all references to
->   elements after `position`.
+>   elements after `position`. 
 >
 > - _Expects_: `capacity() > size()`.
 >
 > - _Requires_: `std::is_copy_constructible<value_type>`.
 >
 > - _Complexity_: Linear in `size()`. 
+>
+> - _Remarks_: If an exception is thrown by `value_type`'s copy constructor and
+>   `is_nothrow_move_constructible_v<value_type>` is `true` there are no
+>   effects. Otherwise, if an exception is thrown by `value_type`'s copy
+>   constructor the effects are _unspecified_.
 
+---
 
 ```
 constexpr iterator insert(const_iterator position, size_type n, const value_type& x);
@@ -689,6 +691,11 @@ constexpr iterator insert(const_iterator position, size_type n, const value_type
 > - _Requires_: `std::is_copy_constructible<value_type>`.
 >
 > - _Complexity_: Linear in `size()` and `n`. 
+>
+> - _Remarks_: If an exception is thrown by `value_type`'s copy constructor and
+>   `is_nothrow_move_constructible_v<value_type>` is `true` there are no
+>   effects. Otherwise, if an exception is thrown by `value_type`'s copy
+>   constructor the effects are _unspecified_.
 
 ---
 
@@ -704,6 +711,9 @@ constexpr iterator insert(const_iterator position, value_type&& x);
 > - _Requires_: `std::is_move_constructible<value_type>`.
 >
 > - _Complexity_: Linear in `size()`. 
+>
+> - _Remarks_: If an exception is thrown by `value_type`'s move constructor the
+>   effects are _unspecified_.
 
 ---
 
@@ -720,6 +730,12 @@ template <typename InputIterator>
 > - _Requires_: `std::is_constructible<value_type, decltype(*first)>`.
 >
 > - _Complexity_: Linear in `size()` and `distance(first, last)`. 
+>
+> - _Remarks_: If an exception is thrown by `value_type` constructor from
+>   `decltype(*first)` and `is_nothrow_move_constructible_v<value_type>` is
+>   `true` there are no effects. Otherwise, if an exception is thrown by
+>   `value_type`'s constructor from `decltype(*first)` the effects are
+>   _unspecified_.
 
 ---
 
@@ -735,6 +751,11 @@ constexpr iterator insert(const_iterator position, initializer_list<value_type> 
 > - _Requires_: `std::is_copy_constructible<value_type>`.
 >
 > - _Complexity_: Linear in `size()` and `il.size()`. 
+>
+> - _Remarks_: If an exception is thrown by `value_type`'s copy constructor and
+>   `is_nothrow_move_constructible_v<value_type>` is `true` there are no
+>   effects. Otherwise, if an exception is thrown by `value_type`'s copy
+>   constructor the effects are _unspecified_.
 
 ---
 
@@ -751,6 +772,11 @@ constexpr iterator emplace(const_iterator position, Args&&... args);
 > - _Requires_: `std::is_constructible<value_type, Args...>`.
 >
 > - _Complexity_: Linear in `size()`.
+>
+> - _Remarks_: If an exception is thrown by `value_type`'s constructor from
+>   `args...` and `is_nothrow_move_constructible_v<value_type>` is `true` there
+>   are no effects. Otherwise, if an exception is thrown by `value_type`'s
+>   constructor from `args...` the effects are _unspecified_.
 
 ---
 
@@ -766,6 +792,9 @@ constexpr reference emplace_back(Args&&... args);
 > - _Requires_: `std::is_constructible<value_type, Args...>`.
 >
 > - _Complexity_: Constant.
+>
+> - _Remarks_: If an exception is thrown by `value_type`'s constructor from
+>   `args...` there are no effects.
 
 ---
 
@@ -780,6 +809,9 @@ constexpr void push_back(const value_type& x);
 > - _Requires_: `std::is_copy_constructible<value_type>`.
 >
 > - _Complexity_: Constant.
+>
+> - _Remarks_: If an exception is thrown by `value_type`'s copy constructor
+>   there are no effects.
 
 ---
 
@@ -794,7 +826,9 @@ constexpr void push_back(value_type&& x);
 > - _Requires_: `std::is_move_constructible<value_type>`.
 >
 > - _Complexity_: Constant.
-
+>
+> - _Remarks_: If an exception is thrown by `value_type`'s move constructor
+>   there are no effects.
 
 ---
 
@@ -821,6 +855,9 @@ constexpr iterator erase(const_iterator position);
 > - _Expects_: `position` in range `[begin(), end()]`.
 >
 > - _Complexity_: Linear in `size()`.
+>
+> - _Remarks_: If an exception is thrown by `value_type`'s move constructor
+>   the effects are _unspecified_.
 
 ---
 
@@ -834,6 +871,9 @@ constexpr iterator erase(const_iterator first, const_iterator last);
 > - _Expects_: `[first, last]` in range `[begin(), end()]`.
 >
 > - _Complexity_: Linear in `size()` and `distance(first, last)`.
+>
+> - _Remarks_: If an exception is thrown by `value_type`'s move constructor
+>   the effects are _unspecified_.
 
 ---
 
