@@ -600,6 +600,7 @@ static constexpr size_type max_size() noexcept
 
 > - _Returns_: `N`.
 
+---
 
 ```c++
 constexpr void resize(size_type sz);
@@ -613,6 +614,8 @@ constexpr void resize(size_type sz);
 > - _Expects_: `sz <= capacity()`. 
 >
 > - _Complexity_: Linear in `sz`.
+
+---
 
 ```c++
 constexpr void resize(size_type sz, const value_type& c);
