@@ -321,13 +321,36 @@ All these extensions are generally useful and not part of this proposal.
 ---
 
 Note to editor: This enhancement is a pure header-only addition to the C++
-standard library as the `<static_vector>` header. It belongs in the "Sequence
-containers" (`\ref{sequences}`) part of the "Containers library"
+standard library as the _freestanding_ `<static_vector>` header. It belongs in
+the "Sequence containers" (`\ref{sequences}`) part of the "Containers library"
 (`\ref{containers}`) as "Class template `static_vector`".
+
+Note to LWG: one of the primary use cases for this container is
+embedded/freestanding. An alternative to adding a new `<static_vector>` header
+would be to add `static_vector` to any of the _freestanding_ headers. None of
+the current _freestanding_ headers is a good semantic fit.
 
 ---
 
 ## 5. Class template `static_vector`
+
+Changes to `library.requirements.organization.headers` table "C++ library
+headers": add `<static_vector>`.
+
+Changes to `library.requirements.organization.compliance` table "C++ headers for
+freestanding implementations": add row:
+
+> [static_vector] Static vector `<static_vector>`
+
+Changes to `container.requirements.general`. 
+
+The note of Table "Container Requirements" should be changed to contain
+`static_vector` as well:
+
+> Those entries marked “(Note A)” or “(Note B)” have linear complexity for
+> `array` and `static_vector` and have constant complexity for all other
+> standard containers. [ Note: The algorithm equal() is defined in [algorithms].
+> — end note ]
 
 ### <a id="OVERVIEW"></a>5.1 Class template `static_vector` overview
 
@@ -350,6 +373,15 @@ containers" (`\ref{sequences}`) part of the "Containers library"
   provided here only for operations on `static_vector` that are not described in
   one of these tables or for operations where there is additional semantic
   information.
+  
+- 3. Class `static_vector` relies on the implicitly-declared special member
+  functions (`\ref{class.default.ctor}`, `\ref{class.dtor}`, and
+  `\ref{class.copy.ctor}`) to conform to the container requirements table in
+  `\ref{container.requirements}`. In addition to the requirements specified in
+  the container requirements table, the move constructor and move assignment
+  operator for array require that `T` be `Cpp17MoveConstructible` or
+  `Cpp17MoveAssignable`, respectively.
+  
 
 ```c++
 namespace std {
@@ -372,6 +404,8 @@ using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
 // 5.2, copy/move construction:
 constexpr static_vector() noexcept;
+constexpr static_vector(const static_vector&);
+constexpr static_vector(static_vector&&);
 constexpr explicit static_vector(size_type n);
 constexpr static_vector(size_type n, const value_type& value);
 template <class InputIterator>
@@ -482,19 +516,25 @@ constexpr static_vector() noexcept;
 
 > - _Effects_: Constructs an empty `static_vector`.
 >
+> - _Ensures_: `empty()`.
+>
 > - _Complexity_: Constant.
 
 ---
 
 ```c++
-constexpr static_vector(static_vector&& other) noexcept;
+constexpr static_vector(static_vector&& rv);
 ```
 
-> - _Effects_: Moves the elements of `other` into `*this`.
+> - _Effects_: Constructs a `static_vector` by move-inserting the elements of
+>   `rv`.
 >
-> - _Requires_: `std::is_move_constructivle<value_type>`
+> - _Requires_: `std::is_move_constructivle<value_type>`.
 >
-> - _Complexity_: Linear in `other.size()`.
+> - _Ensures_: The `static_vector` is equal to the value that `rv` had before
+>   this construction.
+>
+> - _Complexity_: Linear in `rv.size()`.
 
 ---
 
