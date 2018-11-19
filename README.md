@@ -613,10 +613,6 @@ constexpr void resize(size_type sz);
 >   sequence. Otherwise, appends `sz - size()` elements to the sequence which
 >   are: - value-initialized for the first overload, or - copies of `c` for the
 >   second overload.
->
-> *Remarks:* These functions are `constexpr` if
-> `is_trivially_copyable_v<value_type> &&
-> is_default_constructible_v<value_type>` is `true`.
 
 
 ```c++
@@ -631,9 +627,6 @@ constexpr void resize(size_type sz, const value_type& c);
 >   sequence. Otherwise, appends `sz - size()` elements to the sequence which
 >   are: - value-initialized for the first overload, or - copies of `c` for the
 >   second overload.
->
-> *Remarks:* These functions shall be `constexpr` if
-> `is_trivially_copyable_v<value_type>` is `true`.
 
 ## <a id="ACCESS"></a>5.5 Element and data access
 
