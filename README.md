@@ -682,7 +682,7 @@ constexpr iterator insert(const_iterator position, const value_type& x);
 
 ---
 
-```
+```c++
 constexpr iterator insert(const_iterator position, size_type n, const value_type& x);
 ```
 
@@ -702,7 +702,7 @@ constexpr iterator insert(const_iterator position, size_type n, const value_type
 
 ---
 
-```
+```c++
 constexpr iterator insert(const_iterator position, value_type&& x);
 ```
 
@@ -720,9 +720,9 @@ constexpr iterator insert(const_iterator position, value_type&& x);
 
 ---
 
-```
+```c++
 template <typename InputIterator>
-  constexpr iterator insert(const_iterator position, InputIterator first, InputIterator last);
+constexpr iterator insert(const_iterator position, InputIterator first, InputIterator last);
 ```
 
 > - _Effects_: Inserts elements in range `[first, last)` at `position` and
@@ -742,7 +742,7 @@ template <typename InputIterator>
 
 ---
 
-```
+```c++
 constexpr iterator insert(const_iterator position, initializer_list<value_type> il);
 ```
 
@@ -762,7 +762,7 @@ constexpr iterator insert(const_iterator position, initializer_list<value_type> 
 
 ---
 
-```
+```c++
 template <class... Args>
 constexpr iterator emplace(const_iterator position, Args&&... args);
 ```
@@ -783,7 +783,7 @@ constexpr iterator emplace(const_iterator position, Args&&... args);
 
 ---
 
-```
+```c++
 template <class... Args>
 constexpr reference emplace_back(Args&&... args);
 ```
@@ -801,7 +801,7 @@ constexpr reference emplace_back(Args&&... args);
 
 ---
 
-```
+```c++
 constexpr void push_back(const value_type& x);
 ```
 
@@ -818,7 +818,7 @@ constexpr void push_back(const value_type& x);
 
 ---
 
-```
+```c++
 constexpr void push_back(value_type&& x);
 ```
 
@@ -848,7 +848,7 @@ constexpr void pop_back();
 
 ---
 
-```
+```c++
 constexpr iterator erase(const_iterator position);
 ```
 
@@ -864,7 +864,7 @@ constexpr iterator erase(const_iterator position);
 
 ---
 
-```
+```c++
 constexpr iterator erase(const_iterator first, const_iterator last);
 ```
 
