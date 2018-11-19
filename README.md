@@ -642,68 +642,198 @@ constexpr const T* data() const noexcept;
 
 ## <a id="MODIFIERS"></a>5.6 Modifiers
 
-```c++
-constexpr iterator insert(const_iterator position, const value_type& x);
-constexpr iterator insert(const_iterator position, value_type&& x);
-constexpr iterator insert(const_iterator position, size_type n, const value_type& x);
-template <typename InputIterator>
-  constexpr iterator insert(const_iterator position, InputIterator first, InputIterator last);
-constexpr iterator insert(const_iterator position, initializer_list<value_type> il);
+---
 
-template <class... Args>
-constexpr reference emplace_back(Args&&... args);
-template <class... Args>
-constexpr iterator emplace(const_iterator position, Args&&... args);
-constexpr void push_back(const value_type& x);
-constexpr void push_back(value_type&& x);
-```
+Note to LWG: All modifiers have a pre-condition on not exceeding the
+`capacity()` when inserting elements. That is, exceeding the `capacity()` of the
+vector is undefined behavior. This supports some of the major use cases of this
+container (embedded, freestanding, etc.) and was required by the stakeholders
+during LEWG review. Currently, this provides maximum freedom to the
+implementation to choose an appropriate behavior: `abort`, `assert`, throw an
+exception (which exception? `bad_alloc`? `logic_error`? `out_of_bounds`? etc. ).
+In the future, this freedom allows us to specify these pre-conditions using
+contracts.
 
-> - _Expects_: The number of elements to be inserted shall be at most
->   `capacity() - size()`.
->
-> - _Remarks_: All the iterators and references before the insertion point remain
-> valid. If an exception is thrown other than by the copy constructor, move
-> constructor, assignment operator, or move assignment operator of `value_type`
-> or by any `InputIterator` operation there are no effects. If an exception is
-> thrown while inserting a single element at the end and `value_type` is
-> `CopyInsertable` or `is_nothrow_move_constructible_v<value_type>` is `true`,
-> there are no effects. Otherwise, if an exception is thrown by the move
-> constructor of a non-CopyInsertable `value_type`, the effects are unspecified.
->
-> - _Complexity_: Linear in the number of elements inserted plus the distance
-> from the insertion point to the end of the `static_vector`.
-> 
-> - _Throws_: Any exception thrown by an assignment operator of `value_type`.
+Note to LWG: Because all modifiers have preconditions, they all have narrow
+contracts and are not unconditionally `noexcept`.
+
+
+Note to LWG: If the copy constructor or the copy assignment operator of
+`value_type` throws in any of the modifiers methods, there are no _Effects_.
 
 ---
 
-Note (not part of the specification): The insertion functions have as
-precondition `new_size <= capacity()`. Hence, they all have narrow contracts and
-are never `noexcept(true)`.
+```c++
+constexpr iterator insert(const_iterator position, const value_type& x);
+```
+
+> - _Effects_: Inserts `x` at `position` and invalidates all references to
+>   elements after `position`.
+>
+> - _Expects_: `capacity() > size()`.
+>
+> - _Requires_: `std::is_copy_constructible<value_type>`.
+>
+> - _Complexity_: Linear in `size()`. 
+
+
+```
+constexpr iterator insert(const_iterator position, size_type n, const value_type& x);
+```
+
+> - _Effects_: Inserts `n` copies of `x` at `position` and invalidates all
+>   references to elements after `position`.
+>
+> - _Expects_: `capacity() - size() >= n`.
+>
+> - _Requires_: `std::is_copy_constructible<value_type>`.
+>
+> - _Complexity_: Linear in `size()` and `n`. 
+
+---
+
+```
+constexpr iterator insert(const_iterator position, value_type&& x);
+```
+
+> - _Effects_: Inserts `x` at `position` and invalidates all references to
+>   elements after `position`.
+>
+> - _Expects_: `capacity() > size()`.
+>
+> - _Requires_: `std::is_move_constructible<value_type>`.
+>
+> - _Complexity_: Linear in `size()`. 
+
+---
+
+```
+template <typename InputIterator>
+  constexpr iterator insert(const_iterator position, InputIterator first, InputIterator last);
+```
+
+> - _Effects_: Inserts elements in range `[first, last)` at `position` and
+>   invalidates all references to elements after `position`.
+>
+> - _Expects_: `distance(first, last) <= capacity() - size()`.
+>
+> - _Requires_: `std::is_constructible<value_type, decltype(*first)>`.
+>
+> - _Complexity_: Linear in `size()` and `distance(first, last)`. 
+
+---
+
+```
+constexpr iterator insert(const_iterator position, initializer_list<value_type> il);
+```
+
+> - _Effects_: Inserts elements of `il` at `position` and invalidates all
+>   references to elements after `position`.
+>
+> - _Expects_: `il.size() <= capacity() - size()`.
+>
+> - _Requires_: `std::is_copy_constructible<value_type>`.
+>
+> - _Complexity_: Linear in `size()` and `il.size()`. 
+
+---
+
+```
+template <class... Args>
+constexpr iterator emplace(const_iterator position, Args&&... args);
+```
+
+> - _Effects_: Inserts an element constructed from `args...` at `position` and
+>   invalidates all references to elements after `position`.
+>
+> - _Expects_: `capacity() > size()`.
+>
+> - _Requires_: `std::is_constructible<value_type, Args...>`.
+>
+> - _Complexity_: Linear in `size()`.
+
+---
+
+```
+template <class... Args>
+constexpr reference emplace_back(Args&&... args);
+```
+
+> - _Effects_: Inserts an element constructed from `args...` at the end.
+>
+> - _Expects_: `capacity() > size()`.
+>
+> - _Requires_: `std::is_constructible<value_type, Args...>`.
+>
+> - _Complexity_: Constant.
+
+---
+
+```
+constexpr void push_back(const value_type& x);
+```
+
+> - _Effects_: Inserts a copy of `x` at the end.
+>
+> - _Expects_: `capacity() > size()`.
+>
+> - _Requires_: `std::is_copy_constructible<value_type>`.
+>
+> - _Complexity_: Constant.
+
+---
+
+```
+constexpr void push_back(value_type&& x);
+```
+
+> - _Effects_: Moves `x` to the end.
+>
+> - _Expects_: `capacity() > size()`.
+>
+> - _Requires_: `std::is_move_constructible<value_type>`.
+>
+> - _Complexity_: Constant.
+
 
 ---
 
 
 ```c++
 constexpr void pop_back();
-constexpr iterator erase(const_iterator position);
-constexpr iterator erase(const_iterator first, const_iterator last);
 ```
 
-> - _Effects_: Invalidates iterators and references at or after the point of the erase.
+> - _Effects_: Removes the last element of the container and destroys it.
 >
-> - _Complexity_: The destructor of `value_type` is called the number of times
->   equal to the number of the elements erased, but the assignment operator of
->   `value_type` is called the number of times equal to the number of elements
->   in the `static_vector` after the erased elements.
+> - _Expects_: `!empty()`.
 >
-> - _Throws_: Any exception thrown by anassignment operator of `value_type`.
+> - _Complexity_: Constant.
 
 ---
 
-Note (not part of the specification): the erasure methods have as precondition
-`new_size >= 0` (always satisfied) and `new_size <= capacity()`, hence they have
-narrow contracts.
+```
+constexpr iterator erase(const_iterator position);
+```
+
+> - _Effects_: Removes the element at `position`, destroys it, and invalidates
+>   references to elements after `position`.
+>
+> - _Expects_: `position` in range `[begin(), end()]`.
+>
+> - _Complexity_: Linear in `size()`.
+
+---
+
+```
+constexpr iterator erase(const_iterator first, const_iterator last);
+```
+
+> - _Effects_: Removes the elements in range `[first, last)`, destroying them,
+>   and invalidating references to elements after `last`.
+>
+> - _Expects_: `[first, last]` in range `[begin(), end()]`.
+>
+> - _Complexity_: Linear in `size()` and `distance(first, last)`.
 
 ---
 
@@ -713,11 +843,10 @@ constexpr void swap(static_vector& x)
            is_nothrow_move_constructible_v<value_type>);
 ```
 
-> - _Effects_: Exchanges the contents of `*this` with `x`. All iterators
->   pointing to the elements of `*this` and `x` are invalidated.
+> - _Effects_: Exchanges the contents of `*this` with `x`. All references to the
+>   elements of `*this` and `x` are invalidated.
 >
-> - _Complexity_: `min(size(), x.size())` swaps and `max(size(), x.size()) -
->   min(size(), x.size())` move constructions.
+> - _Complexity_: Linear in `size()` and `x.size()`.
 
 ## <a id="SPEC_ALG"></a>5.7 `static_vector` specialized algorithms
 
@@ -733,8 +862,7 @@ constexpr void swap(static_vector<T, N>& x,
 >
 > - _Effects_: As if by `x.swap(y)`.
 >
-> - _Complexity_: `min(size(), x.size())` swaps and `max(size(), x.size()) -
->   min(size(), x.size())` move constructions.
+> - _Complexity_: Linear in `size()` and `x.size()`.
 
 # <a id="ACKNOWLEDGEMENTS"></a>6. Acknowledgments
 
