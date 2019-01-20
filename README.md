@@ -1,14 +1,14 @@
 # static_vector<T>
 
-> A dynamically-resizable vector with fixed capacity and embedded storage (revision 2)
+> A dynamically-resizable vector with fixed capacity and embedded storage (revision 3)
 
 **Document number**: P0843r3.
 
-**Date**: 2018-06-25.
+**Date**: 2019-01-20.
 
 **Project**: Programming Language C++, Library Working Group.
 
-**Audience**: LWG.
+**Audience**: LEWG.
 
 **Reply-to**: Gonzalo Brito Gadeschi <gonzalo.gadeschi at rwth-aachen dot de>.
 
@@ -40,7 +40,8 @@
 
 #### Revision 3
 
-- Propose standard wording.
+- Include LWG design questions for LEWG.
+- Incorporates LWG feedback.
 
 #### Revision 2
 
@@ -51,6 +52,14 @@
 #### Revision 1
 
 - Minor style changes and bugfixes.
+
+# Design Questions from LWG to LEWG 
+
+LWG asks LEWG to re-consider the following two design decisions:
+
+* In this document, exceeding the capacity in methods like `static_vector::push_back` is a pre-condition violation, that is, if the capacity is exceeded, the behavior is undefined. LWG suggested that exceeding the capacity in these methods should `std::abort` instead. The trade-offs in this space are discussed in Section [4.4 Exception safety](#EXCEPTION) of this proposal.
+
+* In this document, `<static_vector>` is a _free-standing_ header, this is now clarified in Section [5. Technical Specification](#TECHNICAL_SPECIFICATION). LWG suggests that `static_vector` should be included in `<vector>` instead.
 
 # <a id="INTRODUCTION"></a>1. Introduction
 
