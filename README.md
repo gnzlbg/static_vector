@@ -923,6 +923,10 @@ constexpr void swap(static_vector& x)
 >   elements of `*this` and `x` are invalidated.
 >
 > - _Complexity_: Linear in `size()` and `x.size()`.
+>
+> - _Remarks_: Shall not participate in overload resolution unless
+>   `is_move_constructible_v<value_type>` is `true` and
+>   `is_swappable_v<value_type>` is `true`
 
 ## <a id="SPEC_ALG"></a>5.7 `static_vector` specialized algorithms
 
