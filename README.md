@@ -363,10 +363,29 @@ Changes to `container.requirements.general`.
 The note of Table "Container Requirements" should be changed to contain
 `static_vector` as well:
 
-> Those entries marked “(Note A)” or “(Note B)” have linear complexity for
-> `array` and `static_vector` and have constant complexity for all other
-> standard containers. [ Note: The algorithm equal() is defined in [algorithms].
-> — end note ]
+```diff
+Those entries marked “(Note A)” or “(Note B)” have linear complexity 
+- for `array`
++ for `array` and `static_vector` 
+and have constant complexity for all other standard containers. 
+[ Note: The algorithm equal() is defined in [algorithms]. — end note ]
+```
+
+Changes to `sequence.reqmts.1`:
+
+```diff
+The library provides four basic kinds of sequence containers: vector,
+- forward_­list, list, and deque.
++ static_vector, forward_­list, list, and deque.
+```
+
+Changes to `sequence.reqmts.2`:
+
+```diff
+`vector` is the type of sequence container that should be used by default. 
++ `static_vector` should be used when the container has a fixed capacity known during translation.
+`array` should be used when the container has a fixed size known during translation. 
+```
 
 ### <a id="OVERVIEW"></a>5.1 Class template `static_vector` overview
 
