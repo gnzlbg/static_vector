@@ -426,8 +426,6 @@ constexpr explicit static_vector(size_type n);
 constexpr static_vector(size_type n, const value_type& value);
 template <class InputIterator>
 constexpr static_vector(InputIterator first, InputIterator last);
-constexpr static_vector(const static_vector& other);
-constexpr static_vector(static_vector&& other);
 constexpr static_vector(initializer_list<value_type> il);
 
 // 5.3, copy/move assignment:
