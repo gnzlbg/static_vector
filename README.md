@@ -351,10 +351,10 @@ the current _freestanding_ headers is a good semantic fit.
 ## 5. Class template `static_vector`
 
 Changes to `library.requirements.organization.headers` table "C++ library
-headers": add `<static_vector>`.
+headers", add a new header: `<static_vector>`.
 
 Changes to `library.requirements.organization.compliance` table "C++ headers for
-freestanding implementations": add row:
+freestanding implementations", add a new row:
 
 > [static_vector] Static vector `<static_vector>`
 
@@ -365,8 +365,8 @@ The note of Table "Container Requirements" should be changed to contain
 
 ```diff
 Those entries marked “(Note A)” or “(Note B)” have linear complexity 
-- for `array`
-+ for `array` and `static_vector` 
+- for array
++ for array and static_vector
 and have constant complexity for all other standard containers. 
 [ Note: The algorithm equal() is defined in [algorithms]. — end note ]
 ```
@@ -382,9 +382,9 @@ The library provides four basic kinds of sequence containers: vector,
 Changes to `sequence.reqmts.2`:
 
 ```diff
-`vector` is the type of sequence container that should be used by default. 
-+ `static_vector` should be used when the container has a fixed capacity known during translation.
-`array` should be used when the container has a fixed size known during translation. 
+vector is the type of sequence container that should be used by default. 
++ static_vector should be used when the container has a fixed capacity known during translation.
+array should be used when the container has a fixed size known during translation. 
 ```
 
 ### <a id="OVERVIEW"></a>5.1 Class template `static_vector` overview
