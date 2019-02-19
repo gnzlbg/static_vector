@@ -562,7 +562,7 @@ constexpr static_vector(static_vector&& rv);
 > - _Effects_: Constructs a `static_vector` by move-inserting the elements of
 >   `rv`.
 >
-> - _Requires_: `std::is_move_constructivle<value_type>`.
+> - _Mandates_: `std::is_move_constructivle<value_type>`.
 >
 > - _Ensures_: The `static_vector` is equal to the value that `rv` had before
 >   this construction.
@@ -577,7 +577,7 @@ constexpr explicit static_vector(size_type n);
 
 > - _Effects_: Constructs a `static_vector` with `n` default-inserted elements.
 >
-> - _Requires_: `std::is_default_constructible<value_type>`.
+> - _Mandates_: `std::is_default_constructible<value_type>`.
 >
 > - _Expects_: `n <= capacity()`.
 >
@@ -591,7 +591,7 @@ constexpr static_vector(size_type n, const value_type& value);
 
 > - _Effects_: Constructs a `static_vector` with `n` copies of `value`.
 >
-> - _Requires_: `std::is_copy_constructible<value_type>`
+> - _Mandates_: `std::is_copy_constructible<value_type>`
 >
 > - _Expects_: `n <= capacity()`.
 >
@@ -606,7 +606,7 @@ constexpr static_vector(InputIterator first, InputIterator last);
 
 > - _Effects_: Constructs a `static_vector` equal to the range `[first, last)`
 >
-> - _Requires_: `std::is_constructible<value_type, decltype(*first)>`
+> - _Mandates_: `std::is_constructible<value_type, decltype(*first)>`
 >
 > - _Expects_: `distance(first, last) <= capacity()`
 >
@@ -620,7 +620,7 @@ constexpr static_vector(InputIterator first, InputIterator last);
 
 > _Effects_: Destroys the `static_vector` and its elements.
 >
-> _Requires_: This destructor is trivial if the destructor of `value_type` is
+> _Remarks_: This destructor is trivial if the destructor of `value_type` is
 > trivial.
 
 ## <a id="SIZE"></a>5.4 Size and capacity
@@ -642,7 +642,7 @@ constexpr void resize(size_type sz);
 > - _Effects_: If `sz < size()`, erases the last `size() - sz` elements from the
 >   sequence. Otherwise, appends `sz - size()` default-constructed elements.
 >
-> - _Requires_: `std::is_default_constructible<value_type>`. 
+> - _Mandates_: `std::is_default_constructible<value_type>`. 
 >
 > - _Expects_: `sz <= capacity()`. 
 >
@@ -657,7 +657,7 @@ constexpr void resize(size_type sz, const value_type& c);
 > - _Effects_: If `sz < size()`, erases the last `size() - sz` elements from the
 >   sequence. Otherwise, appends `sz - size()` copies of `c`.
 >
-> - _Requires_: `std::is_copy_constructible<value_type>`.
+> - _Mandates_: `std::is_copy_constructible<value_type>`.
 >
 > - _Expects_: `sz <= capacity()`. 
 >
@@ -704,7 +704,7 @@ constexpr iterator insert(const_iterator position, const value_type& x);
 >
 > - _Expects_: `size() < capacity()`.
 >
-> - _Requires_: `std::is_copy_constructible<value_type>`.
+> - _Mandates_: `std::is_copy_constructible<value_type>`.
 >
 > - _Complexity_: Linear in `size()`. 
 >
@@ -724,7 +724,7 @@ constexpr iterator insert(const_iterator position, size_type n, const value_type
 >
 > - _Expects_: `n <= capacity() - size()`.
 >
-> - _Requires_: `std::is_copy_constructible<value_type>`.
+> - _Mandates_: `std::is_copy_constructible<value_type>`.
 >
 > - _Complexity_: Linear in `size()` and `n`. 
 >
@@ -744,7 +744,7 @@ constexpr iterator insert(const_iterator position, value_type&& x);
 >
 > - _Expects_: `size() < capacity()`.
 >
-> - _Requires_: `std::is_move_constructible<value_type>`.
+> - _Mandates_: `std::is_move_constructible<value_type>`.
 >
 > - _Complexity_: Linear in `size()`. 
 >
@@ -763,7 +763,7 @@ constexpr iterator insert(const_iterator position, InputIterator first, InputIte
 >
 > - _Expects_: `distance(first, last) <= capacity() - size()`.
 >
-> - _Requires_: `std::is_constructible<value_type, decltype(*first)>`.
+> - _Mandates_: `std::is_constructible<value_type, decltype(*first)>`.
 >
 > - _Complexity_: Linear in `size()` and `distance(first, last)`. 
 >
@@ -784,7 +784,7 @@ constexpr iterator insert(const_iterator position, initializer_list<value_type> 
 >
 > - _Expects_: `il.size() <= capacity() - size()`.
 >
-> - _Requires_: `std::is_copy_constructible<value_type>`.
+> - _Mandates_: `std::is_copy_constructible<value_type>`.
 >
 > - _Complexity_: Linear in `size()` and `il.size()`. 
 >
@@ -805,7 +805,7 @@ constexpr iterator emplace(const_iterator position, Args&&... args);
 >
 > - _Expects_: `size() < capacity()`.
 >
-> - _Requires_: `std::is_constructible<value_type, Args...>`.
+> - _Mandates_: `std::is_constructible<value_type, Args...>`.
 >
 > - _Complexity_: Linear in `size()`.
 >
@@ -825,7 +825,7 @@ constexpr reference emplace_back(Args&&... args);
 >
 > - _Expects_: `size() < capacity()`.
 >
-> - _Requires_: `std::is_constructible<value_type, Args...>`.
+> - _Mandates_: `std::is_constructible<value_type, Args...>`.
 >
 > - _Complexity_: Constant.
 >
@@ -842,7 +842,7 @@ constexpr void push_back(const value_type& x);
 >
 > - _Expects_: `size() < capacity()`.
 >
-> - _Requires_: `std::is_copy_constructible<value_type>`.
+> - _Mandates_: `std::is_copy_constructible<value_type>`.
 >
 > - _Complexity_: Constant.
 >
@@ -859,7 +859,7 @@ constexpr void push_back(value_type&& x);
 >
 > - _Expects_: `size() < capacity()`.
 >
-> - _Requires_: `std::is_move_constructible<value_type>`.
+> - _Mandates_: `std::is_move_constructible<value_type>`.
 >
 > - _Complexity_: Constant.
 >
