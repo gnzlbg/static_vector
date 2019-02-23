@@ -888,7 +888,7 @@ constexpr iterator erase(const_iterator position);
 > - _Effects_: Removes the element at `position`, destroys it, and invalidates
 >   references to elements after `position`.
 >
-> - _Expects_: `position` in range `[begin(), end()]`.
+> - _Expects_: `position` in range `[begin(), end())`.
 >
 > - _Complexity_: Linear in `size()`.
 >
@@ -904,7 +904,7 @@ constexpr iterator erase(const_iterator first, const_iterator last);
 > - _Effects_: Removes the elements in range `[first, last)`, destroying them,
 >   and invalidating references to elements after `last`.
 >
-> - _Expects_: `[first, last]` in range `[begin(), end()]`.
+> - _Expects_: `[first, last)` in range `[begin(), end())`.
 >
 > - _Complexity_: Linear in `size()` and `distance(first, last)`.
 >
