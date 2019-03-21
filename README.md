@@ -937,12 +937,15 @@ constexpr void swap(static_vector<T, N>& x,
   noexcept(noexcept(x.swap(y)));
 ```
 
-> - _Constraints_: This function shall not participate in overload resolution
->   unless `is_swappable_v<T>` is `true`.
+> - _Mandates_: `is_swappable_v<T>` is `true` and `is_move_constructible_v<T>` is `true`.
 >
 > - _Effects_: As if by `x.swap(y)`.
 >
 > - _Complexity_: Linear in `size()` and `x.size()`.
+>
+> - [*Note:* Unlike the `swap` function for other containers, this overload takes linear time, may exit via an exception, and does not cause iterators to become associated with the other container.
+*&mdash; end note*]
+
 
 # <a id="ACKNOWLEDGEMENTS"></a>6. Acknowledgments
 
