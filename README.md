@@ -38,6 +38,11 @@
 
 ### Changelog 
 
+#### Revision 4
+
+- LEWG suggested that `push_back` should be UB when the capacity is exceeded
+- LEWG suggested that this should be a free-standing header
+
 #### Revision 3
 
 - Include LWG design questions for LEWG.
