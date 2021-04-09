@@ -731,11 +731,11 @@ namespace std
                     }
 
                     constexpr non_trivial()                   = default;
-                    constexpr non_trivial(non_trivial const&) = default;
+                    constexpr non_trivial(non_trivial const&) = delete;
                     constexpr non_trivial& operator=(non_trivial const&)
-                        = default;
-                    constexpr non_trivial(non_trivial&&) = default;
-                    constexpr non_trivial& operator=(non_trivial&&) = default;
+                        = delete;
+                    constexpr non_trivial(non_trivial&&) = delete;
+                    constexpr non_trivial& operator=(non_trivial&&) = delete;
                     ~non_trivial() noexcept(is_nothrow_destructible_v<T>)
                     {
                         unsafe_destroy_all();
@@ -1297,7 +1297,7 @@ namespace std
             }
 
             /// Move assignment.
-            FCV_REQUIRES(fcv_detail::Assignable<reference, reference>)
+            FCV_REQUIRES(fcv_detail::MoveConstructible<value_type>)
             constexpr fixed_capacity_vector&
             operator=(fixed_capacity_vector&& other) noexcept(
                 noexcept(clear())
